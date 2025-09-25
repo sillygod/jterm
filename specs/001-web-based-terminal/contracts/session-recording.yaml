@@ -1,0 +1,959 @@
+openapi: 3.0.3
+info:
+  title: Session Recording API
+  description: API for recording, managing, and replaying terminal sessions
+  version: 1.0.0
+  contact:
+    name: Web Terminal Team
+    email: team@webterminal.dev
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Development server
+  - url: https://api.webterminal.dev/v1
+    description: Production server
+
+paths:
+  /recordings:
+    get:
+      summary: List session recordings
+      description: Retrieve a list of session recordings for the authenticated user
+      tags:
+        - Session Recording
+      parameters:
+        - name: sessionId
+          in: query
+          description: Filter recordings by terminal session
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          description: Filter recordings by status
+          schema:
+            type: string
+            enum: [recording, stopped, processing, ready, failed]
+        - name: startDate
+          in: query
+          description: Filter recordings created after this date
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          description: Filter recordings created before this date
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          description: Maximum number of recordings to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Number of recordings to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: List of session recordings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recordings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Recording'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /recordings/{recordingId}:
+    get:
+      summary: Get recording details
+      description: Retrieve detailed information about a specific recording
+      tags:
+        - Session Recording
+      parameters:
+        - name: recordingId
+          in: path
+          required: true
+          description: Unique identifier of the recording
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Recording details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recording'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      summary: Delete recording
+      description: Delete a recording and its associated data
+      tags:
+        - Session Recording
+      parameters:
+        - name: recordingId
+          in: path
+          required: true
+          description: Unique identifier of the recording
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Recording deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /recordings/{recordingId}/start:
+    post:
+      summary: Start recording session
+      description: Start recording a terminal session
+      tags:
+        - Session Recording
+      parameters:
+        - name: recordingId
+          in: path
+          required: true
+          description: Unique identifier of the recording
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartRecordingRequest'
+      responses:
+        '200':
+          description: Recording started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recording'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /recordings/{recordingId}/stop:
+    post:
+      summary: Stop recording session
+      description: Stop recording a terminal session
+      tags:
+        - Session Recording
+      parameters:
+        - name: recordingId
+          in: path
+          required: true
+          description: Unique identifier of the recording
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Recording stopped successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recording'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /recordings/{recordingId}/events:
+    get:
+      summary: Get recording events
+      description: Retrieve events from a recording for playback
+      tags:
+        - Session Recording
+      parameters:
+        - name: recordingId
+          in: path
+          required: true
+          description: Unique identifier of the recording
+          schema:
+            type: string
+            format: uuid
+        - name: startTime
+          in: query
+          description: Start timestamp for event filtering
+          schema:
+            type: string
+            format: date-time
+        - name: endTime
+          in: query
+          description: End timestamp for event filtering
+          schema:
+            type: string
+            format: date-time
+        - name: eventTypes
+          in: query
+          description: Filter by event types (comma-separated)
+          schema:
+            type: string
+            example: "input,output"
+        - name: limit
+          in: query
+          description: Maximum number of events to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10000
+            default: 1000
+        - name: offset
+          in: query
+          description: Number of events to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: compressed
+          in: query
+          description: Return compressed event data
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Recording events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RecordingEvent'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  startTime:
+                    type: string
+                    format: date-time
+                  endTime:
+                    type: string
+                    format: date-time
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /recordings/{recordingId}/export:
+    post:
+      summary: Export recording
+      description: Export recording in various formats
+      tags:
+        - Session Recording
+      parameters:
+        - name: recordingId
+          in: path
+          required: true
+          description: Unique identifier of the recording
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+      responses:
+        '202':
+          description: Export job started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportJob'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /recordings/{recordingId}/export/{jobId}:
+    get:
+      summary: Get export job status
+      description: Check the status of an export job
+      tags:
+        - Session Recording
+      parameters:
+        - name: recordingId
+          in: path
+          required: true
+          description: Unique identifier of the recording
+          schema:
+            type: string
+            format: uuid
+        - name: jobId
+          in: path
+          required: true
+          description: Unique identifier of the export job
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Export job status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportJob'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /recordings/{recordingId}/export/{jobId}/download:
+    get:
+      summary: Download exported file
+      description: Download the exported recording file
+      tags:
+        - Session Recording
+      parameters:
+        - name: recordingId
+          in: path
+          required: true
+          description: Unique identifier of the recording
+          schema:
+            type: string
+            format: uuid
+        - name: jobId
+          in: path
+          required: true
+          description: Unique identifier of the export job
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Exported file content
+          content:
+            application/json:
+              schema:
+                type: object
+                description: JSON export data
+            image/gif:
+              schema:
+                type: string
+                format: binary
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+            text/plain:
+              schema:
+                type: string
+                description: Text log export
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: Attachment filename
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /recordings/{recordingId}/share:
+    post:
+      summary: Create shareable link
+      description: Create a shareable link for recording playback
+      tags:
+        - Session Recording
+      parameters:
+        - name: recordingId
+          in: path
+          required: true
+          description: Unique identifier of the recording
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShareRequest'
+      responses:
+        '201':
+          description: Shareable link created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShareLink'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /recordings/{recordingId}/checkpoints:
+    get:
+      summary: Get recording checkpoints
+      description: Retrieve checkpoints for seeking in recording playback
+      tags:
+        - Session Recording
+      parameters:
+        - name: recordingId
+          in: path
+          required: true
+          description: Unique identifier of the recording
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Recording checkpoints
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  checkpoints:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RecordingCheckpoint'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: Create recording checkpoint
+      description: Create a new checkpoint in the recording for seeking
+      tags:
+        - Session Recording
+      parameters:
+        - name: recordingId
+          in: path
+          required: true
+          description: Unique identifier of the recording
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCheckpointRequest'
+      responses:
+        '201':
+          description: Checkpoint created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordingCheckpoint'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    Recording:
+      type: object
+      required:
+        - recordingId
+        - sessionId
+        - userId
+        - startTime
+        - status
+        - eventCount
+        - terminalSize
+      properties:
+        recordingId:
+          type: string
+          format: uuid
+          description: Unique identifier for the recording
+        sessionId:
+          type: string
+          format: uuid
+          description: Reference to the terminal session
+        userId:
+          type: string
+          format: uuid
+          description: Reference to the user who owns the recording
+        startTime:
+          type: string
+          format: date-time
+          description: Recording start timestamp
+        endTime:
+          type: string
+          format: date-time
+          nullable: true
+          description: Recording end timestamp (null if active)
+        duration:
+          type: integer
+          description: Recording duration in milliseconds
+        status:
+          type: string
+          enum: [recording, stopped, processing, ready, failed]
+          description: Current status of the recording
+        fileSize:
+          type: integer
+          description: Total recording file size in bytes
+        eventCount:
+          type: integer
+          description: Total number of recorded events
+        terminalSize:
+          $ref: '#/components/schemas/TerminalSize'
+        exportFormats:
+          type: array
+          items:
+            type: string
+            enum: [json, gif, mp4, txt]
+          description: Available export formats
+        compressionRatio:
+          type: number
+          description: Compression ratio achieved
+        metadata:
+          type: object
+          description: Additional recording metadata
+          additionalProperties: true
+
+    RecordingEvent:
+      type: object
+      required:
+        - timestamp
+        - deltaTime
+        - type
+        - data
+        - size
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Event timestamp
+        deltaTime:
+          type: integer
+          description: Milliseconds from previous event
+        type:
+          type: string
+          enum: [input, output, resize, media, ai, control]
+          description: Event type
+        data:
+          type: string
+          description: Event data content
+        size:
+          type: integer
+          description: Event data size in bytes
+        metadata:
+          type: object
+          description: Additional event metadata
+          properties:
+            command:
+              type: string
+              description: Command name (for input events)
+            exitCode:
+              type: integer
+              description: Exit code (for command completion)
+            mediaType:
+              type: string
+              description: Media type (for media events)
+          additionalProperties: true
+
+    RecordingCheckpoint:
+      type: object
+      required:
+        - timestamp
+        - eventIndex
+        - terminalState
+      properties:
+        checkpointId:
+          type: string
+          format: uuid
+          description: Unique identifier for the checkpoint
+        timestamp:
+          type: string
+          format: date-time
+          description: Checkpoint timestamp
+        eventIndex:
+          type: integer
+          description: Event index in the recording
+        terminalState:
+          type: string
+          description: Compressed terminal buffer state
+        description:
+          type: string
+          description: Checkpoint description
+        isAutoGenerated:
+          type: boolean
+          description: Whether checkpoint was auto-generated
+
+    StartRecordingRequest:
+      type: object
+      required:
+        - sessionId
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+          description: Terminal session ID to record
+        settings:
+          $ref: '#/components/schemas/RecordingSettings'
+
+    RecordingSettings:
+      type: object
+      properties:
+        maxDuration:
+          type: integer
+          description: Maximum recording duration in seconds
+          default: 3600
+        compressionLevel:
+          type: integer
+          minimum: 0
+          maximum: 9
+          description: Compression level (0-9)
+          default: 5
+        includeInput:
+          type: boolean
+          description: Include user input in recording
+          default: true
+        includeOutput:
+          type: boolean
+          description: Include terminal output in recording
+          default: true
+        includeMedia:
+          type: boolean
+          description: Include media events in recording
+          default: true
+        autoCheckpoints:
+          type: boolean
+          description: Generate automatic checkpoints
+          default: true
+        checkpointInterval:
+          type: integer
+          description: Automatic checkpoint interval in seconds
+          default: 60
+
+    ExportRequest:
+      type: object
+      required:
+        - format
+      properties:
+        format:
+          type: string
+          enum: [json, gif, mp4, txt]
+          description: Export format
+        options:
+          type: object
+          description: Format-specific export options
+          properties:
+            # GIF/MP4 options
+            frameRate:
+              type: integer
+              description: Frames per second for video export
+              default: 15
+            resolution:
+              type: string
+              enum: [original, 720p, 1080p]
+              description: Video resolution
+              default: original
+            speed:
+              type: number
+              description: Playback speed multiplier
+              default: 1.0
+            # Time range options
+            startTime:
+              type: string
+              format: date-time
+              description: Export start time
+            endTime:
+              type: string
+              format: date-time
+              description: Export end time
+            # Filter options
+            includeInput:
+              type: boolean
+              description: Include input events
+              default: true
+            includeOutput:
+              type: boolean
+              description: Include output events
+              default: true
+
+    ExportJob:
+      type: object
+      required:
+        - jobId
+        - recordingId
+        - format
+        - status
+        - createdAt
+      properties:
+        jobId:
+          type: string
+          format: uuid
+          description: Unique identifier for the export job
+        recordingId:
+          type: string
+          format: uuid
+          description: Recording being exported
+        format:
+          type: string
+          enum: [json, gif, mp4, txt]
+          description: Export format
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+          description: Job status
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Export progress percentage
+        createdAt:
+          type: string
+          format: date-time
+          description: Job creation timestamp
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Job completion timestamp
+        downloadUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: Download URL (when completed)
+        fileSize:
+          type: integer
+          nullable: true
+          description: Exported file size in bytes
+        error:
+          type: string
+          nullable: true
+          description: Error message (if failed)
+
+    ShareRequest:
+      type: object
+      properties:
+        expiresAt:
+          type: string
+          format: date-time
+          description: Link expiration timestamp
+        password:
+          type: string
+          description: Optional password protection
+        allowDownload:
+          type: boolean
+          description: Allow downloading the recording
+          default: false
+        viewerOnly:
+          type: boolean
+          description: Read-only access for viewers
+          default: true
+
+    ShareLink:
+      type: object
+      required:
+        - linkId
+        - recordingId
+        - url
+        - createdAt
+        - isActive
+      properties:
+        linkId:
+          type: string
+          format: uuid
+          description: Unique identifier for the share link
+        recordingId:
+          type: string
+          format: uuid
+          description: Recording being shared
+        url:
+          type: string
+          format: uri
+          description: Shareable URL
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Link expiration timestamp
+        hasPassword:
+          type: boolean
+          description: Whether link is password protected
+        allowDownload:
+          type: boolean
+          description: Allow downloading the recording
+        viewerOnly:
+          type: boolean
+          description: Read-only access for viewers
+        viewCount:
+          type: integer
+          description: Number of times link was accessed
+        createdAt:
+          type: string
+          format: date-time
+          description: Link creation timestamp
+        isActive:
+          type: boolean
+          description: Whether link is currently active
+
+    CreateCheckpointRequest:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Checkpoint timestamp (defaults to current time)
+        description:
+          type: string
+          description: Checkpoint description
+          example: "Command execution completed"
+
+    TerminalSize:
+      type: object
+      required:
+        - cols
+        - rows
+      properties:
+        cols:
+          type: integer
+          minimum: 20
+          maximum: 500
+          description: Number of columns
+        rows:
+          type: integer
+          minimum: 5
+          maximum: 200
+          description: Number of rows
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          description: Additional error details
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+          description: Error timestamp
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "RECORDING_ALREADY_ACTIVE"
+            message: "Session is already being recorded"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Session Recording
+    description: Operations for recording and replaying terminal sessions

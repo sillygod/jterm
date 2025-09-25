@@ -1,0 +1,509 @@
+openapi: 3.0.3
+info:
+  title: Terminal Session API
+  description: API for managing web-based terminal sessions
+  version: 1.0.0
+  contact:
+    name: Web Terminal Team
+    email: team@webterminal.dev
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Development server
+  - url: https://api.webterminal.dev/v1
+    description: Production server
+
+paths:
+  /sessions:
+    get:
+      summary: List terminal sessions
+      description: Retrieve a list of terminal sessions for the authenticated user
+      tags:
+        - Terminal Sessions
+      parameters:
+        - name: status
+          in: query
+          description: Filter sessions by status
+          schema:
+            type: string
+            enum: [active, inactive, terminated, recording]
+        - name: limit
+          in: query
+          description: Maximum number of sessions to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Number of sessions to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: List of terminal sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TerminalSession'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: Create new terminal session
+      description: Create a new terminal session with specified configuration
+      tags:
+        - Terminal Sessions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionRequest'
+      responses:
+        '201':
+          description: Terminal session created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalSession'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /sessions/{sessionId}:
+    get:
+      summary: Get terminal session details
+      description: Retrieve detailed information about a specific terminal session
+      tags:
+        - Terminal Sessions
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          description: Unique identifier of the terminal session
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Terminal session details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalSession'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    patch:
+      summary: Update terminal session
+      description: Update terminal session configuration or state
+      tags:
+        - Terminal Sessions
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          description: Unique identifier of the terminal session
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSessionRequest'
+      responses:
+        '200':
+          description: Terminal session updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalSession'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      summary: Terminate terminal session
+      description: Terminate and cleanup a terminal session
+      tags:
+        - Terminal Sessions
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          description: Unique identifier of the terminal session
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Terminal session terminated successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /sessions/{sessionId}/resize:
+    post:
+      summary: Resize terminal session
+      description: Resize the terminal dimensions for a session
+      tags:
+        - Terminal Sessions
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          description: Unique identifier of the terminal session
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResizeRequest'
+      responses:
+        '200':
+          description: Terminal resized successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalSession'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /sessions/{sessionId}/ws:
+    get:
+      summary: WebSocket connection for terminal I/O
+      description: Establish WebSocket connection for real-time terminal communication
+      tags:
+        - Terminal Sessions
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          description: Unique identifier of the terminal session
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '101':
+          description: WebSocket connection established
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    TerminalSession:
+      type: object
+      required:
+        - sessionId
+        - userId
+        - status
+        - createdAt
+        - lastActiveAt
+        - terminalSize
+        - workingDirectory
+        - shellType
+        - shellPid
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+          description: Unique identifier for the session
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        userId:
+          type: string
+          format: uuid
+          description: Reference to the user who owns the session
+        status:
+          type: string
+          enum: [active, inactive, terminated, recording]
+          description: Current status of the terminal session
+        createdAt:
+          type: string
+          format: date-time
+          description: Session creation timestamp
+        lastActiveAt:
+          type: string
+          format: date-time
+          description: Last activity timestamp
+        terminatedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Session termination timestamp
+        terminalSize:
+          $ref: '#/components/schemas/TerminalSize'
+        workingDirectory:
+          type: string
+          description: Current working directory path
+          example: "/home/user/projects"
+        environmentVariables:
+          type: object
+          additionalProperties:
+            type: string
+          description: Session environment variables
+        shellType:
+          type: string
+          description: Shell type (bash, zsh, fish, etc.)
+          example: "bash"
+        shellPid:
+          type: integer
+          description: Process ID of the shell
+          example: 1234
+        recordingEnabled:
+          type: boolean
+          description: Whether session recording is active
+          default: false
+        aiAssistantEnabled:
+          type: boolean
+          description: Whether AI assistance is enabled
+          default: false
+        themeId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Reference to active theme
+        metadata:
+          type: object
+          description: Additional session metadata
+          additionalProperties: true
+
+    TerminalSize:
+      type: object
+      required:
+        - cols
+        - rows
+      properties:
+        cols:
+          type: integer
+          minimum: 20
+          maximum: 500
+          description: Number of columns
+          example: 80
+        rows:
+          type: integer
+          minimum: 5
+          maximum: 200
+          description: Number of rows
+          example: 24
+
+    CreateSessionRequest:
+      type: object
+      required:
+        - terminalSize
+      properties:
+        terminalSize:
+          $ref: '#/components/schemas/TerminalSize'
+        workingDirectory:
+          type: string
+          description: Initial working directory
+          example: "/home/user"
+        shellType:
+          type: string
+          description: Preferred shell type
+          enum: [bash, zsh, fish, sh, cmd, powershell]
+          default: "bash"
+        environmentVariables:
+          type: object
+          additionalProperties:
+            type: string
+          description: Initial environment variables
+        recordingEnabled:
+          type: boolean
+          description: Enable session recording
+          default: false
+        aiAssistantEnabled:
+          type: boolean
+          description: Enable AI assistance
+          default: false
+        themeId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Theme to apply to session
+
+    UpdateSessionRequest:
+      type: object
+      properties:
+        terminalSize:
+          $ref: '#/components/schemas/TerminalSize'
+        recordingEnabled:
+          type: boolean
+          description: Enable/disable session recording
+        aiAssistantEnabled:
+          type: boolean
+          description: Enable/disable AI assistance
+        themeId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Change active theme
+        environmentVariables:
+          type: object
+          additionalProperties:
+            type: string
+          description: Update environment variables
+
+    ResizeRequest:
+      type: object
+      required:
+        - terminalSize
+      properties:
+        terminalSize:
+          $ref: '#/components/schemas/TerminalSize'
+
+    WebSocketMessage:
+      type: object
+      required:
+        - type
+        - timestamp
+        - sessionId
+      properties:
+        type:
+          type: string
+          enum: [input, output, control, media, ai, error]
+          description: Type of WebSocket message
+        timestamp:
+          type: string
+          format: date-time
+          description: Message timestamp
+        sessionId:
+          type: string
+          format: uuid
+          description: Terminal session identifier
+        data:
+          type: string
+          description: Message data content
+        metadata:
+          type: object
+          description: Additional message metadata
+          additionalProperties: true
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          description: Additional error details
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+          description: Error timestamp
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "INVALID_REQUEST"
+            message: "Invalid terminal size dimensions"
+            details:
+              field: "terminalSize.cols"
+              value: 5000
+              constraint: "Maximum 500 columns allowed"
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "UNAUTHORIZED"
+            message: "Authentication required"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "SESSION_NOT_FOUND"
+            message: "Terminal session not found"
+            details:
+              sessionId: "123e4567-e89b-12d3-a456-426614174000"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "INTERNAL_ERROR"
+            message: "An unexpected error occurred"
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Terminal Sessions
+    description: Operations for managing terminal sessions

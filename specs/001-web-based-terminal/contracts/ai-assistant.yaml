@@ -1,0 +1,1118 @@
+openapi: 3.0.3
+info:
+  title: AI Assistant API
+  description: API for AI assistant functionality in web-based terminal
+  version: 1.0.0
+  contact:
+    name: Web Terminal Team
+    email: team@webterminal.dev
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Development server
+  - url: https://api.webterminal.dev/v1
+    description: Production server
+
+paths:
+  /ai/chat:
+    post:
+      summary: Send chat message to AI assistant
+      description: Send a text message to the AI assistant and get a response
+      tags:
+        - AI Assistant
+      parameters:
+        - name: sessionId
+          in: query
+          required: true
+          description: Terminal session ID for context
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: AI response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+            text/event-stream:
+              schema:
+                type: string
+                description: Server-sent events for streaming responses
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /ai/voice:
+    post:
+      summary: Process voice input
+      description: Convert speech to text and process with AI assistant
+      tags:
+        - AI Assistant
+      parameters:
+        - name: sessionId
+          in: query
+          required: true
+          description: Terminal session ID for context
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - audio
+              properties:
+                audio:
+                  type: string
+                  format: binary
+                  description: Audio file (WAV, MP3, WebM)
+                language:
+                  type: string
+                  description: Language code for speech recognition
+                  default: "en-US"
+                enableTTS:
+                  type: boolean
+                  description: Return text-to-speech audio response
+                  default: false
+                voiceSettings:
+                  type: object
+                  description: Voice synthesis settings
+                  properties:
+                    voice:
+                      type: string
+                      default: "default"
+                    speed:
+                      type: number
+                      minimum: 0.5
+                      maximum: 2.0
+                      default: 1.0
+                    pitch:
+                      type: number
+                      minimum: 0.5
+                      maximum: 2.0
+                      default: 1.0
+      responses:
+        '200':
+          description: Voice processing result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoiceResponse'
+            audio/mpeg:
+              schema:
+                type: string
+                format: binary
+                description: TTS audio response (when enableTTS=true)
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /ai/suggest:
+    post:
+      summary: Get command suggestions
+      description: Get AI-powered command suggestions based on context
+      tags:
+        - AI Assistant
+      parameters:
+        - name: sessionId
+          in: query
+          required: true
+          description: Terminal session ID for context
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuggestionRequest'
+      responses:
+        '200':
+          description: Command suggestions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuggestionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /ai/explain:
+    post:
+      summary: Explain command output
+      description: Get AI explanation of command output or error messages
+      tags:
+        - AI Assistant
+      parameters:
+        - name: sessionId
+          in: query
+          required: true
+          description: Terminal session ID for context
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExplainRequest'
+      responses:
+        '200':
+          description: AI explanation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExplainResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /ai/context:
+    get:
+      summary: Get AI context
+      description: Retrieve AI context and conversation history for a session
+      tags:
+        - AI Assistant
+      parameters:
+        - name: sessionId
+          in: query
+          required: true
+          description: Terminal session ID
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          description: Maximum number of messages to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: AI context and conversation history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIContext'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      summary: Clear AI context
+      description: Clear AI conversation history and context for a session
+      tags:
+        - AI Assistant
+      parameters:
+        - name: sessionId
+          in: query
+          required: true
+          description: Terminal session ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: AI context cleared successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /ai/settings:
+    get:
+      summary: Get AI settings
+      description: Retrieve AI assistant settings for the user
+      tags:
+        - AI Assistant
+      responses:
+        '200':
+          description: AI settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AISettings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    patch:
+      summary: Update AI settings
+      description: Update AI assistant settings for the user
+      tags:
+        - AI Assistant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAISettingsRequest'
+      responses:
+        '200':
+          description: AI settings updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AISettings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /ai/providers:
+    get:
+      summary: List AI providers
+      description: Get available AI providers and models
+      tags:
+        - AI Assistant
+      responses:
+        '200':
+          description: Available AI providers and models
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  providers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AIProvider'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /ai/usage:
+    get:
+      summary: Get AI usage statistics
+      description: Get AI usage statistics for the authenticated user
+      tags:
+        - AI Assistant
+      parameters:
+        - name: startDate
+          in: query
+          description: Start date for usage statistics
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          description: End date for usage statistics
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: AI usage statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIUsage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /ai/ws/{sessionId}:
+    get:
+      summary: WebSocket connection for AI assistant
+      description: Establish WebSocket connection for real-time AI interactions
+      tags:
+        - AI Assistant
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          description: Terminal session ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '101':
+          description: WebSocket connection established
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    ChatRequest:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: User message to the AI assistant
+          example: "How do I list files in this directory?"
+        type:
+          type: string
+          enum: [question, command, explanation, general]
+          description: Type of user request
+          default: question
+        includeContext:
+          type: boolean
+          description: Include terminal context in the request
+          default: true
+        stream:
+          type: boolean
+          description: Stream the response using Server-Sent Events
+          default: false
+        model:
+          type: string
+          description: Specific AI model to use (overrides user preference)
+        maxTokens:
+          type: integer
+          description: Maximum tokens in response
+          minimum: 1
+          maximum: 4000
+          default: 1000
+        temperature:
+          type: number
+          description: Response randomness (0-1)
+          minimum: 0
+          maximum: 1
+          default: 0.7
+
+    ChatResponse:
+      type: object
+      required:
+        - messageId
+        - content
+        - timestamp
+        - tokenUsage
+      properties:
+        messageId:
+          type: string
+          format: uuid
+          description: Unique message identifier
+        content:
+          type: string
+          description: AI assistant response
+        type:
+          type: string
+          enum: [text, command, code, explanation]
+          description: Type of AI response
+        timestamp:
+          type: string
+          format: date-time
+          description: Response timestamp
+        model:
+          type: string
+          description: AI model used for response
+        confidence:
+          type: number
+          description: Confidence score (0-1)
+          minimum: 0
+          maximum: 1
+        sources:
+          type: array
+          items:
+            type: string
+          description: Context sources used for response
+        tokenUsage:
+          $ref: '#/components/schemas/TokenUsage'
+        processingTime:
+          type: integer
+          description: Processing time in milliseconds
+        suggestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommandSuggestion'
+          description: Related command suggestions
+
+    VoiceResponse:
+      type: object
+      required:
+        - transcription
+        - response
+        - timestamp
+      properties:
+        transcription:
+          type: string
+          description: Transcribed speech text
+        confidence:
+          type: number
+          description: Transcription confidence (0-1)
+          minimum: 0
+          maximum: 1
+        language:
+          type: string
+          description: Detected language
+        response:
+          $ref: '#/components/schemas/ChatResponse'
+        audioResponse:
+          type: string
+          format: uri
+          nullable: true
+          description: URL to TTS audio response
+        timestamp:
+          type: string
+          format: date-time
+          description: Processing timestamp
+
+    SuggestionRequest:
+      type: object
+      properties:
+        query:
+          type: string
+          description: Partial command or description
+          example: "git comm"
+        currentDirectory:
+          type: string
+          description: Current working directory
+        limit:
+          type: integer
+          description: Maximum number of suggestions
+          minimum: 1
+          maximum: 20
+          default: 5
+        includeExamples:
+          type: boolean
+          description: Include usage examples
+          default: true
+
+    SuggestionResponse:
+      type: object
+      required:
+        - suggestions
+        - timestamp
+      properties:
+        suggestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommandSuggestion'
+        query:
+          type: string
+          description: Original query
+        timestamp:
+          type: string
+          format: date-time
+          description: Response timestamp
+
+    CommandSuggestion:
+      type: object
+      required:
+        - command
+        - description
+        - confidence
+      properties:
+        command:
+          type: string
+          description: Suggested command
+          example: "git commit -m \"message\""
+        description:
+          type: string
+          description: Command description
+          example: "Create a new commit with a message"
+        confidence:
+          type: number
+          description: Confidence score (0-1)
+          minimum: 0
+          maximum: 1
+        category:
+          type: string
+          description: Command category
+          example: "git"
+        examples:
+          type: array
+          items:
+            type: string
+          description: Usage examples
+        parameters:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommandParameter'
+          description: Command parameters
+
+    CommandParameter:
+      type: object
+      required:
+        - name
+        - description
+      properties:
+        name:
+          type: string
+          description: Parameter name
+          example: "-m"
+        description:
+          type: string
+          description: Parameter description
+          example: "Commit message"
+        required:
+          type: boolean
+          description: Whether parameter is required
+          default: false
+        type:
+          type: string
+          enum: [string, number, boolean, file, directory]
+          description: Parameter type
+
+    ExplainRequest:
+      type: object
+      required:
+        - command
+        - output
+      properties:
+        command:
+          type: string
+          description: Command that was executed
+          example: "ls -la"
+        output:
+          type: string
+          description: Command output to explain
+        exitCode:
+          type: integer
+          description: Command exit code
+        errorOutput:
+          type: string
+          description: Error output (stderr)
+        includeAlternatives:
+          type: boolean
+          description: Include alternative commands
+          default: true
+
+    ExplainResponse:
+      type: object
+      required:
+        - explanation
+        - timestamp
+      properties:
+        explanation:
+          type: string
+          description: AI explanation of the command/output
+        summary:
+          type: string
+          description: Brief summary
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              section:
+                type: string
+              content:
+                type: string
+          description: Detailed breakdown
+        alternatives:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommandSuggestion'
+          description: Alternative commands
+        tips:
+          type: array
+          items:
+            type: string
+          description: Related tips and best practices
+        timestamp:
+          type: string
+          format: date-time
+          description: Response timestamp
+
+    AIContext:
+      type: object
+      required:
+        - contextId
+        - sessionId
+        - userId
+        - lastInteractionAt
+      properties:
+        contextId:
+          type: string
+          format: uuid
+          description: AI context identifier
+        sessionId:
+          type: string
+          format: uuid
+          description: Terminal session identifier
+        userId:
+          type: string
+          format: uuid
+          description: User identifier
+        conversationHistory:
+          type: array
+          items:
+            $ref: '#/components/schemas/AIMessage'
+          description: Conversation history
+        terminalContext:
+          $ref: '#/components/schemas/TerminalContext'
+        userPreferences:
+          $ref: '#/components/schemas/AISettings'
+        lastInteractionAt:
+          type: string
+          format: date-time
+          description: Last AI interaction timestamp
+        tokenUsage:
+          $ref: '#/components/schemas/TokenUsage'
+
+    AIMessage:
+      type: object
+      required:
+        - messageId
+        - timestamp
+        - role
+        - content
+      properties:
+        messageId:
+          type: string
+          format: uuid
+          description: Message identifier
+        timestamp:
+          type: string
+          format: date-time
+          description: Message timestamp
+        role:
+          type: string
+          enum: [user, assistant, system]
+          description: Message role
+        content:
+          type: string
+          description: Message content
+        type:
+          type: string
+          enum: [text, voice, command, explanation]
+          description: Message type
+        tokens:
+          type: integer
+          description: Token count for this message
+        processingTime:
+          type: integer
+          description: Processing time in milliseconds
+        confidence:
+          type: number
+          description: Confidence score (0-1)
+          minimum: 0
+          maximum: 1
+        sources:
+          type: array
+          items:
+            type: string
+          description: Context sources used
+
+    TerminalContext:
+      type: object
+      properties:
+        recentCommands:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecentCommand'
+          description: Recent command history
+        currentDirectory:
+          type: string
+          description: Current working directory
+        environmentInfo:
+          type: object
+          properties:
+            os:
+              type: string
+            shell:
+              type: string
+            user:
+              type: string
+          description: Environment information
+        activeProcesses:
+          type: array
+          items:
+            type: string
+          description: Active process names
+        fileSystemContext:
+          type: array
+          items:
+            type: object
+            properties:
+              path:
+                type: string
+              type:
+                type: string
+                enum: [file, directory]
+              lastModified:
+                type: string
+                format: date-time
+          description: Recent file operations
+
+    RecentCommand:
+      type: object
+      required:
+        - command
+        - timestamp
+        - exitCode
+      properties:
+        command:
+          type: string
+          description: Command that was executed
+        timestamp:
+          type: string
+          format: date-time
+          description: Execution timestamp
+        output:
+          type: string
+          description: Command output (truncated)
+        exitCode:
+          type: integer
+          description: Exit code
+        workingDirectory:
+          type: string
+          description: Working directory when executed
+        duration:
+          type: integer
+          description: Execution duration in milliseconds
+
+    AISettings:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: AI assistant enabled
+          default: true
+        provider:
+          type: string
+          enum: [openai, anthropic, local]
+          description: AI provider
+          default: openai
+        model:
+          type: string
+          description: AI model name
+          default: "gpt-4"
+        voiceEnabled:
+          type: boolean
+          description: Voice input/output enabled
+          default: true
+        voiceLanguage:
+          type: string
+          description: Voice language code
+          default: "en-US"
+        autoSuggestions:
+          type: boolean
+          description: Automatic command suggestions
+          default: true
+        contextSharing:
+          type: string
+          enum: [full, limited, none]
+          description: Context sharing level
+          default: limited
+        responseFormat:
+          type: string
+          enum: [text, voice, both]
+          description: Preferred response format
+          default: text
+        maxTokens:
+          type: integer
+          description: Default max tokens per response
+          default: 1000
+        temperature:
+          type: number
+          description: Default response randomness
+          minimum: 0
+          maximum: 1
+          default: 0.7
+
+    UpdateAISettingsRequest:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        provider:
+          type: string
+          enum: [openai, anthropic, local]
+        model:
+          type: string
+        voiceEnabled:
+          type: boolean
+        voiceLanguage:
+          type: string
+        autoSuggestions:
+          type: boolean
+        contextSharing:
+          type: string
+          enum: [full, limited, none]
+        responseFormat:
+          type: string
+          enum: [text, voice, both]
+        maxTokens:
+          type: integer
+          minimum: 1
+          maximum: 4000
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    AIProvider:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - models
+      properties:
+        id:
+          type: string
+          description: Provider identifier
+          example: "openai"
+        name:
+          type: string
+          description: Provider display name
+          example: "OpenAI"
+        status:
+          type: string
+          enum: [available, unavailable, limited]
+          description: Provider status
+        models:
+          type: array
+          items:
+            $ref: '#/components/schemas/AIModel'
+          description: Available models
+        features:
+          type: array
+          items:
+            type: string
+            enum: [chat, voice, images, code]
+          description: Supported features
+        limits:
+          type: object
+          properties:
+            requestsPerMinute:
+              type: integer
+            tokensPerRequest:
+              type: integer
+          description: Usage limits
+
+    AIModel:
+      type: object
+      required:
+        - id
+        - name
+        - type
+        - contextWindow
+      properties:
+        id:
+          type: string
+          description: Model identifier
+          example: "gpt-4"
+        name:
+          type: string
+          description: Model display name
+          example: "GPT-4"
+        type:
+          type: string
+          enum: [chat, completion, embedding]
+          description: Model type
+        contextWindow:
+          type: integer
+          description: Context window size in tokens
+        description:
+          type: string
+          description: Model description
+        features:
+          type: array
+          items:
+            type: string
+          description: Model capabilities
+        pricing:
+          type: object
+          properties:
+            inputTokens:
+              type: number
+            outputTokens:
+              type: number
+          description: Pricing per 1000 tokens
+
+    TokenUsage:
+      type: object
+      required:
+        - inputTokens
+        - outputTokens
+        - totalTokens
+      properties:
+        inputTokens:
+          type: integer
+          description: Input tokens used
+        outputTokens:
+          type: integer
+          description: Output tokens generated
+        totalTokens:
+          type: integer
+          description: Total tokens used
+        cost:
+          type: number
+          description: Estimated cost in USD
+
+    AIUsage:
+      type: object
+      required:
+        - startDate
+        - endDate
+        - totalRequests
+        - totalTokens
+      properties:
+        startDate:
+          type: string
+          format: date
+          description: Usage period start date
+        endDate:
+          type: string
+          format: date
+          description: Usage period end date
+        totalRequests:
+          type: integer
+          description: Total AI requests made
+        totalTokens:
+          type: integer
+          description: Total tokens used
+        totalCost:
+          type: number
+          description: Total estimated cost in USD
+        byProvider:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              requests:
+                type: integer
+              tokens:
+                type: integer
+              cost:
+                type: number
+          description: Usage breakdown by provider
+        byFeature:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              requests:
+                type: integer
+              tokens:
+                type: integer
+          description: Usage breakdown by feature
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          description: Additional error details
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+          description: Error timestamp
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    PayloadTooLarge:
+      description: Payload too large
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    TooManyRequests:
+      description: Too many requests
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "RATE_LIMIT_EXCEEDED"
+            message: "AI API rate limit exceeded"
+            details:
+              resetTime: "2025-09-25T14:00:00Z"
+              remainingRequests: 0
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: AI Assistant
+    description: Operations for AI assistant functionality

@@ -1,0 +1,666 @@
+openapi: 3.0.3
+info:
+  title: Media Assets API
+  description: API for uploading, managing, and rendering media assets in terminal
+  version: 1.0.0
+  contact:
+    name: Web Terminal Team
+    email: team@webterminal.dev
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Development server
+  - url: https://api.webterminal.dev/v1
+    description: Production server
+
+paths:
+  /media:
+    get:
+      summary: List media assets
+      description: Retrieve a list of media assets for the authenticated user
+      tags:
+        - Media Assets
+      parameters:
+        - name: sessionId
+          in: query
+          description: Filter assets by terminal session
+          schema:
+            type: string
+            format: uuid
+        - name: mediaType
+          in: query
+          description: Filter assets by media type
+          schema:
+            type: string
+            enum: [image, video, html, document]
+        - name: limit
+          in: query
+          description: Maximum number of assets to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Number of assets to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: List of media assets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  assets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MediaAsset'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: Upload media asset
+      description: Upload a new media asset (image, video, HTML, or document)
+      tags:
+        - Media Assets
+      parameters:
+        - name: sessionId
+          in: query
+          required: true
+          description: Terminal session ID to associate with the asset
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Media file to upload
+                isTemporary:
+                  type: boolean
+                  description: Whether asset should be auto-deleted
+                  default: false
+                expiresAt:
+                  type: string
+                  format: date-time
+                  description: Expiration timestamp for temporary assets
+                metadata:
+                  type: object
+                  description: Additional metadata
+                  additionalProperties: true
+            encoding:
+              file:
+                contentType: image/*, video/*, text/html, application/*
+      responses:
+        '201':
+          description: Media asset uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAsset'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /media/{assetId}:
+    get:
+      summary: Get media asset details
+      description: Retrieve detailed information about a specific media asset
+      tags:
+        - Media Assets
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          description: Unique identifier of the media asset
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Media asset details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAsset'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      summary: Delete media asset
+      description: Delete a media asset and its associated files
+      tags:
+        - Media Assets
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          description: Unique identifier of the media asset
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Media asset deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /media/{assetId}/content:
+    get:
+      summary: Download media asset content
+      description: Download the actual media file content
+      tags:
+        - Media Assets
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          description: Unique identifier of the media asset
+          schema:
+            type: string
+            format: uuid
+        - name: thumbnail
+          in: query
+          description: Return thumbnail instead of full content
+          schema:
+            type: boolean
+            default: false
+        - name: size
+          in: query
+          description: Thumbnail size (only when thumbnail=true)
+          schema:
+            type: string
+            enum: [small, medium, large]
+            default: medium
+      responses:
+        '200':
+          description: Media content
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+            video/*:
+              schema:
+                type: string
+                format: binary
+            text/html:
+              schema:
+                type: string
+            application/*:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Type:
+              schema:
+                type: string
+              description: MIME type of the media content
+            Content-Length:
+              schema:
+                type: integer
+              description: Size of the content in bytes
+            Content-Disposition:
+              schema:
+                type: string
+              description: Content disposition header
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /media/{assetId}/render:
+    get:
+      summary: Render media asset for terminal display
+      description: Get rendered media content optimized for terminal display
+      tags:
+        - Media Assets
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          description: Unique identifier of the media asset
+          schema:
+            type: string
+            format: uuid
+        - name: terminalSize
+          in: query
+          required: true
+          description: Terminal dimensions for rendering optimization
+          schema:
+            type: string
+            pattern: '^\d+x\d+$'
+            example: "80x24"
+        - name: colorDepth
+          in: query
+          description: Color depth for terminal rendering
+          schema:
+            type: string
+            enum: [1, 8, 256, truecolor]
+            default: truecolor
+        - name: format
+          in: query
+          description: Output format for rendering
+          schema:
+            type: string
+            enum: [html, ansi, ascii, canvas]
+            default: html
+      responses:
+        '200':
+          description: Rendered media content
+          content:
+            text/html:
+              schema:
+                type: string
+                description: HTML representation of the media
+            text/plain:
+              schema:
+                type: string
+                description: ANSI or ASCII representation of the media
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CanvasRenderData'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /media/url:
+    post:
+      summary: Create media asset from URL
+      description: Create a media asset by fetching content from a URL
+      tags:
+        - Media Assets
+      parameters:
+        - name: sessionId
+          in: query
+          required: true
+          description: Terminal session ID to associate with the asset
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFromUrlRequest'
+      responses:
+        '201':
+          description: Media asset created from URL successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAsset'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /media/scan:
+    post:
+      summary: Security scan media asset
+      description: Perform security scan on uploaded media asset
+      tags:
+        - Media Assets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - assetId
+              properties:
+                assetId:
+                  type: string
+                  format: uuid
+                  description: Media asset ID to scan
+                rescan:
+                  type: boolean
+                  description: Force rescan even if already scanned
+                  default: false
+      responses:
+        '200':
+          description: Security scan completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityScanResult'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    MediaAsset:
+      type: object
+      required:
+        - assetId
+        - sessionId
+        - userId
+        - fileName
+        - filePath
+        - fileSize
+        - mimeType
+        - mediaType
+        - uploadedAt
+        - lastAccessedAt
+        - accessCount
+        - isTemporary
+      properties:
+        assetId:
+          type: string
+          format: uuid
+          description: Unique identifier for the media asset
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        sessionId:
+          type: string
+          format: uuid
+          description: Reference to the terminal session
+        userId:
+          type: string
+          format: uuid
+          description: Reference to the user who owns the asset
+        fileName:
+          type: string
+          description: Original filename
+          example: "screenshot.png"
+        filePath:
+          type: string
+          description: Storage path or URL
+          example: "/uploads/2025/09/25/screenshot.png"
+        fileSize:
+          type: integer
+          description: File size in bytes
+          example: 1048576
+        mimeType:
+          type: string
+          description: MIME type
+          example: "image/png"
+        mediaType:
+          type: string
+          enum: [image, video, html, document]
+          description: Media asset type
+        dimensions:
+          $ref: '#/components/schemas/MediaDimensions'
+        duration:
+          type: number
+          description: Duration in seconds (for videos)
+          example: 30.5
+        thumbnailPath:
+          type: string
+          nullable: true
+          description: Path to generated thumbnail
+        uploadedAt:
+          type: string
+          format: date-time
+          description: Upload timestamp
+        lastAccessedAt:
+          type: string
+          format: date-time
+          description: Last access timestamp
+        accessCount:
+          type: integer
+          description: Number of times accessed
+          example: 5
+        isTemporary:
+          type: boolean
+          description: Whether asset should be auto-deleted
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Expiration timestamp for temporary assets
+        securityScan:
+          $ref: '#/components/schemas/SecurityScanResult'
+        metadata:
+          type: object
+          description: Additional metadata
+          additionalProperties: true
+
+    MediaDimensions:
+      type: object
+      properties:
+        width:
+          type: integer
+          description: Width in pixels
+          example: 1920
+        height:
+          type: integer
+          description: Height in pixels
+          example: 1080
+      required:
+        - width
+        - height
+
+    CreateFromUrlRequest:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+          description: URL to fetch media content from
+          example: "https://example.com/image.jpg"
+        fileName:
+          type: string
+          description: Override filename
+          example: "custom-name.jpg"
+        isTemporary:
+          type: boolean
+          description: Whether asset should be auto-deleted
+          default: true
+        expiresAt:
+          type: string
+          format: date-time
+          description: Expiration timestamp for temporary assets
+        metadata:
+          type: object
+          description: Additional metadata
+          additionalProperties: true
+
+    SecurityScanResult:
+      type: object
+      properties:
+        scannedAt:
+          type: string
+          format: date-time
+          description: Scan timestamp
+        status:
+          type: string
+          enum: [safe, suspicious, malicious, error]
+          description: Scan result status
+        threats:
+          type: array
+          items:
+            type: string
+          description: Array of detected threat types
+          example: ["malware", "phishing"]
+        scannerVersion:
+          type: string
+          description: Security scanner version
+          example: "1.0.0"
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Confidence level of scan result
+        details:
+          type: object
+          description: Additional scan details
+          additionalProperties: true
+
+    CanvasRenderData:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [canvas]
+          description: Render data type
+        width:
+          type: integer
+          description: Canvas width
+        height:
+          type: integer
+          description: Canvas height
+        commands:
+          type: array
+          items:
+            type: object
+          description: Canvas drawing commands
+        metadata:
+          type: object
+          description: Rendering metadata
+          additionalProperties: true
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          description: Additional error details
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+          description: Error timestamp
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "INVALID_REQUEST"
+            message: "Invalid file format"
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    PayloadTooLarge:
+      description: Payload too large
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "PAYLOAD_TOO_LARGE"
+            message: "File size exceeds maximum limit"
+            details:
+              maxSize: "50MB"
+              receivedSize: "75MB"
+
+    UnsupportedMediaType:
+      description: Unsupported media type
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "UNSUPPORTED_MEDIA_TYPE"
+            message: "File type not supported"
+            details:
+              supportedTypes: ["image/*", "video/*", "text/html"]
+
+    UnprocessableEntity:
+      description: Unprocessable entity
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "UNPROCESSABLE_ENTITY"
+            message: "Unable to fetch content from URL"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Media Assets
+    description: Operations for managing media assets

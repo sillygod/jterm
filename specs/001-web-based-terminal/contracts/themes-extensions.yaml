@@ -1,0 +1,1677 @@
+openapi: 3.0.3
+info:
+  title: Themes and Extensions API
+  description: API for managing themes and extensions in web-based terminal
+  version: 1.0.0
+  contact:
+    name: Web Terminal Team
+    email: team@webterminal.dev
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Development server
+  - url: https://api.webterminal.dev/v1
+    description: Production server
+
+paths:
+  /themes:
+    get:
+      summary: List themes
+      description: Retrieve available themes for the authenticated user
+      tags:
+        - Themes
+      parameters:
+        - name: category
+          in: query
+          description: Filter themes by category
+          schema:
+            type: string
+            enum: [builtin, user, public, installed]
+        - name: search
+          in: query
+          description: Search themes by name or description
+          schema:
+            type: string
+        - name: sortBy
+          in: query
+          description: Sort themes by criteria
+          schema:
+            type: string
+            enum: [name, rating, downloads, created, updated]
+            default: name
+        - name: sortOrder
+          in: query
+          description: Sort order
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+        - name: limit
+          in: query
+          description: Maximum number of themes to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Number of themes to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: List of themes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  themes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Theme'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: Create or import theme
+      description: Create a new theme or import from file/URL
+      tags:
+        - Themes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateThemeRequest'
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Theme file to import
+                name:
+                  type: string
+                  description: Theme name
+                description:
+                  type: string
+                  description: Theme description
+            encoding:
+              file:
+                contentType: application/json, text/json
+      responses:
+        '201':
+          description: Theme created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Theme'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /themes/{themeId}:
+    get:
+      summary: Get theme details
+      description: Retrieve detailed information about a specific theme
+      tags:
+        - Themes
+      parameters:
+        - name: themeId
+          in: path
+          required: true
+          description: Unique identifier of the theme
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Theme details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Theme'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    patch:
+      summary: Update theme
+      description: Update theme configuration or metadata
+      tags:
+        - Themes
+      parameters:
+        - name: themeId
+          in: path
+          required: true
+          description: Unique identifier of the theme
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateThemeRequest'
+      responses:
+        '200':
+          description: Theme updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Theme'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      summary: Delete theme
+      description: Delete a user-created theme
+      tags:
+        - Themes
+      parameters:
+        - name: themeId
+          in: path
+          required: true
+          description: Unique identifier of the theme
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Theme deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /themes/{themeId}/install:
+    post:
+      summary: Install theme
+      description: Install a theme for the authenticated user
+      tags:
+        - Themes
+      parameters:
+        - name: themeId
+          in: path
+          required: true
+          description: Unique identifier of the theme
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Theme installed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Theme'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /themes/{themeId}/uninstall:
+    post:
+      summary: Uninstall theme
+      description: Uninstall a theme for the authenticated user
+      tags:
+        - Themes
+      parameters:
+        - name: themeId
+          in: path
+          required: true
+          description: Unique identifier of the theme
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Theme uninstalled successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /themes/{themeId}/export:
+    get:
+      summary: Export theme
+      description: Export theme configuration as JSON file
+      tags:
+        - Themes
+      parameters:
+        - name: themeId
+          in: path
+          required: true
+          description: Unique identifier of the theme
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Theme export file
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThemeExport'
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: Attachment filename
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /themes/{themeId}/preview:
+    get:
+      summary: Preview theme
+      description: Generate theme preview image or data
+      tags:
+        - Themes
+      parameters:
+        - name: themeId
+          in: path
+          required: true
+          description: Unique identifier of the theme
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          description: Preview format
+          schema:
+            type: string
+            enum: [image, css, html]
+            default: image
+        - name: size
+          in: query
+          description: Preview size
+          schema:
+            type: string
+            enum: [small, medium, large]
+            default: medium
+      responses:
+        '200':
+          description: Theme preview
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            text/css:
+              schema:
+                type: string
+            text/html:
+              schema:
+                type: string
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /extensions:
+    get:
+      summary: List extensions
+      description: Retrieve available extensions for the authenticated user
+      tags:
+        - Extensions
+      parameters:
+        - name: category
+          in: query
+          description: Filter extensions by category
+          schema:
+            type: string
+            enum: [builtin, user, public, installed]
+        - name: search
+          in: query
+          description: Search extensions by name or description
+          schema:
+            type: string
+        - name: permissions
+          in: query
+          description: Filter by required permissions (comma-separated)
+          schema:
+            type: string
+        - name: sortBy
+          in: query
+          description: Sort extensions by criteria
+          schema:
+            type: string
+            enum: [name, rating, downloads, created, updated]
+            default: name
+        - name: sortOrder
+          in: query
+          description: Sort order
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+        - name: limit
+          in: query
+          description: Maximum number of extensions to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Number of extensions to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: List of extensions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  extensions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Extension'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: Create or upload extension
+      description: Create a new extension or upload from file
+      tags:
+        - Extensions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateExtensionRequest'
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Extension package file
+                name:
+                  type: string
+                  description: Extension name
+                description:
+                  type: string
+                  description: Extension description
+            encoding:
+              file:
+                contentType: application/zip, application/javascript
+      responses:
+        '201':
+          description: Extension created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Extension'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /extensions/{extensionId}:
+    get:
+      summary: Get extension details
+      description: Retrieve detailed information about a specific extension
+      tags:
+        - Extensions
+      parameters:
+        - name: extensionId
+          in: path
+          required: true
+          description: Unique identifier of the extension
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Extension details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Extension'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    patch:
+      summary: Update extension
+      description: Update extension configuration or metadata
+      tags:
+        - Extensions
+      parameters:
+        - name: extensionId
+          in: path
+          required: true
+          description: Unique identifier of the extension
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateExtensionRequest'
+      responses:
+        '200':
+          description: Extension updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Extension'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      summary: Delete extension
+      description: Delete a user-created extension
+      tags:
+        - Extensions
+      parameters:
+        - name: extensionId
+          in: path
+          required: true
+          description: Unique identifier of the extension
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Extension deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /extensions/{extensionId}/install:
+    post:
+      summary: Install extension
+      description: Install an extension for the authenticated user
+      tags:
+        - Extensions
+      parameters:
+        - name: extensionId
+          in: path
+          required: true
+          description: Unique identifier of the extension
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstallExtensionRequest'
+      responses:
+        '200':
+          description: Extension installed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtensionInstallation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /extensions/{extensionId}/uninstall:
+    post:
+      summary: Uninstall extension
+      description: Uninstall an extension for the authenticated user
+      tags:
+        - Extensions
+      parameters:
+        - name: extensionId
+          in: path
+          required: true
+          description: Unique identifier of the extension
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Extension uninstalled successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /extensions/{extensionId}/enable:
+    post:
+      summary: Enable extension
+      description: Enable an installed extension
+      tags:
+        - Extensions
+      parameters:
+        - name: extensionId
+          in: path
+          required: true
+          description: Unique identifier of the extension
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Extension enabled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtensionInstallation'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /extensions/{extensionId}/disable:
+    post:
+      summary: Disable extension
+      description: Disable an installed extension
+      tags:
+        - Extensions
+      parameters:
+        - name: extensionId
+          in: path
+          required: true
+          description: Unique identifier of the extension
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Extension disabled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtensionInstallation'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /extensions/{extensionId}/settings:
+    get:
+      summary: Get extension settings
+      description: Retrieve settings for an installed extension
+      tags:
+        - Extensions
+      parameters:
+        - name: extensionId
+          in: path
+          required: true
+          description: Unique identifier of the extension
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Extension settings
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    patch:
+      summary: Update extension settings
+      description: Update settings for an installed extension
+      tags:
+        - Extensions
+      parameters:
+        - name: extensionId
+          in: path
+          required: true
+          description: Unique identifier of the extension
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Extension settings updated
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    Theme:
+      type: object
+      required:
+        - themeId
+        - name
+        - version
+        - author
+        - isBuiltIn
+        - isPublic
+        - colors
+        - fonts
+        - animations
+        - createdAt
+        - updatedAt
+      properties:
+        themeId:
+          type: string
+          format: uuid
+          description: Unique identifier for the theme
+        name:
+          type: string
+          description: Theme name
+          example: "Dark Ocean"
+        displayName:
+          type: string
+          description: Human-readable display name
+        description:
+          type: string
+          description: Theme description
+          example: "A calming dark theme with ocean colors"
+        version:
+          type: string
+          pattern: '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$'
+          description: Theme version (semver format)
+          example: "1.0.0"
+        author:
+          type: string
+          description: Theme author name
+          example: "John Doe"
+        authorEmail:
+          type: string
+          format: email
+          nullable: true
+          description: Author email address
+        homepage:
+          type: string
+          format: uri
+          nullable: true
+          description: Theme homepage URL
+        license:
+          type: string
+          description: License identifier
+          example: "MIT"
+        isBuiltIn:
+          type: boolean
+          description: Whether theme is built into the system
+        isPublic:
+          type: boolean
+          description: Whether theme can be shared publicly
+        isInstalled:
+          type: boolean
+          description: Whether theme is installed for current user
+        colors:
+          $ref: '#/components/schemas/ColorPalette'
+        fonts:
+          $ref: '#/components/schemas/FontConfiguration'
+        animations:
+          $ref: '#/components/schemas/AnimationSettings'
+        cursor:
+          $ref: '#/components/schemas/CursorConfiguration'
+        background:
+          $ref: '#/components/schemas/BackgroundConfiguration'
+        customCSS:
+          type: string
+          nullable: true
+          description: Custom CSS overrides
+        tags:
+          type: array
+          items:
+            type: string
+          description: Theme tags/categories
+        screenshots:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: Theme screenshot URLs
+        createdAt:
+          type: string
+          format: date-time
+          description: Theme creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+        downloadCount:
+          type: integer
+          description: Number of times downloaded
+        rating:
+          type: number
+          minimum: 0
+          maximum: 5
+          description: Average user rating
+        ratingCount:
+          type: integer
+          description: Number of ratings
+        metadata:
+          type: object
+          description: Additional theme metadata
+          additionalProperties: true
+
+    ColorPalette:
+      type: object
+      required:
+        - background
+        - foreground
+        - cursor
+        - selection
+      properties:
+        background:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          description: Background color
+          example: "#1e1e2e"
+        foreground:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          description: Foreground color
+          example: "#cdd6f4"
+        cursor:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          description: Cursor color
+          example: "#f5e0dc"
+        selection:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$'
+          description: Selection background color
+          example: "#45475a"
+        black:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          example: "#45475a"
+        red:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          example: "#f38ba8"
+        green:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          example: "#a6e3a1"
+        yellow:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          example: "#f9e2af"
+        blue:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          example: "#89b4fa"
+        magenta:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          example: "#cba6fa"
+        cyan:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          example: "#94e2d5"
+        white:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          example: "#bac2de"
+        brightBlack:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          example: "#585b70"
+        brightRed:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          example: "#f38ba8"
+        brightGreen:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          example: "#a6e3a1"
+        brightYellow:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          example: "#f9e2af"
+        brightBlue:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          example: "#89b4fa"
+        brightMagenta:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          example: "#cba6fa"
+        brightCyan:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          example: "#94e2d5"
+        brightWhite:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          example: "#a6adc8"
+
+    FontConfiguration:
+      type: object
+      properties:
+        family:
+          type: string
+          description: Font family name
+          example: "JetBrains Mono"
+        size:
+          type: integer
+          minimum: 8
+          maximum: 32
+          description: Font size in pixels
+          example: 14
+        weight:
+          type: string
+          enum: [normal, bold, 100, 200, 300, 400, 500, 600, 700, 800, 900]
+          description: Font weight
+          default: normal
+        lineHeight:
+          type: number
+          minimum: 1.0
+          maximum: 3.0
+          description: Line height multiplier
+          example: 1.2
+        letterSpacing:
+          type: number
+          description: Letter spacing in pixels
+          example: 0.5
+
+    AnimationSettings:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: Enable animations
+          default: true
+        fadeInText:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+              default: true
+            duration:
+              type: integer
+              minimum: 0
+              maximum: 5000
+              description: Animation duration in milliseconds
+              default: 200
+            easing:
+              type: string
+              enum: [linear, ease, ease-in, ease-out, ease-in-out]
+              default: ease-out
+        cursorBlink:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+              default: true
+            interval:
+              type: integer
+              minimum: 100
+              maximum: 3000
+              description: Blink interval in milliseconds
+              default: 1000
+        typewriterEffect:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+              default: false
+            speed:
+              type: integer
+              minimum: 10
+              maximum: 200
+              description: Typing speed (characters per second)
+              default: 50
+        particleEffects:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+              default: false
+            type:
+              type: string
+              enum: [stars, rain, matrix, snow, bubbles]
+              default: stars
+            density:
+              type: integer
+              minimum: 1
+              maximum: 100
+              description: Particle density percentage
+              default: 10
+
+    CursorConfiguration:
+      type: object
+      properties:
+        style:
+          type: string
+          enum: [block, underline, bar]
+          description: Cursor style
+          default: block
+        blink:
+          type: boolean
+          description: Enable cursor blinking
+          default: true
+        width:
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: Cursor width in pixels (for bar style)
+          default: 2
+
+    BackgroundConfiguration:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [solid, gradient, image, video]
+          description: Background type
+          default: solid
+        gradient:
+          type: object
+          properties:
+            direction:
+              type: string
+              enum: [horizontal, vertical, diagonal]
+              default: vertical
+            colors:
+              type: array
+              items:
+                type: string
+                pattern: '^#[0-9A-Fa-f]{6}$'
+              minItems: 2
+              maxItems: 10
+        image:
+          type: object
+          properties:
+            url:
+              type: string
+              format: uri
+            opacity:
+              type: number
+              minimum: 0
+              maximum: 1
+              default: 0.1
+            repeat:
+              type: string
+              enum: [no-repeat, repeat, repeat-x, repeat-y]
+              default: no-repeat
+            position:
+              type: string
+              enum: [center, top, bottom, left, right]
+              default: center
+
+    Extension:
+      type: object
+      required:
+        - extensionId
+        - name
+        - displayName
+        - description
+        - version
+        - author
+        - license
+        - isBuiltIn
+        - isPublic
+        - permissions
+        - createdAt
+        - updatedAt
+      properties:
+        extensionId:
+          type: string
+          format: uuid
+          description: Unique identifier for the extension
+        name:
+          type: string
+          pattern: '^[a-z0-9-_]+$'
+          description: Extension identifier name
+          example: "git-helper"
+        displayName:
+          type: string
+          description: Human-readable display name
+          example: "Git Helper"
+        description:
+          type: string
+          description: Extension description
+          example: "Advanced git commands and shortcuts"
+        version:
+          type: string
+          pattern: '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$'
+          description: Extension version (semver format)
+          example: "1.2.3"
+        author:
+          type: string
+          description: Extension author name
+        authorEmail:
+          type: string
+          format: email
+          nullable: true
+          description: Author email address
+        homepage:
+          type: string
+          format: uri
+          nullable: true
+          description: Extension homepage URL
+        repository:
+          type: string
+          format: uri
+          nullable: true
+          description: Source code repository URL
+        license:
+          type: string
+          description: License identifier
+          example: "MIT"
+        isBuiltIn:
+          type: boolean
+          description: Whether extension is built into the system
+        isPublic:
+          type: boolean
+          description: Whether extension can be shared publicly
+        isInstalled:
+          type: boolean
+          description: Whether extension is installed for current user
+        isEnabled:
+          type: boolean
+          description: Whether extension is enabled for current user
+        commands:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExtensionCommand'
+          description: Commands provided by extension
+        permissions:
+          type: array
+          items:
+            type: string
+            enum: [filesystem.read, filesystem.write, network.http, terminal.input, terminal.output, ai.query]
+          description: Required permissions
+        dependencies:
+          type: array
+          items:
+            type: string
+          description: Required dependencies
+        keywords:
+          type: array
+          items:
+            type: string
+          description: Keywords for discovery
+        category:
+          type: string
+          enum: [productivity, development, themes, utilities, games]
+          description: Extension category
+        icon:
+          type: string
+          format: uri
+          nullable: true
+          description: Extension icon URL
+        screenshots:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: Screenshot URLs
+        createdAt:
+          type: string
+          format: date-time
+          description: Extension creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+        downloadCount:
+          type: integer
+          description: Number of times downloaded
+        rating:
+          type: number
+          minimum: 0
+          maximum: 5
+          description: Average user rating
+        ratingCount:
+          type: integer
+          description: Number of ratings
+        fileSize:
+          type: integer
+          description: Extension package size in bytes
+        checksum:
+          type: string
+          description: Package checksum for integrity verification
+        manifest:
+          type: object
+          description: Extension manifest data
+          additionalProperties: true
+        metadata:
+          type: object
+          description: Additional extension metadata
+          additionalProperties: true
+
+    ExtensionCommand:
+      type: object
+      required:
+        - name
+        - description
+        - usage
+      properties:
+        name:
+          type: string
+          description: Command name
+          example: "git-status"
+        description:
+          type: string
+          description: Command description
+          example: "Show enhanced git status with colors"
+        usage:
+          type: string
+          description: Usage syntax
+          example: "git-status [options]"
+        category:
+          type: string
+          description: Command category
+          example: "git"
+        parameters:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommandParameter'
+          description: Command parameters
+        examples:
+          type: array
+          items:
+            type: string
+          description: Usage examples
+          example: ["git-status", "git-status --verbose"]
+        aliases:
+          type: array
+          items:
+            type: string
+          description: Command aliases
+        hidden:
+          type: boolean
+          description: Hide from help/autocomplete
+          default: false
+
+    CommandParameter:
+      type: object
+      required:
+        - name
+        - description
+        - type
+        - required
+      properties:
+        name:
+          type: string
+          description: Parameter name
+          example: "--verbose"
+        description:
+          type: string
+          description: Parameter description
+          example: "Show detailed output"
+        type:
+          type: string
+          enum: [string, number, boolean, file, directory, choice]
+          description: Parameter type
+        required:
+          type: boolean
+          description: Whether parameter is required
+        default:
+          description: Default value
+        choices:
+          type: array
+          items:
+            type: string
+          description: Valid choices (for choice type)
+        pattern:
+          type: string
+          description: Validation regex pattern
+
+    ExtensionInstallation:
+      type: object
+      required:
+        - extensionId
+        - userId
+        - installedAt
+        - enabled
+        - version
+      properties:
+        extensionId:
+          type: string
+          format: uuid
+          description: Extension identifier
+        userId:
+          type: string
+          format: uuid
+          description: User identifier
+        installedAt:
+          type: string
+          format: date-time
+          description: Installation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+        enabled:
+          type: boolean
+          description: Whether extension is enabled
+        version:
+          type: string
+          description: Installed version
+        settings:
+          type: object
+          description: User-specific settings
+          additionalProperties: true
+        permissions:
+          type: array
+          items:
+            type: string
+          description: Granted permissions
+
+    CreateThemeRequest:
+      type: object
+      required:
+        - name
+        - colors
+      properties:
+        name:
+          type: string
+          description: Theme name
+        displayName:
+          type: string
+          description: Human-readable display name
+        description:
+          type: string
+          description: Theme description
+        colors:
+          $ref: '#/components/schemas/ColorPalette'
+        fonts:
+          $ref: '#/components/schemas/FontConfiguration'
+        animations:
+          $ref: '#/components/schemas/AnimationSettings'
+        cursor:
+          $ref: '#/components/schemas/CursorConfiguration'
+        background:
+          $ref: '#/components/schemas/BackgroundConfiguration'
+        customCSS:
+          type: string
+          description: Custom CSS overrides
+        tags:
+          type: array
+          items:
+            type: string
+          description: Theme tags
+        isPublic:
+          type: boolean
+          description: Make theme publicly available
+          default: false
+        license:
+          type: string
+          description: License identifier
+          default: "MIT"
+
+    UpdateThemeRequest:
+      type: object
+      properties:
+        displayName:
+          type: string
+        description:
+          type: string
+        colors:
+          $ref: '#/components/schemas/ColorPalette'
+        fonts:
+          $ref: '#/components/schemas/FontConfiguration'
+        animations:
+          $ref: '#/components/schemas/AnimationSettings'
+        cursor:
+          $ref: '#/components/schemas/CursorConfiguration'
+        background:
+          $ref: '#/components/schemas/BackgroundConfiguration'
+        customCSS:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        isPublic:
+          type: boolean
+
+    CreateExtensionRequest:
+      type: object
+      required:
+        - name
+        - displayName
+        - description
+        - version
+        - code
+        - permissions
+      properties:
+        name:
+          type: string
+          pattern: '^[a-z0-9-_]+$'
+          description: Extension identifier name
+        displayName:
+          type: string
+          description: Human-readable display name
+        description:
+          type: string
+          description: Extension description
+        version:
+          type: string
+          pattern: '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$'
+          description: Extension version
+        code:
+          type: string
+          description: Extension JavaScript code
+        permissions:
+          type: array
+          items:
+            type: string
+            enum: [filesystem.read, filesystem.write, network.http, terminal.input, terminal.output, ai.query]
+          description: Required permissions
+        commands:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExtensionCommand'
+        dependencies:
+          type: array
+          items:
+            type: string
+        keywords:
+          type: array
+          items:
+            type: string
+        category:
+          type: string
+          enum: [productivity, development, themes, utilities, games]
+        homepage:
+          type: string
+          format: uri
+        repository:
+          type: string
+          format: uri
+        license:
+          type: string
+          default: "MIT"
+        isPublic:
+          type: boolean
+          default: false
+
+    UpdateExtensionRequest:
+      type: object
+      properties:
+        displayName:
+          type: string
+        description:
+          type: string
+        version:
+          type: string
+          pattern: '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$'
+        code:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        commands:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExtensionCommand'
+        keywords:
+          type: array
+          items:
+            type: string
+        category:
+          type: string
+        homepage:
+          type: string
+          format: uri
+        repository:
+          type: string
+          format: uri
+        isPublic:
+          type: boolean
+
+    InstallExtensionRequest:
+      type: object
+      properties:
+        permissions:
+          type: array
+          items:
+            type: string
+          description: Grant specific permissions (subset of required)
+        settings:
+          type: object
+          description: Initial extension settings
+          additionalProperties: true
+        enabled:
+          type: boolean
+          description: Enable extension after installation
+          default: true
+
+    ThemeExport:
+      type: object
+      required:
+        - name
+        - version
+        - author
+        - colors
+      properties:
+        name:
+          type: string
+        displayName:
+          type: string
+        description:
+          type: string
+        version:
+          type: string
+        author:
+          type: string
+        license:
+          type: string
+        colors:
+          $ref: '#/components/schemas/ColorPalette'
+        fonts:
+          $ref: '#/components/schemas/FontConfiguration'
+        animations:
+          $ref: '#/components/schemas/AnimationSettings'
+        cursor:
+          $ref: '#/components/schemas/CursorConfiguration'
+        background:
+          $ref: '#/components/schemas/BackgroundConfiguration'
+        customCSS:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        exportedAt:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          description: Additional error details
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+          description: Error timestamp
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "PERMISSION_DENIED"
+            message: "Cannot modify built-in themes"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "ALREADY_EXISTS"
+            message: "Theme with this name already exists"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Themes
+    description: Operations for managing terminal themes
+  - name: Extensions
+    description: Operations for managing terminal extensions
