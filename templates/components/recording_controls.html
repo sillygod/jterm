@@ -1,0 +1,738 @@
+<!-- Session Recording Controls Component - Record, playback, and export terminal sessions -->
+
+<div class="recording-controls" id="recording-controls-{{ session_id }}">
+    <!-- Recording Status Bar -->
+    <div class="recording-status-bar" id="recording-status">
+        <div class="status-indicator {{ recording_status }}" data-status="{{ recording_status }}">
+            <span class="status-dot"></span>
+            <span class="status-text">
+                {% if recording_status == 'recording' %}
+                    Recording...
+                {% elif recording_status == 'paused' %}
+                    Paused
+                {% elif recording_status == 'stopped' %}
+                    Stopped
+                {% else %}
+                    Not Recording
+                {% endif %}
+            </span>
+        </div>
+        <div class="recording-info">
+            <span class="recording-duration" id="recording-duration">00:00:00</span>
+            <span class="recording-size" id="recording-size">0 KB</span>
+            <span class="recording-events" id="recording-events">0 events</span>
+        </div>
+    </div>
+
+    <!-- Recording Controls -->
+    <div class="controls-panel">
+        <!-- Record Section -->
+        <div class="control-group record-group">
+            <h4 class="control-group-title">Record</h4>
+            <div class="button-group">
+                <button class="btn btn-primary btn-record"
+                        hx-post="/api/recordings/{{ session_id }}/start"
+                        hx-target="#recording-status"
+                        hx-swap="outerHTML"
+                        _="on htmx:afterRequest
+                           if detail.successful
+                             then add .recording to #recording-controls-{{ session_id }}
+                                  call startRecordingTimer()"
+                        title="Start Recording"
+                        data-action="start">
+                    <span class="icon">⏺</span>
+                    <span>Start</span>
+                </button>
+                <button class="btn btn-pause disabled"
+                        hx-post="/api/recordings/{{ session_id }}/pause"
+                        hx-target="#recording-status"
+                        hx-swap="outerHTML"
+                        _="on htmx:afterRequest
+                           if detail.successful
+                             then toggle .recording on #recording-controls-{{ session_id }}
+                                  toggle .paused on #recording-controls-{{ session_id }}
+                                  call pauseRecordingTimer()"
+                        title="Pause Recording"
+                        data-action="pause"
+                        disabled>
+                    <span class="icon">⏸</span>
+                    <span>Pause</span>
+                </button>
+                <button class="btn btn-danger btn-stop disabled"
+                        hx-post="/api/recordings/{{ session_id }}/stop"
+                        hx-target="#recording-status"
+                        hx-swap="outerHTML"
+                        _="on htmx:afterRequest
+                           if detail.successful
+                             then remove .recording from #recording-controls-{{ session_id }}
+                                  remove .paused from #recording-controls-{{ session_id }}
+                                  call stopRecordingTimer()
+                                  add .has-recording to #recording-controls-{{ session_id }}"
+                        title="Stop Recording"
+                        data-action="stop"
+                        disabled>
+                    <span class="icon">⏹</span>
+                    <span>Stop</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Playback Section -->
+        <div class="control-group playback-group">
+            <h4 class="control-group-title">Playback</h4>
+            <div class="playback-controls">
+                <button class="btn btn-icon"
+                        _="on click call playRecording('{{ session_id }}')"
+                        title="Play Recording"
+                        data-action="play">
+                    <span class="icon">▶️</span>
+                </button>
+                <button class="btn btn-icon"
+                        _="on click call pausePlayback()"
+                        title="Pause Playback"
+                        data-action="pause-playback">
+                    <span class="icon">⏸</span>
+                </button>
+                <button class="btn btn-icon"
+                        _="on click call stopPlayback()"
+                        title="Stop Playback"
+                        data-action="stop-playback">
+                    <span class="icon">⏹</span>
+                </button>
+                <button class="btn btn-icon"
+                        _="on click call seekBackward(10)"
+                        title="Seek -10s">
+                    <span class="icon">⏪</span>
+                </button>
+                <button class="btn btn-icon"
+                        _="on click call seekForward(10)"
+                        title="Seek +10s">
+                    <span class="icon">⏩</span>
+                </button>
+            </div>
+
+            <!-- Playback Timeline -->
+            <div class="playback-timeline">
+                <input type="range"
+                       id="playback-seek-{{ session_id }}"
+                       class="timeline-slider"
+                       min="0"
+                       max="100"
+                       value="0"
+                       _="on input call seekToPosition(me.value)">
+                <div class="timeline-labels">
+                    <span class="timeline-current">00:00</span>
+                    <span class="timeline-duration">{{ duration or '00:00' }}</span>
+                </div>
+            </div>
+
+            <!-- Playback Speed -->
+            <div class="playback-speed">
+                <label class="speed-label">Speed:</label>
+                <div class="speed-buttons">
+                    <button class="btn btn-sm speed-btn"
+                            _="on click call setPlaybackSpeed(0.5)"
+                            data-speed="0.5">
+                        0.5x
+                    </button>
+                    <button class="btn btn-sm speed-btn active"
+                            _="on click call setPlaybackSpeed(1)"
+                            data-speed="1">
+                        1x
+                    </button>
+                    <button class="btn btn-sm speed-btn"
+                            _="on click call setPlaybackSpeed(1.5)"
+                            data-speed="1.5">
+                        1.5x
+                    </button>
+                    <button class="btn btn-sm speed-btn"
+                            _="on click call setPlaybackSpeed(2)"
+                            data-speed="2">
+                        2x
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export Section -->
+        <div class="control-group export-group">
+            <h4 class="control-group-title">Export</h4>
+            <div class="export-options">
+                <button class="btn btn-sm btn-export"
+                        hx-post="/api/recordings/{{ session_id }}/export"
+                        hx-vals='{"format": "json"}'
+                        hx-trigger="click"
+                        title="Export as JSON">
+                    <span class="icon">📄</span>
+                    JSON
+                </button>
+                <button class="btn btn-sm btn-export"
+                        hx-post="/api/recordings/{{ session_id }}/export"
+                        hx-vals='{"format": "txt"}'
+                        hx-trigger="click"
+                        title="Export as Text">
+                    <span class="icon">📝</span>
+                    TXT
+                </button>
+                <button class="btn btn-sm btn-export"
+                        hx-post="/api/recordings/{{ session_id }}/export"
+                        hx-vals='{"format": "gif"}'
+                        hx-trigger="click"
+                        title="Export as GIF">
+                    <span class="icon">🎞️</span>
+                    GIF
+                </button>
+                <button class="btn btn-sm btn-export"
+                        hx-post="/api/recordings/{{ session_id }}/export"
+                        hx-vals='{"format": "mp4"}'
+                        hx-trigger="click"
+                        title="Export as MP4 Video">
+                    <span class="icon">🎬</span>
+                    MP4
+                </button>
+            </div>
+        </div>
+
+        <!-- Recording Statistics -->
+        <div class="control-group stats-group">
+            <h4 class="control-group-title">Statistics</h4>
+            <div class="recording-stats">
+                <div class="stat-item">
+                    <span class="stat-label">Duration:</span>
+                    <span class="stat-value" id="stat-duration">{{ duration or '00:00:00' }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Events:</span>
+                    <span class="stat-value" id="stat-events">{{ event_count or 0 }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Size:</span>
+                    <span class="stat-value" id="stat-size">{{ file_size or '0 KB' }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Overhead:</span>
+                    <span class="stat-value" id="stat-overhead">{{ overhead or '<5%' }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Created:</span>
+                    <span class="stat-value" id="stat-created">{{ created_at or 'N/A' }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recording List (Recent Recordings) -->
+    <div class="recordings-list" id="recordings-list">
+        <div class="list-header">
+            <h4>Recent Recordings</h4>
+            <button class="btn btn-icon btn-sm"
+                    hx-get="/api/recordings/{{ session_id }}"
+                    hx-target="#recordings-list-content"
+                    hx-swap="innerHTML"
+                    title="Refresh">
+                <span class="icon">↻</span>
+            </button>
+        </div>
+        <div class="recordings-list-content"
+             id="recordings-list-content"
+             hx-get="/api/recordings/{{ session_id }}"
+             hx-trigger="load"
+             hx-swap="innerHTML">
+            <!-- Recordings loaded via HTMX -->
+            <div class="loading-spinner">Loading recordings...</div>
+        </div>
+    </div>
+</div>
+
+<!-- Recording List Item Template -->
+<div class="recording-item" data-recording-id="{{ recording_id }}">
+    <div class="recording-item-info">
+        <span class="recording-icon">📹</span>
+        <div class="recording-details">
+            <div class="recording-name">{{ recording_name or 'Recording ' + recording_id[:8] }}</div>
+            <div class="recording-meta">
+                {{ duration }} • {{ file_size }} • {{ created_at }}
+            </div>
+        </div>
+    </div>
+    <div class="recording-item-actions">
+        <button class="btn btn-icon btn-sm"
+                _="on click call playRecording('{{ recording_id }}')"
+                title="Play">
+            <span class="icon">▶️</span>
+        </button>
+        <button class="btn btn-icon btn-sm"
+                hx-get="/api/recordings/{{ recording_id }}/download"
+                title="Download">
+            <span class="icon">⬇️</span>
+        </button>
+        <button class="btn btn-icon btn-sm"
+                hx-delete="/api/recordings/{{ recording_id }}"
+                hx-confirm="Delete this recording?"
+                hx-target=".recording-item[data-recording-id='{{ recording_id }}']"
+                hx-swap="outerHTML"
+                title="Delete">
+            <span class="icon">🗑️</span>
+        </button>
+    </div>
+</div>
+
+<style>
+/* Recording Controls Styles */
+.recording-controls {
+    display: flex;
+    flex-direction: column;
+    background: var(--secondary-bg);
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+/* Status Bar */
+.recording-status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: var(--accent-bg);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+}
+
+.status-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--secondary-text);
+    animation: none;
+}
+
+.status-indicator.recording .status-dot {
+    background: #f44336;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.status-indicator.paused .status-dot {
+    background: #ff9800;
+}
+
+.status-indicator.stopped .status-dot {
+    background: #4caf50;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.2); }
+}
+
+.recording-info {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.875rem;
+    color: var(--secondary-text);
+}
+
+.recording-info > span {
+    font-family: var(--font-mono);
+}
+
+/* Controls Panel */
+.controls-panel {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.control-group-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--secondary-text);
+    margin: 0;
+}
+
+/* Record Group */
+.button-group {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-record {
+    flex: 1;
+}
+
+.btn-pause,
+.btn-stop {
+    flex: 1;
+}
+
+.recording-controls.recording .btn-record {
+    display: none;
+}
+
+.recording-controls.recording .btn-pause,
+.recording-controls.recording .btn-stop {
+    display: flex;
+}
+
+.recording-controls:not(.recording) .btn-pause,
+.recording-controls:not(.recording) .btn-stop {
+    display: none;
+}
+
+/* Playback Controls */
+.playback-controls {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+/* Playback Timeline */
+.playback-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.timeline-slider {
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    background: var(--accent-bg);
+    outline: none;
+    appearance: none;
+}
+
+.timeline-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent-text);
+    cursor: pointer;
+}
+
+.timeline-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent-text);
+    cursor: pointer;
+    border: none;
+}
+
+.timeline-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    color: var(--secondary-text);
+}
+
+/* Playback Speed */
+.playback-speed {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.speed-label {
+    font-size: 0.875rem;
+    color: var(--secondary-text);
+    font-weight: 500;
+}
+
+.speed-buttons {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.speed-btn {
+    opacity: 0.6;
+    transition: all var(--animation-fast);
+}
+
+.speed-btn.active {
+    opacity: 1;
+    background: var(--accent-text);
+    color: var(--primary-bg);
+    font-weight: 600;
+}
+
+/* Export Options */
+.export-options {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+}
+
+.btn-export {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.75rem 0.5rem;
+    text-align: center;
+}
+
+.btn-export .icon {
+    font-size: 1.5rem;
+}
+
+/* Recording Statistics */
+.recording-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--secondary-text);
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+.stat-value {
+    font-size: 1rem;
+    font-family: var(--font-mono);
+    font-weight: 600;
+}
+
+/* Recordings List */
+.recordings-list {
+    border-top: 1px solid var(--border-color);
+    background: var(--accent-bg);
+}
+
+.list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.list-header h4 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--secondary-text);
+    margin: 0;
+}
+
+.recordings-list-content {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* Recording Item */
+.recording-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    transition: background var(--animation-fast);
+}
+
+.recording-item:hover {
+    background: var(--secondary-bg);
+}
+
+.recording-item-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.recording-icon {
+    font-size: 1.5rem;
+}
+
+.recording-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.recording-name {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.recording-meta {
+    font-size: 0.75rem;
+    color: var(--secondary-text);
+    font-family: var(--font-mono);
+}
+
+.recording-item-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+/* Loading State */
+.loading-spinner {
+    text-align: center;
+    padding: 2rem;
+    color: var(--secondary-text);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .recording-info {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .export-options {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .recording-stats {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<script>
+// Recording Controls JavaScript
+(function() {
+    let recordingTimer = null;
+    let recordingStartTime = null;
+    let playbackState = {
+        playing: false,
+        speed: 1.0,
+        position: 0,
+        duration: 0
+    };
+
+    // Start recording timer
+    window.startRecordingTimer = function() {
+        recordingStartTime = Date.now();
+        recordingTimer = setInterval(updateRecordingDuration, 1000);
+    };
+
+    // Pause recording timer
+    window.pauseRecordingTimer = function() {
+        if (recordingTimer) {
+            clearInterval(recordingTimer);
+            recordingTimer = null;
+        }
+    };
+
+    // Stop recording timer
+    window.stopRecordingTimer = function() {
+        pauseRecordingTimer();
+        recordingStartTime = null;
+    };
+
+    // Update recording duration display
+    function updateRecordingDuration() {
+        if (!recordingStartTime) return;
+
+        const elapsed = Date.now() - recordingStartTime;
+        const hours = Math.floor(elapsed / 3600000);
+        const minutes = Math.floor((elapsed % 3600000) / 60000);
+        const seconds = Math.floor((elapsed % 60000) / 1000);
+
+        const formatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+        const durationElement = document.getElementById('recording-duration');
+        if (durationElement) {
+            durationElement.textContent = formatted;
+        }
+    }
+
+    // Play recording
+    window.playRecording = async function(recordingId) {
+        try {
+            const response = await fetch(`/api/recordings/${recordingId}/play`);
+            if (!response.ok) throw new Error('Failed to load recording');
+
+            const recording = await response.json();
+            playbackState.playing = true;
+            playbackState.duration = recording.duration;
+            playbackState.position = 0;
+
+            console.log('Playing recording:', recordingId);
+            // Terminal playback logic would go here
+        } catch (error) {
+            console.error('Playback error:', error);
+        }
+    };
+
+    // Pause playback
+    window.pausePlayback = function() {
+        playbackState.playing = false;
+        console.log('Playback paused');
+    };
+
+    // Stop playback
+    window.stopPlayback = function() {
+        playbackState.playing = false;
+        playbackState.position = 0;
+        console.log('Playback stopped');
+    };
+
+    // Seek forward/backward
+    window.seekForward = function(seconds) {
+        playbackState.position = Math.min(playbackState.position + seconds, playbackState.duration);
+        console.log('Seek forward:', seconds);
+    };
+
+    window.seekBackward = function(seconds) {
+        playbackState.position = Math.max(playbackState.position - seconds, 0);
+        console.log('Seek backward:', seconds);
+    };
+
+    // Seek to specific position
+    window.seekToPosition = function(percentage) {
+        playbackState.position = (percentage / 100) * playbackState.duration;
+        console.log('Seek to position:', percentage + '%');
+    };
+
+    // Set playback speed
+    window.setPlaybackSpeed = function(speed) {
+        playbackState.speed = speed;
+
+        // Update active button
+        document.querySelectorAll('.speed-btn').forEach(btn => {
+            if (parseFloat(btn.getAttribute('data-speed')) === speed) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        console.log('Playback speed:', speed + 'x');
+    };
+
+    // Initialize on load
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('Recording controls initialized');
+    });
+})();
+</script>

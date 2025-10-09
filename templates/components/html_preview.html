@@ -1,0 +1,450 @@
+<!-- HTML Preview Component - Sandboxed iframe with security controls -->
+
+<div class="html-preview-container" id="html-preview-{{ preview_id }}">
+    <div class="preview-header">
+        <div class="preview-info">
+            <span class="icon">🌐</span>
+            <span class="preview-title">{{ file_name }}</span>
+            <span class="preview-meta">{{ file_size }}</span>
+        </div>
+        <div class="preview-controls">
+            <button class="btn btn-icon security-toggle"
+                    _="on click toggle .security-warning-visible on #html-preview-{{ preview_id }}"
+                    title="Security Information">
+                <span class="icon">🔒</span>
+            </button>
+            <button class="btn btn-icon"
+                    _="on click toggle .js-enabled on #preview-iframe-{{ preview_id }}
+                       then if #preview-iframe-{{ preview_id }}.classList.contains('js-enabled')
+                         then set my textContent to '🟢 JS'
+                       else set my textContent to '🔴 JS'"
+                    title="Toggle JavaScript">
+                <span class="icon">🔴 JS</span>
+            </button>
+            <button class="btn btn-icon"
+                    hx-get="/api/media/export/{{ preview_id }}"
+                    hx-vals='{"format": "html"}'
+                    title="Download HTML">
+                <span class="icon">⬇️</span>
+            </button>
+            <button class="btn btn-icon fullscreen-btn"
+                    _="on click toggle .fullscreen on #html-preview-{{ preview_id }}"
+                    title="Fullscreen">
+                <span class="icon">⛶</span>
+            </button>
+            <button class="btn btn-icon close-btn"
+                    _="on click remove #html-preview-{{ preview_id }}"
+                    title="Close">
+                <span class="icon">✕</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Security Warning Banner -->
+    <div class="security-warning" id="security-warning">
+        <div class="warning-content">
+            <div class="warning-icon">⚠️</div>
+            <div class="warning-text">
+                <h4>Sandboxed HTML Preview</h4>
+                <p>This HTML file is displayed in a sandboxed iframe with the following restrictions:</p>
+                <ul class="security-features">
+                    <li><strong>No JavaScript execution</strong> by default (can be enabled)</li>
+                    <li><strong>No form submission</strong> to external sites</li>
+                    <li><strong>No top-level navigation</strong> or pop-ups</li>
+                    <li><strong>No access to cookies</strong> or local storage</li>
+                    <li><strong>Same-origin policy</strong> enforced</li>
+                    <li><strong>Content Security Policy</strong> active</li>
+                </ul>
+                <div class="warning-actions">
+                    <button class="btn btn-sm btn-primary"
+                            _="on click remove .security-warning-visible from #html-preview-{{ preview_id }}">
+                        I Understand
+                    </button>
+                    <a href="/docs/security" class="btn btn-sm" target="_blank">Learn More</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HTML Preview Iframe -->
+    <div class="preview-content">
+        <iframe id="preview-iframe-{{ preview_id }}"
+                class="html-preview-iframe"
+                src="/api/media/serve/{{ preview_id }}"
+                sandbox="allow-same-origin"
+                referrerpolicy="no-referrer"
+                loading="lazy"
+                title="HTML Preview: {{ file_name }}"
+                _="on load log 'HTML preview loaded'
+                   on error log 'HTML preview failed to load'">
+            <p>Your browser does not support iframes.
+               <a href="/api/media/download/{{ preview_id }}">Download the HTML file</a> instead.
+            </p>
+        </iframe>
+    </div>
+
+    <!-- Preview Footer with Controls -->
+    <div class="preview-footer">
+        <div class="viewport-controls">
+            <span class="control-label">Viewport:</span>
+            <button class="btn btn-sm viewport-btn"
+                    _="on click
+                       set #preview-iframe-{{ preview_id }}'s style.width to '375px'
+                       set #preview-iframe-{{ preview_id }}'s style.height to '667px'
+                       set #preview-iframe-{{ preview_id }}'s style.margin to '0 auto'
+                       add .active to me
+                       remove .active from .viewport-btn in #html-preview-{{ preview_id }} except me">
+                📱 Mobile
+            </button>
+            <button class="btn btn-sm viewport-btn"
+                    _="on click
+                       set #preview-iframe-{{ preview_id }}'s style.width to '768px'
+                       set #preview-iframe-{{ preview_id }}'s style.height to '1024px'
+                       set #preview-iframe-{{ preview_id }}'s style.margin to '0 auto'
+                       add .active to me
+                       remove .active from .viewport-btn in #html-preview-{{ preview_id }} except me">
+                📱 Tablet
+            </button>
+            <button class="btn btn-sm viewport-btn active"
+                    _="on click
+                       set #preview-iframe-{{ preview_id }}'s style.width to '100%'
+                       set #preview-iframe-{{ preview_id }}'s style.height to '100%'
+                       set #preview-iframe-{{ preview_id }}'s style.margin to '0'
+                       add .active to me
+                       remove .active from .viewport-btn in #html-preview-{{ preview_id }} except me">
+                💻 Desktop
+            </button>
+        </div>
+        <div class="preview-actions">
+            <button class="btn btn-sm"
+                    _="on click send location.reload() to #preview-iframe-{{ preview_id }}"
+                    title="Reload Preview">
+                ↻ Reload
+            </button>
+            <button class="btn btn-sm"
+                    hx-get="/api/media/inspect/{{ preview_id }}"
+                    hx-target="#secondary-pane-content"
+                    hx-swap="innerHTML"
+                    title="Inspect HTML">
+                🔍 Inspect
+            </button>
+            <button class="btn btn-sm btn-danger"
+                    hx-delete="/api/media/{{ preview_id }}"
+                    hx-confirm="Delete this HTML file?"
+                    hx-target="#html-preview-{{ preview_id }}"
+                    hx-swap="outerHTML">
+                Delete
+            </button>
+        </div>
+    </div>
+
+    <!-- CSP Violation Report Display -->
+    <div class="csp-violations hidden" id="csp-violations">
+        <div class="violations-header">
+            <h4>Security Violations Detected</h4>
+            <button class="btn btn-icon btn-sm"
+                    _="on click add .hidden to #csp-violations">
+                <span class="icon">✕</span>
+            </button>
+        </div>
+        <ul class="violations-list" id="violations-list">
+            <!-- Violations populated via JavaScript -->
+        </ul>
+    </div>
+</div>
+
+<style>
+/* HTML Preview Styles */
+.html-preview-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--secondary-bg);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 4px 12px var(--shadow);
+}
+
+.html-preview-container.fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 0;
+    z-index: 1000;
+}
+
+.preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: var(--accent-bg);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.preview-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.preview-title {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.preview-meta {
+    font-size: 0.875rem;
+    color: var(--secondary-text);
+}
+
+.preview-controls {
+    display: flex;
+    gap: 0.25rem;
+}
+
+/* Security Warning */
+.security-warning {
+    display: none;
+    background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+    padding: 1.5rem;
+    color: #000;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.html-preview-container.security-warning-visible .security-warning {
+    display: block;
+}
+
+.warning-content {
+    display: flex;
+    gap: 1rem;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.warning-icon {
+    font-size: 3rem;
+    line-height: 1;
+}
+
+.warning-text h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+.warning-text p {
+    margin: 0 0 0.75rem 0;
+    line-height: 1.5;
+}
+
+.security-features {
+    margin: 0.75rem 0;
+    padding-left: 1.5rem;
+    list-style: disc;
+}
+
+.security-features li {
+    margin-bottom: 0.25rem;
+}
+
+.security-features strong {
+    font-weight: 600;
+}
+
+.warning-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+/* Preview Content */
+.preview-content {
+    flex: 1;
+    display: flex;
+    background: var(--terminal-bg);
+    overflow: hidden;
+    position: relative;
+}
+
+.html-preview-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: #fff;
+    transition: all var(--animation-normal);
+}
+
+/* JavaScript Enabled State */
+.html-preview-iframe.js-enabled {
+    border: 2px solid #4caf50;
+}
+
+/* Preview Footer */
+.preview-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: var(--accent-bg);
+    border-top: 1px solid var(--border-color);
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.viewport-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.control-label {
+    font-size: 0.875rem;
+    color: var(--secondary-text);
+    font-weight: 500;
+}
+
+.viewport-btn {
+    opacity: 0.7;
+    transition: all var(--animation-fast);
+}
+
+.viewport-btn.active {
+    opacity: 1;
+    background: var(--accent-text);
+    color: var(--primary-bg);
+    font-weight: 600;
+}
+
+.viewport-btn:hover {
+    opacity: 1;
+}
+
+.preview-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* CSP Violations */
+.csp-violations {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-height: 200px;
+    background: rgba(244, 67, 54, 0.95);
+    color: #fff;
+    overflow-y: auto;
+    padding: 1rem;
+    box-shadow: 0 -4px 8px var(--shadow);
+}
+
+.csp-violations.hidden {
+    display: none;
+}
+
+.violations-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.violations-header h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.violations-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.violations-list li {
+    padding: 0.5rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 0.25rem;
+    margin-bottom: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+}
+
+/* Security Toggle Active State */
+.security-toggle.active {
+    color: #ffc107;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .preview-footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .viewport-controls,
+    .preview-actions {
+        width: 100%;
+        justify-content: center;
+    }
+}
+</style>
+
+<script>
+// HTML Preview Security Manager
+(function() {
+    // Track CSP violations
+    document.addEventListener('securitypolicyviolation', (e) => {
+        console.warn('CSP Violation:', e);
+
+        const violationsList = document.getElementById('violations-list');
+        const cspViolations = document.getElementById('csp-violations');
+
+        if (violationsList && cspViolations) {
+            const li = document.createElement('li');
+            li.textContent = `${e.violatedDirective}: ${e.blockedURI}`;
+            violationsList.appendChild(li);
+            cspViolations.classList.remove('hidden');
+        }
+    });
+
+    // Monitor iframe security state
+    window.monitorIframeSecurity = function(iframeId) {
+        const iframe = document.getElementById(iframeId);
+        if (!iframe) return;
+
+        // Check if JavaScript is enabled
+        iframe.addEventListener('load', () => {
+            try {
+                const iframeWindow = iframe.contentWindow;
+                const hasJS = iframe.classList.contains('js-enabled');
+
+                if (hasJS) {
+                    // Update sandbox attribute to allow scripts
+                    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
+                } else {
+                    // Restrict scripts
+                    iframe.setAttribute('sandbox', 'allow-same-origin');
+                }
+
+                console.log(`Iframe ${iframeId} loaded with JS ${hasJS ? 'enabled' : 'disabled'}`);
+            } catch (error) {
+                console.warn('Cannot access iframe content:', error);
+            }
+        });
+    };
+
+    // Initialize security monitoring for all preview iframes
+    document.querySelectorAll('.html-preview-iframe').forEach(iframe => {
+        monitorIframeSecurity(iframe.id);
+    });
+})();
+</script>

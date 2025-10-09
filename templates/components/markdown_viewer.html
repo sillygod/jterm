@@ -1,0 +1,533 @@
+<!-- Markdown Viewer Component - Split-pane markdown rendering with live preview -->
+
+<div class="markdown-viewer" id="markdown-viewer-{{ file_id }}">
+    <div class="markdown-header">
+        <div class="markdown-info">
+            <span class="icon">📝</span>
+            <span class="markdown-title">{{ file_name }}</span>
+            <span class="markdown-meta">{{ word_count }} words • {{ read_time }} min read</span>
+        </div>
+        <div class="markdown-controls">
+            <button class="btn btn-icon"
+                    _="on click toggle .edit-mode on #markdown-viewer-{{ file_id }}"
+                    title="Toggle Edit Mode">
+                <span class="icon">✏️</span>
+            </button>
+            <button class="btn btn-icon"
+                    _="on click toggle .toc-visible on #markdown-viewer-{{ file_id }}"
+                    title="Toggle Table of Contents">
+                <span class="icon">📑</span>
+            </button>
+            <button class="btn btn-icon"
+                    hx-get="/api/media/export/{{ file_id }}"
+                    hx-vals='{"format": "html"}'
+                    title="Export as HTML">
+                <span class="icon">📄</span>
+            </button>
+            <button class="btn btn-icon"
+                    _="on click send print() to window"
+                    title="Print">
+                <span class="icon">🖨️</span>
+            </button>
+            <button class="btn btn-icon close-btn"
+                    _="on click remove #markdown-viewer-{{ file_id }}"
+                    title="Close">
+                <span class="icon">✕</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="markdown-container">
+        <!-- Table of Contents Sidebar -->
+        <div class="markdown-toc" id="markdown-toc">
+            <div class="toc-header">
+                <h4>Table of Contents</h4>
+                <button class="btn btn-icon btn-sm"
+                        _="on click toggle .toc-visible on #markdown-viewer-{{ file_id }}">
+                    <span class="icon">✕</span>
+                </button>
+            </div>
+            <nav class="toc-nav">
+                <!-- TOC items generated from headings -->
+                {% for heading in table_of_contents %}
+                <a href="#heading-{{ loop.index }}"
+                   class="toc-link toc-level-{{ heading.level }}"
+                   _="on click
+                      remove .active from .toc-link
+                      add .active to me
+                      send scrollIntoView() to #heading-{{ loop.index }}">
+                    {{ heading.text }}
+                </a>
+                {% endfor %}
+            </nav>
+        </div>
+
+        <!-- Markdown Content -->
+        <div class="markdown-content" id="markdown-content-{{ file_id }}">
+            <!-- Rendered markdown HTML -->
+            <div class="markdown-preview" id="markdown-preview">
+                {{ rendered_content | safe }}
+            </div>
+
+            <!-- Markdown Editor (hidden by default) -->
+            <div class="markdown-editor hidden" id="markdown-editor">
+                <textarea class="markdown-source"
+                          hx-post="/api/media/markdown/preview"
+                          hx-trigger="keyup changed delay:500ms"
+                          hx-target="#markdown-preview"
+                          hx-swap="innerHTML"
+                          placeholder="Write markdown here...">{{ source_content }}</textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- Markdown Toolbar (for edit mode) -->
+    <div class="markdown-toolbar hidden" id="markdown-toolbar">
+        <div class="toolbar-group">
+            <button class="btn btn-sm"
+                    _="on click call insertMarkdown('**', '**', 'bold text')"
+                    title="Bold">
+                <strong>B</strong>
+            </button>
+            <button class="btn btn-sm"
+                    _="on click call insertMarkdown('*', '*', 'italic text')"
+                    title="Italic">
+                <em>I</em>
+            </button>
+            <button class="btn btn-sm"
+                    _="on click call insertMarkdown('`', '`', 'code')"
+                    title="Code">
+                <code>&lt;/&gt;</code>
+            </button>
+        </div>
+        <div class="toolbar-group">
+            <button class="btn btn-sm"
+                    _="on click call insertMarkdown('# ', '', 'Heading')"
+                    title="Heading">
+                H1
+            </button>
+            <button class="btn btn-sm"
+                    _="on click call insertMarkdown('- ', '', 'List item')"
+                    title="List">
+                List
+            </button>
+            <button class="btn btn-sm"
+                    _="on click call insertMarkdown('[', '](url)', 'link text')"
+                    title="Link">
+                Link
+            </button>
+            <button class="btn btn-sm"
+                    _="on click call insertMarkdown('![', '](url)', 'alt text')"
+                    title="Image">
+                Image
+            </button>
+        </div>
+        <div class="toolbar-group">
+            <button class="btn btn-sm btn-primary"
+                    hx-post="/api/media/markdown/save/{{ file_id }}"
+                    hx-include=".markdown-source"
+                    hx-swap="none"
+                    _="on htmx:afterRequest
+                       if detail.successful
+                         then log 'Markdown saved successfully'
+                              add .fade-in to me then wait 2s then remove .fade-in">
+                Save
+            </button>
+        </div>
+    </div>
+
+    <!-- Search Box -->
+    <div class="markdown-search" id="markdown-search">
+        <input type="text"
+               class="search-input"
+               placeholder="Search in document..."
+               _="on input
+                  set searchText to my value
+                  if searchText is not ''
+                    then call highlightText(searchText)
+                  else call clearHighlights()">
+        <div class="search-controls">
+            <button class="btn btn-sm" _="on click call findNext()">↓</button>
+            <button class="btn btn-sm" _="on click call findPrev()">↑</button>
+            <button class="btn btn-sm" _="on click set .search-input's value to '' then call clearHighlights()">✕</button>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Markdown Viewer Styles */
+.markdown-viewer {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--secondary-bg);
+}
+
+.markdown-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: var(--accent-bg);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.markdown-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.markdown-title {
+    font-weight: 500;
+}
+
+.markdown-meta {
+    font-size: 0.875rem;
+    color: var(--secondary-text);
+}
+
+.markdown-controls {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.markdown-container {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Table of Contents */
+.markdown-toc {
+    width: 250px;
+    background: var(--accent-bg);
+    border-right: 1px solid var(--border-color);
+    overflow-y: auto;
+    display: none;
+}
+
+.markdown-viewer.toc-visible .markdown-toc {
+    display: block;
+}
+
+.toc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.toc-header h4 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--secondary-text);
+}
+
+.toc-nav {
+    padding: 0.5rem;
+}
+
+.toc-link {
+    display: block;
+    padding: 0.5rem;
+    text-decoration: none;
+    color: var(--primary-text);
+    border-left: 2px solid transparent;
+    transition: all var(--animation-fast);
+}
+
+.toc-link:hover {
+    background: var(--secondary-bg);
+    border-left-color: var(--accent-text);
+}
+
+.toc-link.active {
+    background: var(--secondary-bg);
+    border-left-color: var(--accent-text);
+    font-weight: 500;
+}
+
+.toc-level-2 { padding-left: 1rem; }
+.toc-level-3 { padding-left: 2rem; }
+.toc-level-4 { padding-left: 3rem; }
+.toc-level-5 { padding-left: 4rem; }
+.toc-level-6 { padding-left: 5rem; }
+
+/* Markdown Content */
+.markdown-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 2rem;
+}
+
+.markdown-preview {
+    max-width: 800px;
+    margin: 0 auto;
+    font-size: 1rem;
+    line-height: 1.6;
+}
+
+/* Markdown styling */
+.markdown-preview h1,
+.markdown-preview h2,
+.markdown-preview h3,
+.markdown-preview h4,
+.markdown-preview h5,
+.markdown-preview h6 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    line-height: 1.25;
+    scroll-margin-top: 4rem;
+}
+
+.markdown-preview h1 { font-size: 2rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem; }
+.markdown-preview h2 { font-size: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.25rem; }
+.markdown-preview h3 { font-size: 1.25rem; }
+.markdown-preview h4 { font-size: 1.125rem; }
+.markdown-preview h5 { font-size: 1rem; }
+.markdown-preview h6 { font-size: 0.875rem; color: var(--secondary-text); }
+
+.markdown-preview p {
+    margin-bottom: 1rem;
+}
+
+.markdown-preview code {
+    background: var(--accent-bg);
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+}
+
+.markdown-preview pre {
+    background: var(--accent-bg);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    margin-bottom: 1rem;
+}
+
+.markdown-preview pre code {
+    background: none;
+    padding: 0;
+}
+
+.markdown-preview a {
+    color: var(--accent-text);
+    text-decoration: underline;
+}
+
+.markdown-preview a:hover {
+    text-decoration: none;
+}
+
+.markdown-preview ul,
+.markdown-preview ol {
+    margin-bottom: 1rem;
+    padding-left: 2rem;
+}
+
+.markdown-preview li {
+    margin-bottom: 0.25rem;
+}
+
+.markdown-preview blockquote {
+    border-left: 4px solid var(--accent-text);
+    padding-left: 1rem;
+    margin: 1rem 0;
+    color: var(--secondary-text);
+}
+
+.markdown-preview table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1rem;
+}
+
+.markdown-preview th,
+.markdown-preview td {
+    border: 1px solid var(--border-color);
+    padding: 0.5rem;
+    text-align: left;
+}
+
+.markdown-preview th {
+    background: var(--accent-bg);
+    font-weight: 600;
+}
+
+.markdown-preview img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.25rem;
+}
+
+/* Editor */
+.markdown-editor {
+    height: 100%;
+}
+
+.markdown-source {
+    width: 100%;
+    height: 100%;
+    padding: 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    background: var(--primary-bg);
+    color: var(--primary-text);
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    resize: none;
+}
+
+.markdown-viewer.edit-mode .markdown-preview {
+    display: none;
+}
+
+.markdown-viewer.edit-mode .markdown-editor {
+    display: block;
+}
+
+.markdown-viewer.edit-mode .markdown-toolbar {
+    display: flex !important;
+}
+
+/* Toolbar */
+.markdown-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    background: var(--accent-bg);
+    border-top: 1px solid var(--border-color);
+}
+
+.toolbar-group {
+    display: flex;
+    gap: 0.25rem;
+}
+
+/* Search */
+.markdown-search {
+    position: absolute;
+    top: 4rem;
+    right: 1rem;
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--secondary-bg);
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    box-shadow: 0 2px 8px var(--shadow);
+    z-index: 10;
+}
+
+.markdown-viewer.search-active .markdown-search {
+    display: flex;
+}
+
+.search-input {
+    width: 200px;
+    padding: 0.25rem 0.5rem;
+    background: var(--primary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    color: var(--primary-text);
+}
+
+.search-controls {
+    display: flex;
+    gap: 0.125rem;
+}
+
+/* Highlight */
+mark {
+    background: yellow;
+    color: black;
+    padding: 0 0.125rem;
+}
+</style>
+
+<script>
+// Helper functions for markdown editing
+function insertMarkdown(before, after, placeholder) {
+    const textarea = document.querySelector('.markdown-source');
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const selectedText = text.substring(start, end) || placeholder;
+
+    const newText = text.substring(0, start) + before + selectedText + after + text.substring(end);
+    textarea.value = newText;
+    textarea.focus();
+    textarea.setSelectionRange(start + before.length, start + before.length + selectedText.length);
+
+    // Trigger HTMX update
+    htmx.trigger(textarea, 'keyup');
+}
+
+function highlightText(searchText) {
+    const content = document.querySelector('.markdown-preview');
+    if (!content) return;
+
+    // Remove existing highlights
+    clearHighlights();
+
+    // Create regex for case-insensitive search
+    const regex = new RegExp(`(${searchText})`, 'gi');
+
+    // Highlight matches
+    content.innerHTML = content.innerHTML.replace(regex, '<mark>$1</mark>');
+}
+
+function clearHighlights() {
+    const content = document.querySelector('.markdown-preview');
+    if (!content) return;
+
+    content.innerHTML = content.innerHTML.replace(/<mark>/g, '').replace(/<\/mark>/g, '');
+}
+
+function findNext() {
+    const marks = document.querySelectorAll('.markdown-preview mark');
+    if (marks.length === 0) return;
+
+    // Find current active mark
+    let currentIndex = -1;
+    marks.forEach((mark, index) => {
+        if (mark.classList.contains('current')) {
+            currentIndex = index;
+            mark.classList.remove('current');
+        }
+    });
+
+    // Move to next mark
+    const nextIndex = (currentIndex + 1) % marks.length;
+    marks[nextIndex].classList.add('current');
+    marks[nextIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function findPrev() {
+    const marks = document.querySelectorAll('.markdown-preview mark');
+    if (marks.length === 0) return;
+
+    // Find current active mark
+    let currentIndex = -1;
+    marks.forEach((mark, index) => {
+        if (mark.classList.contains('current')) {
+            currentIndex = index;
+            mark.classList.remove('current');
+        }
+    });
+
+    // Move to previous mark
+    const prevIndex = currentIndex <= 0 ? marks.length - 1 : currentIndex - 1;
+    marks[prevIndex].classList.add('current');
+    marks[prevIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+</script>

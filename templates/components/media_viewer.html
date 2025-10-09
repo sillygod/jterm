@@ -1,0 +1,406 @@
+<!-- Media Viewer Component - HTMX template for viewing images and videos -->
+
+<!-- Image Viewer -->
+<div class="media-viewer image-viewer" id="image-viewer-{{ asset_id }}" data-media-type="image">
+    <div class="media-header">
+        <div class="media-info">
+            <span class="media-icon">🖼️</span>
+            <span class="media-title">{{ file_name }}</span>
+            <span class="media-meta">{{ dimensions.width }}×{{ dimensions.height }} • {{ file_size }}</span>
+        </div>
+        <div class="media-controls">
+            <button class="btn btn-icon"
+                    _="on click call zoomIn()"
+                    title="Zoom In">
+                <span class="icon">🔍+</span>
+            </button>
+            <button class="btn btn-icon"
+                    _="on click call zoomOut()"
+                    title="Zoom Out">
+                <span class="icon">🔍-</span>
+            </button>
+            <button class="btn btn-icon"
+                    _="on click call resetZoom()"
+                    title="Reset Zoom">
+                <span class="icon">↺</span>
+            </button>
+            <button class="btn btn-icon fullscreen-btn"
+                    _="on click toggle .fullscreen on #image-viewer-{{ asset_id }}"
+                    title="Fullscreen">
+                <span class="icon">⛶</span>
+            </button>
+            <button class="btn btn-icon"
+                    hx-get="/api/media/download/{{ asset_id }}"
+                    title="Download">
+                <span class="icon">⬇️</span>
+            </button>
+            <button class="btn btn-icon close-btn"
+                    _="on click remove #image-viewer-{{ asset_id }}"
+                    title="Close">
+                <span class="icon">✕</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="media-content image-content">
+        <img src="/api/media/serve/{{ asset_id }}"
+             alt="{{ file_name }}"
+             class="media-image fade-in"
+             loading="lazy"
+             _="on load measure my naturalWidth then set @data-width to result
+                       measure my naturalHeight then set @data-height to result
+                on wheel(deltaY) if deltaY > 0 then call zoomOut() else call zoomIn()
+                on dblclick toggle .fullscreen on #image-viewer-{{ asset_id }}">
+    </div>
+
+    <div class="media-footer">
+        <div class="zoom-controls">
+            <span class="zoom-level">100%</span>
+            <input type="range"
+                   min="10"
+                   max="300"
+                   value="100"
+                   class="zoom-slider"
+                   _="on input set .media-image's style.transform to `scale(${me.value / 100})`
+                             set .zoom-level's textContent to `${me.value}%`">
+        </div>
+        <div class="image-actions">
+            <button class="btn btn-sm"
+                    hx-post="/api/media/rotate/{{ asset_id }}"
+                    hx-vals='{"angle": 90}'
+                    hx-target="#image-viewer-{{ asset_id }}"
+                    hx-swap="outerHTML">
+                Rotate
+            </button>
+            <button class="btn btn-sm"
+                    hx-delete="/api/media/{{ asset_id }}"
+                    hx-confirm="Delete this image?"
+                    hx-target="#image-viewer-{{ asset_id }}"
+                    hx-swap="outerHTML">
+                Delete
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Video Viewer -->
+<div class="media-viewer video-viewer" id="video-viewer-{{ asset_id }}" data-media-type="video">
+    <div class="media-header">
+        <div class="media-info">
+            <span class="media-icon">🎬</span>
+            <span class="media-title">{{ file_name }}</span>
+            <span class="media-meta">{{ duration }} • {{ file_size }}</span>
+        </div>
+        <div class="media-controls">
+            <button class="btn btn-icon fullscreen-btn"
+                    _="on click send requestFullscreen() to .media-video"
+                    title="Fullscreen">
+                <span class="icon">⛶</span>
+            </button>
+            <button class="btn btn-icon"
+                    hx-get="/api/media/download/{{ asset_id }}"
+                    title="Download">
+                <span class="icon">⬇️</span>
+            </button>
+            <button class="btn btn-icon close-btn"
+                    _="on click remove #video-viewer-{{ asset_id }}"
+                    title="Close">
+                <span class="icon">✕</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="media-content video-content">
+        <video controls
+               class="media-video fade-in"
+               preload="metadata"
+               poster="/api/media/thumbnail/{{ asset_id }}"
+               _="on play log 'Video playback started'
+                  on pause log 'Video playback paused'
+                  on ended log 'Video playback completed'">
+            <source src="/api/media/serve/{{ asset_id }}" type="{{ mime_type }}">
+            <p>Your browser doesn't support HTML5 video.
+               <a href="/api/media/download/{{ asset_id }}">Download the video</a> instead.
+            </p>
+        </video>
+    </div>
+
+    <div class="media-footer">
+        <div class="playback-controls">
+            <button class="btn btn-sm playback-speed"
+                    _="on click
+                       if .media-video's playbackRate is 1
+                         then set .media-video's playbackRate to 1.5
+                              set my textContent to '1.5x'
+                       else if .media-video's playbackRate is 1.5
+                         then set .media-video's playbackRate to 2
+                              set my textContent to '2x'
+                       else set .media-video's playbackRate to 1
+                            set my textContent to '1x'">
+                1x
+            </button>
+            <button class="btn btn-sm"
+                    _="on click send play() to .media-video">
+                Play
+            </button>
+            <button class="btn btn-sm"
+                    _="on click send pause() to .media-video">
+                Pause
+            </button>
+        </div>
+        <div class="video-actions">
+            <button class="btn btn-sm"
+                    hx-post="/api/media/export/{{ asset_id }}"
+                    hx-vals='{"format": "gif"}'
+                    title="Convert to GIF">
+                Export as GIF
+            </button>
+            <button class="btn btn-sm"
+                    hx-delete="/api/media/{{ asset_id }}"
+                    hx-confirm="Delete this video?"
+                    hx-target="#video-viewer-{{ asset_id }}"
+                    hx-swap="outerHTML">
+                Delete
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Media Thumbnail Grid (for browsing multiple media files) -->
+<div class="media-grid" id="media-grid">
+    <div class="media-grid-header">
+        <h3>Media Files</h3>
+        <div class="grid-controls">
+            <button class="btn btn-icon"
+                    hx-get="/api/media/list"
+                    hx-target="#media-grid-content"
+                    title="Refresh">
+                <span class="icon">↻</span>
+            </button>
+            <button class="btn btn-icon"
+                    _="on click toggle .grid-view on #media-grid-content"
+                    title="Toggle View">
+                <span class="icon">⊞</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="media-grid-content grid-view"
+         id="media-grid-content"
+         hx-get="/api/media/list"
+         hx-trigger="load"
+         hx-swap="innerHTML">
+        <!-- Thumbnails loaded via HTMX -->
+        <div class="loading-spinner">Loading media files...</div>
+    </div>
+</div>
+
+<!-- Individual Media Thumbnail (template for HTMX response) -->
+<div class="media-thumbnail" data-media-id="{{ asset_id }}">
+    <div class="thumbnail-image"
+         style="background-image: url('/api/media/thumbnail/{{ asset_id }}');"
+         _="on click
+            if @data-media-type is 'image'
+              then call mediaHandler.displayImage('{{ file_path }}')
+            else if @data-media-type is 'video'
+              then call mediaHandler.playVideo('{{ file_path }}')">
+        <div class="thumbnail-overlay">
+            <span class="media-type-icon">
+                {% if media_type == 'image' %}🖼️{% elif media_type == 'video' %}🎬{% endif %}
+            </span>
+        </div>
+    </div>
+    <div class="thumbnail-info">
+        <div class="thumbnail-name" title="{{ file_name }}">{{ file_name }}</div>
+        <div class="thumbnail-meta">{{ file_size }}</div>
+    </div>
+</div>
+
+<style>
+/* Media Viewer Styles */
+.media-viewer {
+    display: flex;
+    flex-direction: column;
+    background: var(--secondary-bg);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 4px 12px var(--shadow);
+    max-width: 95%;
+    max-height: 95%;
+}
+
+.media-viewer.fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    z-index: 1000;
+}
+
+.media-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: var(--accent-bg);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.media-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.media-title {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.media-meta {
+    font-size: 0.875rem;
+    color: var(--secondary-text);
+}
+
+.media-controls {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.media-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: var(--terminal-bg);
+    position: relative;
+    min-height: 300px;
+}
+
+.media-image, .media-video {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    transition: transform 0.2s ease;
+}
+
+.media-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: var(--accent-bg);
+    border-top: 1px solid var(--border-color);
+}
+
+.zoom-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.zoom-level {
+    font-size: 0.875rem;
+    font-weight: 500;
+    min-width: 3rem;
+    text-align: center;
+}
+
+.zoom-slider {
+    width: 150px;
+}
+
+/* Media Grid */
+.media-grid {
+    background: var(--secondary-bg);
+    border-radius: 0.5rem;
+    padding: 1rem;
+}
+
+.media-grid-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.media-grid-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.media-grid-content.list-view {
+    grid-template-columns: 1fr;
+}
+
+.media-thumbnail {
+    cursor: pointer;
+    transition: transform var(--animation-fast);
+}
+
+.media-thumbnail:hover {
+    transform: translateY(-4px);
+}
+
+.thumbnail-image {
+    aspect-ratio: 16/9;
+    background-size: cover;
+    background-position: center;
+    background-color: var(--accent-bg);
+    border-radius: 0.25rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.thumbnail-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.5));
+    display: flex;
+    align-items: flex-end;
+    padding: 0.5rem;
+    opacity: 0;
+    transition: opacity var(--animation-fast);
+}
+
+.media-thumbnail:hover .thumbnail-overlay {
+    opacity: 1;
+}
+
+.media-type-icon {
+    font-size: 1.5rem;
+}
+
+.thumbnail-info {
+    margin-top: 0.5rem;
+}
+
+.thumbnail-name {
+    font-size: 0.875rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.thumbnail-meta {
+    font-size: 0.75rem;
+    color: var(--secondary-text);
+}
+
+.loading-spinner {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 2rem;
+    color: var(--secondary-text);
+}
+</style>

@@ -44,6 +44,11 @@ tests/
 1. **Terminal Emulation**: xterm.js with WebSocket PTY communication
 2. **Media Support**: Inline images (<1s load), videos (50MB max), HTML preview with sandboxing
 3. **AI Assistant**: Voice input/output, context-aware suggestions (2s simple, 5s complex responses)
+
+https://github.com/KoljaB/RealtimeSTT (options)
+ps aux | grep "jterm/venv/bin/python3" | awk '{print $2}' | xargs kill -9 (clean some orphan processes)
+
+
 4. **Session Recording**: Record/replay/export with 30-day retention, <5% performance impact
 5. **Customization**: Themes, extensions, VS Code theme import
 6. **Security**: HTML sandboxing, file validation, secure API communications

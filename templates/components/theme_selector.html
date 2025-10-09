@@ -1,0 +1,600 @@
+<!-- Theme Selector Component -->
+<!-- Used for selecting and previewing terminal themes -->
+
+<div id="theme-selector" class="theme-selector-container">
+    <!-- Theme Selector Header -->
+    <div class="theme-selector-header">
+        <h3>Theme Selector</h3>
+        <button class="close-btn"
+                hx-get="/api/v1/themes/selector/close"
+                hx-target="#theme-selector"
+                hx-swap="outerHTML">
+            &times;
+        </button>
+    </div>
+
+    <!-- Search and Filter Controls -->
+    <div class="theme-selector-controls">
+        <input type="text"
+               id="theme-search"
+               class="theme-search-input"
+               placeholder="Search themes..."
+               hx-get="/api/v1/themes"
+               hx-trigger="keyup changed delay:500ms"
+               hx-target="#theme-list"
+               hx-swap="innerHTML"
+               hx-include="[name='category'], [name='sortBy'], [name='sortOrder']"
+               name="search">
+
+        <select name="category"
+                class="theme-filter-select"
+                hx-get="/api/v1/themes"
+                hx-trigger="change"
+                hx-target="#theme-list"
+                hx-swap="innerHTML"
+                hx-include="[name='search'], [name='sortBy'], [name='sortOrder']">
+            <option value="">All Categories</option>
+            <option value="builtin">Built-in</option>
+            <option value="user">My Themes</option>
+            <option value="public">Public</option>
+            <option value="installed">Installed</option>
+        </select>
+
+        <select name="sortBy"
+                class="theme-sort-select"
+                hx-get="/api/v1/themes"
+                hx-trigger="change"
+                hx-target="#theme-list"
+                hx-swap="innerHTML"
+                hx-include="[name='search'], [name='category'], [name='sortOrder']">
+            <option value="name">Name</option>
+            <option value="rating">Rating</option>
+            <option value="downloads">Downloads</option>
+            <option value="created">Created Date</option>
+            <option value="updated">Updated Date</option>
+        </select>
+
+        <select name="sortOrder"
+                class="theme-order-select"
+                hx-get="/api/v1/themes"
+                hx-trigger="change"
+                hx-target="#theme-list"
+                hx-swap="innerHTML"
+                hx-include="[name='search'], [name='category'], [name='sortBy']">
+            <option value="asc">Ascending</option>
+            <option value="desc">Descending</option>
+        </select>
+    </div>
+
+    <!-- Theme Preview Area -->
+    <div class="theme-preview-area">
+        <div class="preview-terminal">
+            <div class="preview-header">Preview</div>
+            <div id="preview-content" class="preview-content">
+                <div class="preview-line">$ <span class="preview-command">echo "Hello, World!"</span></div>
+                <div class="preview-line preview-output">Hello, World!</div>
+                <div class="preview-line">$ <span class="preview-command">ls -la</span></div>
+                <div class="preview-line preview-output">drwxr-xr-x 2 user user 4096 Oct 1 10:00 .</div>
+                <div class="preview-line preview-output">-rw-r--r-- 1 user user  256 Oct 1 09:59 example.txt</div>
+                <div class="preview-line">$ <span class="preview-cursor">_</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Theme List -->
+    <div id="theme-list" class="theme-list">
+        <div class="theme-loading">Loading themes...</div>
+    </div>
+
+    <!-- Pagination Controls -->
+    <div class="theme-pagination">
+        <button class="pagination-btn prev-btn"
+                hx-get="/api/v1/themes"
+                hx-trigger="click"
+                hx-target="#theme-list"
+                hx-swap="innerHTML"
+                hx-include="[name='search'], [name='category'], [name='sortBy'], [name='sortOrder'], [name='offset']"
+                disabled>
+            Previous
+        </button>
+        <span class="pagination-info">
+            <span id="current-offset">0</span> - <span id="current-limit">20</span> of <span id="total-themes">0</span>
+        </span>
+        <button class="pagination-btn next-btn"
+                hx-get="/api/v1/themes"
+                hx-trigger="click"
+                hx-target="#theme-list"
+                hx-swap="innerHTML"
+                hx-include="[name='search'], [name='category'], [name='sortBy'], [name='sortOrder'], [name='offset']">
+            Next
+        </button>
+    </div>
+
+    <!-- Import Theme Section -->
+    <div class="theme-import-section">
+        <h4>Import Theme</h4>
+        <div class="import-options">
+            <!-- File Upload -->
+            <div class="import-file">
+                <label for="theme-file-upload" class="import-label">
+                    Upload Theme File
+                </label>
+                <input type="file"
+                       id="theme-file-upload"
+                       name="themeFile"
+                       accept=".json,.theme"
+                       hx-post="/api/v1/themes"
+                       hx-encoding="multipart/form-data"
+                       hx-target="#theme-import-status"
+                       hx-swap="innerHTML">
+            </div>
+
+            <!-- URL Import -->
+            <div class="import-url">
+                <label for="theme-url-input" class="import-label">
+                    Import from URL
+                </label>
+                <div class="url-input-group">
+                    <input type="url"
+                           id="theme-url-input"
+                           name="importUrl"
+                           placeholder="https://example.com/theme.json"
+                           class="theme-url-input">
+                    <button type="button"
+                            class="import-url-btn"
+                            hx-post="/api/v1/themes"
+                            hx-include="#theme-url-input"
+                            hx-target="#theme-import-status"
+                            hx-swap="innerHTML">
+                        Import
+                    </button>
+                </div>
+            </div>
+
+            <!-- VS Code Theme Import -->
+            <div class="import-vscode">
+                <label for="vscode-theme-upload" class="import-label">
+                    Import VS Code Theme
+                </label>
+                <input type="file"
+                       id="vscode-theme-upload"
+                       name="vscodeTheme"
+                       accept=".json"
+                       hx-post="/api/v1/themes/import/vscode"
+                       hx-encoding="multipart/form-data"
+                       hx-target="#theme-import-status"
+                       hx-swap="innerHTML">
+            </div>
+        </div>
+
+        <!-- Import Status Messages -->
+        <div id="theme-import-status" class="import-status"></div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="theme-selector-actions">
+        <button class="btn btn-primary"
+                id="apply-theme-btn"
+                hx-post="/api/v1/themes/apply"
+                hx-include="[name='selectedThemeId']"
+                hx-target="#theme-apply-status"
+                hx-swap="innerHTML"
+                disabled>
+            Apply Theme
+        </button>
+        <button class="btn btn-secondary"
+                hx-get="/api/v1/themes/selector/close"
+                hx-target="#theme-selector"
+                hx-swap="outerHTML">
+            Cancel
+        </button>
+    </div>
+
+    <!-- Apply Status Messages -->
+    <div id="theme-apply-status" class="apply-status"></div>
+
+    <!-- Hidden input for selected theme ID -->
+    <input type="hidden" name="selectedThemeId" id="selected-theme-id" value="">
+</div>
+
+<!-- Theme Card Template (rendered by server) -->
+<template id="theme-card-template">
+    <div class="theme-card" data-theme-id="{themeId}">
+        <div class="theme-card-header">
+            <h4 class="theme-name">{themeName}</h4>
+            <span class="theme-category">{category}</span>
+        </div>
+        <div class="theme-card-preview">
+            <div class="preview-colors">
+                <span class="color-swatch" style="background-color: {backgroundColor}"></span>
+                <span class="color-swatch" style="background-color: {foregroundColor}"></span>
+                <span class="color-swatch" style="background-color: {cursorColor}"></span>
+            </div>
+        </div>
+        <div class="theme-card-meta">
+            <span class="theme-author">by {author}</span>
+            <span class="theme-rating">⭐ {rating}</span>
+            <span class="theme-downloads">↓ {downloads}</span>
+        </div>
+        <div class="theme-card-actions">
+            <button class="btn-preview"
+                    hx-get="/api/v1/themes/{themeId}/preview"
+                    hx-target="#preview-content"
+                    hx-swap="innerHTML">
+                Preview
+            </button>
+            <button class="btn-select"
+                    onclick="selectTheme('{themeId}')">
+                Select
+            </button>
+            <button class="btn-install"
+                    hx-post="/api/v1/themes/{themeId}/install"
+                    hx-target="closest .theme-card"
+                    hx-swap="outerHTML">
+                Install
+            </button>
+        </div>
+    </div>
+</template>
+
+<!-- Inline Hyperscript Behaviors -->
+<script type="text/hyperscript">
+    -- Handle theme selection
+    def selectTheme(themeId)
+        -- Remove selected class from all cards
+        for card in .theme-card
+            remove .selected from card
+        end
+
+        -- Add selected class to clicked card
+        add .selected to closest .theme-card
+
+        -- Update hidden input
+        set #selected-theme-id's value to themeId
+
+        -- Enable apply button
+        remove @disabled from #apply-theme-btn
+    end
+
+    -- Auto-load themes on component mount
+    behavior on load
+        trigger htmx:trigger on #theme-search
+    end
+
+    -- Handle theme preview
+    on htmx:afterRequest from .btn-preview
+        if event.detail.successful
+            add .previewing to closest .theme-card
+        end
+    end
+
+    -- Handle theme installation
+    on htmx:afterRequest from .btn-install
+        if event.detail.successful
+            put "Installed" into closest .btn-install
+            set @disabled to true on closest .btn-install
+        end
+    end
+
+    -- Handle pagination
+    on click from .pagination-btn
+        if I match .prev-btn
+            set @value of [name='offset'] to (parseInt(#current-offset.innerText) - 20)
+        else if I match .next-btn
+            set @value of [name='offset'] to (parseInt(#current-offset.innerText) + 20)
+        end
+    end
+</script>
+
+<!-- Component Styles (can be moved to external CSS) -->
+<style>
+    .theme-selector-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        padding: 1rem;
+        background: var(--bg-secondary);
+        border-radius: 8px;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .theme-selector-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .close-btn {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: var(--text-secondary);
+    }
+
+    .theme-selector-controls {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .theme-search-input {
+        flex: 1;
+        min-width: 200px;
+        padding: 0.5rem;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+    }
+
+    .theme-filter-select,
+    .theme-sort-select,
+    .theme-order-select {
+        padding: 0.5rem;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+    }
+
+    .theme-preview-area {
+        margin-bottom: 1rem;
+        padding: 1rem;
+        background: var(--bg-primary);
+        border-radius: 4px;
+    }
+
+    .preview-terminal {
+        font-family: monospace;
+        background: #000;
+        color: #0f0;
+        padding: 1rem;
+        border-radius: 4px;
+        min-height: 150px;
+    }
+
+    .preview-header {
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #0f0;
+    }
+
+    .preview-line {
+        margin: 0.25rem 0;
+    }
+
+    .preview-command {
+        color: #ff0;
+    }
+
+    .preview-output {
+        color: #0ff;
+    }
+
+    .preview-cursor {
+        animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+        0%, 50% { opacity: 1; }
+        51%, 100% { opacity: 0; }
+    }
+
+    .theme-list {
+        flex: 1;
+        overflow-y: auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+        padding: 0.5rem;
+    }
+
+    .theme-card {
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 1rem;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+
+    .theme-card:hover {
+        border-color: var(--accent-color);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .theme-card.selected {
+        border-color: var(--primary-color);
+        background: var(--bg-selected);
+    }
+
+    .theme-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .theme-name {
+        margin: 0;
+        font-size: 1rem;
+    }
+
+    .theme-category {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        background: var(--accent-color);
+        border-radius: 3px;
+    }
+
+    .theme-card-preview {
+        margin-bottom: 0.5rem;
+    }
+
+    .preview-colors {
+        display: flex;
+        gap: 0.25rem;
+        height: 30px;
+    }
+
+    .color-swatch {
+        flex: 1;
+        border-radius: 2px;
+        border: 1px solid var(--border-color);
+    }
+
+    .theme-card-meta {
+        display: flex;
+        gap: 0.5rem;
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.5rem;
+    }
+
+    .theme-card-actions {
+        display: flex;
+        gap: 0.25rem;
+    }
+
+    .theme-card-actions button {
+        flex: 1;
+        padding: 0.25rem;
+        font-size: 0.75rem;
+        border: 1px solid var(--border-color);
+        border-radius: 3px;
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        cursor: pointer;
+    }
+
+    .theme-pagination {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .pagination-btn {
+        padding: 0.5rem 1rem;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        cursor: pointer;
+    }
+
+    .pagination-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .theme-import-section {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: var(--bg-primary);
+        border-radius: 4px;
+    }
+
+    .import-options {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        margin-top: 0.5rem;
+    }
+
+    .import-label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+    }
+
+    .url-input-group {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .theme-url-input {
+        flex: 1;
+        padding: 0.5rem;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+    }
+
+    .import-url-btn {
+        padding: 0.5rem 1rem;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        background: var(--primary-color);
+        color: white;
+        cursor: pointer;
+    }
+
+    .import-status,
+    .apply-status {
+        margin-top: 0.5rem;
+        padding: 0.5rem;
+        border-radius: 4px;
+    }
+
+    .import-status.success,
+    .apply-status.success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .import-status.error,
+    .apply-status.error {
+        background: var(--error-color);
+        color: white;
+    }
+
+    .theme-selector-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .btn {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.875rem;
+        transition: all 0.2s;
+    }
+
+    .btn-primary {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .btn-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .btn-secondary {
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+    }
+
+    .theme-loading {
+        text-align: center;
+        padding: 2rem;
+        color: var(--text-secondary);
+    }
+</style>

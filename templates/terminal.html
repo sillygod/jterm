@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+
+{% block title %}Terminal - Web Terminal{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Terminal-specific styles */
+.terminal-page {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 3rem - 2rem); /* Full height minus header and status bar */
+}
+
+.terminal-main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.terminal-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--terminal-bg);
+    position: relative;
+}
+
+.terminal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    background: var(--secondary-bg);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.terminal-title {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--primary-text);
+}
+
+.terminal-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+#xterm-container {
+    flex: 1;
+    padding: 0.5rem;
+}
+
+.split-view .terminal-pane {
+    border-right: 1px solid var(--border-color);
+}
+
+.split-view .secondary-pane {
+    flex: 1;
+    background: var(--primary-bg);
+    overflow: auto;
+}
+
+/* Overlay styles */
+.terminal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.9);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+}
+
+.terminal-overlay.visible {
+    display: flex;
+}
+
+.welcome-screen {
+    text-align: center;
+    padding: 2rem;
+    max-width: 600px;
+}
+
+.welcome-screen h2 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    color: var(--accent-text);
+}
+
+.welcome-screen p {
+    font-size: 1rem;
+    margin-bottom: 2rem;
+    color: var(--secondary-text);
+}
+
+.quick-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.quick-action {
+    padding: 1rem;
+    background: var(--accent-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: all var(--animation-fast);
+    text-align: center;
+}
+
+.quick-action:hover {
+    background: var(--border-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px var(--shadow);
+}
+
+.quick-action .icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.quick-action .title {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.quick-action .description {
+    font-size: 0.875rem;
+    color: var(--secondary-text);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="terminal-page" id="terminal-page">
+    <!-- Main Terminal View -->
+    <div class="terminal-main" id="terminal-main">
+        <!-- Terminal Pane -->
+        <div class="terminal-pane" id="terminal-pane">
+            <div class="terminal-header">
+                <div class="terminal-title">
+                    <span class="icon">⚡</span>
+                    <span id="terminal-session-name">Terminal Session</span>
+                </div>
+                <div class="terminal-actions">
+                    <button class="btn btn-icon"
+                            onclick="webTerminal.clear()"
+                            title="Clear Terminal">
+                        <span class="icon">🗑️</span>
+                    </button>
+                    <button class="btn btn-icon"
+                            hx-post="/api/terminal/sessions/new"
+                            hx-target="#terminal-page"
+                            hx-swap="outerHTML"
+                            title="New Session">
+                        <span class="icon">➕</span>
+                    </button>
+                    <button class="btn btn-icon split-toggle"
+                            _="on click toggle .split-view on #terminal-main then toggle .hidden on #secondary-pane"
+                            title="Toggle Split View">
+                        <span class="icon">⬌</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- xterm.js Container -->
+            <div id="xterm-container"></div>
+
+            <!-- Media Overlay -->
+            <div class="media-overlay" id="media-overlay"></div>
+        </div>
+
+        <!-- Secondary Pane (for split view) -->
+        <div class="secondary-pane hidden" id="secondary-pane">
+            <!-- Content loaded dynamically via HTMX -->
+            <div class="secondary-pane-content" id="secondary-pane-content">
+                <div class="welcome-screen">
+                    <h2>Split View</h2>
+                    <p>View media, markdown, or HTML files alongside your terminal</p>
+                    <div class="quick-actions">
+                        <div class="quick-action"
+                             _="on click call mediaHandler.viewFile('/path/to/image.png')">
+                            <div class="icon">🖼️</div>
+                            <div class="title">View Image</div>
+                            <div class="description">Display images inline</div>
+                        </div>
+                        <div class="quick-action"
+                             _="on click call mediaHandler.previewHTML('/path/to/file.html')">
+                            <div class="icon">🌐</div>
+                            <div class="title">Preview HTML</div>
+                            <div class="description">Sandboxed preview</div>
+                        </div>
+                        <div class="quick-action"
+                             _="on click call mediaHandler.renderMarkdown('/path/to/file.md')">
+                            <div class="icon">📝</div>
+                            <div class="title">View Markdown</div>
+                            <div class="description">Rendered markdown</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Welcome Overlay (shown on first load if no session) -->
+    <div class="terminal-overlay" id="welcome-overlay">
+        <div class="welcome-screen">
+            <h2>Welcome to Web Terminal! 👋</h2>
+            <p>A powerful web-based terminal with multimedia support, AI assistance, and session recording.</p>
+
+            <button class="btn btn-primary btn-large"
+                    hx-post="/api/terminal/sessions"
+                    hx-vals='{"shell": "bash", "terminalSize": {"cols": 80, "rows": 24}}'
+                    hx-target="#welcome-overlay"
+                    hx-swap="outerHTML"
+                    _="on htmx:afterRequest remove .visible from #welcome-overlay">
+                Start New Terminal Session
+            </button>
+
+            <div class="quick-actions">
+                <div class="quick-action">
+                    <div class="icon">⚡</div>
+                    <div class="title">Fast & Responsive</div>
+                    <div class="description">Real-time terminal emulation</div>
+                </div>
+                <div class="quick-action">
+                    <div class="icon">🎨</div>
+                    <div class="title">Multimedia Support</div>
+                    <div class="description">View images, videos, and HTML</div>
+                </div>
+                <div class="quick-action">
+                    <div class="icon">🤖</div>
+                    <div class="title">AI Assistant</div>
+                    <div class="description">Get help with commands</div>
+                </div>
+                <div class="quick-action">
+                    <div class="icon">📹</div>
+                    <div class="title">Session Recording</div>
+                    <div class="description">Record and replay sessions</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Terminal Initialization Script -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize terminal
+    if (window.webTerminal) {
+        webTerminal.focus();
+    }
+
+    // Check if we should show welcome overlay
+    const hasSession = document.querySelector('[data-session-id]');
+    if (!hasSession) {
+        document.getElementById('welcome-overlay').classList.add('visible');
+    }
+
+    // Handle HTMX events
+    document.body.addEventListener('htmx:wsOpen', (e) => {
+        console.log('Terminal WebSocket connected');
+    });
+
+    document.body.addEventListener('htmx:wsClose', (e) => {
+        console.log('Terminal WebSocket disconnected');
+    });
+
+    document.body.addEventListener('htmx:wsError', (e) => {
+        console.error('Terminal WebSocket error:', e.detail);
+    });
+});
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Terminal-specific JavaScript will be initialized by terminal.js -->
+{% endblock %}

@@ -1,0 +1,699 @@
+<div class="recordings-panel">
+    <div class="recordings-header">
+        <h3>📹 Recordings</h3>
+        <button class="btn btn-icon btn-sm" onclick="refreshRecordings()" title="Refresh">
+            <span class="icon">🔄</span>
+        </button>
+    </div>
+
+    <div class="recordings-list" id="recordings-list">
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading recordings...</p>
+        </div>
+    </div>
+</div>
+
+<style>
+.recordings-panel {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--secondary-bg);
+}
+
+.recordings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.recordings-header h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.recordings-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem;
+}
+
+.loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    color: var(--secondary-text);
+}
+
+.loading-state .spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--accent-text);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 0.5rem;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.recording-item {
+    background: var(--primary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: all var(--animation-fast);
+}
+
+.recording-item:hover {
+    border-color: var(--accent-text);
+    transform: translateX(2px);
+}
+
+.recording-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.recording-item-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    font-family: var(--font-mono);
+}
+
+.recording-item-date {
+    font-size: 0.75rem;
+    color: var(--secondary-text);
+}
+
+.recording-item-stats {
+    display: flex;
+    gap: 0.75rem;
+    font-size: 0.75rem;
+    color: var(--secondary-text);
+    margin-bottom: 0.5rem;
+}
+
+.recording-item-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.recording-item-actions .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+.empty-recordings {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--secondary-text);
+}
+
+.empty-recordings .icon {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Player Modal */
+.player-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+}
+
+.player-modal.active {
+    display: flex;
+}
+
+.player-container {
+    background: var(--primary-bg);
+    border-radius: 0.5rem;
+    width: 90%;
+    max-width: 1200px;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.player-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.player-body {
+    flex: 1;
+    padding: 1rem;
+    overflow: auto;
+    /* Allow scrolling if terminal is wider/taller than container */
+}
+
+#player-terminal {
+    background: #000;
+    display: inline-block;
+    /* Size will be set dynamically based on recording dimensions */
+}
+
+.player-controls {
+    padding: 1rem;
+    border-top: 1px solid var(--border-color);
+    background: var(--secondary-bg);
+}
+
+.playback-bar {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.playback-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.timeline-container {
+    flex: 1;
+}
+
+.timeline {
+    width: 100%;
+}
+
+.time-display {
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    color: var(--secondary-text);
+}
+
+.speed-control {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+</style>
+
+<script>
+// Load recordings on init
+document.addEventListener('DOMContentLoaded', () => {
+    loadRecordings();
+});
+
+async function loadRecordings() {
+    const container = document.getElementById('recordings-list');
+
+    try {
+        const response = await fetch('/api/v1/recordings');
+        if (!response.ok) throw new Error('Failed to load recordings');
+
+        const data = await response.json();
+        renderRecordingsList(data.recordings);
+    } catch (error) {
+        console.error('Error loading recordings:', error);
+        container.innerHTML = `
+            <div class="empty-recordings">
+                <div class="icon">⚠️</div>
+                <p>Failed to load recordings</p>
+            </div>
+        `;
+    }
+}
+
+function refreshRecordings() {
+    loadRecordings();
+}
+
+function renderRecordingsList(recordings) {
+    const container = document.getElementById('recordings-list');
+
+    if (!recordings || recordings.length === 0) {
+        container.innerHTML = `
+            <div class="empty-recordings">
+                <div class="icon">📹</div>
+                <p>No recordings yet</p>
+                <small>Start recording to see your sessions here</small>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = recordings.map(rec => `
+        <div class="recording-item">
+            <div class="recording-item-header">
+                <div class="recording-item-title">${rec.recordingId.substring(0, 8)}</div>
+                <div class="recording-item-date">${formatRecordingDate(rec.startedAt)}</div>
+            </div>
+            <div class="recording-item-stats">
+                <span title="Duration">⏱ ${formatRecordingDuration(rec.duration || 0)}</span>
+                <span title="Events">📊 ${rec.eventCount}</span>
+                <span title="Size">💾 ${formatRecordingSize(rec.fileSize)}</span>
+            </div>
+            <div class="recording-item-actions">
+                <button class="btn btn-sm btn-primary" onclick="playRecordingInline('${rec.recordingId}')" title="Play">
+                    ▶️
+                </button>
+                <button class="btn btn-sm btn-secondary" onclick="showExportMenu(event, '${rec.recordingId}')" title="Export">
+                    ⬇️
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="deleteRecordingInline('${rec.recordingId}')" title="Delete">
+                    🗑️
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function formatRecordingDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now - date;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Yesterday';
+    if (days < 7) return `${days}d ago`;
+
+    return date.toLocaleDateString();
+}
+
+function formatRecordingDuration(ms) {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const s = seconds % 60;
+
+    if (minutes > 0) {
+        return `${minutes}:${String(s).padStart(2, '0')}`;
+    }
+    return `${s}s`;
+}
+
+function formatRecordingSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 10) / 10 + ' ' + sizes[i];
+}
+
+async function playRecordingInline(recordingId) {
+    // Show player modal
+    showPlayerModal(recordingId);
+}
+
+async function showPlayerModal(recordingId) {
+    // Create modal if it doesn't exist
+    let modal = document.getElementById('recording-player-modal');
+
+    if (!modal) {
+        // Create modal HTML
+        const modalHTML = `
+            <div class="player-modal" id="recording-player-modal">
+                <div class="player-container">
+                    <div class="player-header">
+                        <h2 id="player-title">Recording Playback</h2>
+                        <button class="btn btn-icon" onclick="closePlayerModal()">
+                            <span class="icon">✕</span>
+                        </button>
+                    </div>
+                    <div class="player-body">
+                        <div id="player-terminal"></div>
+                    </div>
+                    <div class="player-controls">
+                        <div class="playback-bar">
+                            <div class="playback-buttons">
+                                <button class="btn btn-icon" onclick="playPlayerRecording()" title="Play">
+                                    <span class="icon">▶️</span>
+                                </button>
+                                <button class="btn btn-icon" onclick="pausePlayerRecording()" title="Pause">
+                                    <span class="icon">⏸</span>
+                                </button>
+                                <button class="btn btn-icon" onclick="stopPlayerRecording()" title="Stop">
+                                    <span class="icon">⏹</span>
+                                </button>
+                            </div>
+                            <div class="timeline-container">
+                                <input type="range" class="timeline" id="player-timeline" min="0" max="100" value="0">
+                            </div>
+                            <div class="time-display" id="player-time-display">00:00 / 00:00</div>
+                        </div>
+                        <div class="speed-control">
+                            <span>Speed:</span>
+                            <button class="btn btn-sm" onclick="setPlayerSpeed(0.5)">0.5x</button>
+                            <button class="btn btn-sm" onclick="setPlayerSpeed(1)">1x</button>
+                            <button class="btn btn-sm" onclick="setPlayerSpeed(1.5)">1.5x</button>
+                            <button class="btn btn-sm" onclick="setPlayerSpeed(2)">2x</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        modal = document.getElementById('recording-player-modal');
+    }
+
+    // Show modal
+    modal.classList.add('active');
+
+    // Load recording
+    await loadRecordingInPlayer(recordingId);
+}
+
+function closePlayerModal() {
+    const modal = document.getElementById('recording-player-modal');
+    if (modal) {
+        modal.classList.remove('active');
+        if (window.currentPlayerInstance) {
+            stopPlayerRecording();
+        }
+    }
+}
+
+async function loadRecordingInPlayer(recordingId) {
+    try {
+        // Fetch recording metadata to get terminal size
+        const metaResponse = await fetch(`/api/v1/recordings/${recordingId}`);
+        if (!metaResponse.ok) throw new Error('Failed to load recording metadata');
+        const metadata = await metaResponse.json();
+
+        // Fetch events in asciinema format (which has proper batching)
+        const response = await fetch(`/api/v1/recordings/${recordingId}/export?format=asciinema`);
+        if (!response.ok) throw new Error('Failed to load recording');
+
+        const castText = await response.text();
+        const lines = castText.trim().split('\n');
+        const header = JSON.parse(lines[0]);
+
+        // Parse asciicast events
+        const events = [];
+        for (let i = 1; i < lines.length; i++) {
+            if (lines[i].trim()) {
+                const [time, type, data] = JSON.parse(lines[i]);
+                events.push({
+                    timestamp: new Date(header.timestamp * 1000 + time * 1000).toISOString(),
+                    type: type === 'o' ? 'output' : 'input',
+                    data: data,
+                    deltaTime: time * 1000
+                });
+            }
+        }
+
+        const data = { events };
+
+        // Initialize xterm if not already done
+        if (!window.currentPlayerInstance) {
+            const terminal = new Terminal({
+                cursorBlink: false,
+                rows: header.height || 24,
+                cols: header.width || 80,
+                scrollback: 1000,
+                fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+                fontSize: 14,
+                theme: {
+                    background: '#000000',
+                    foreground: '#ffffff'
+                },
+                allowProposedApi: true,
+                convertEol: false  // Important: don't convert line endings
+            });
+
+            const terminalContainer = document.getElementById('player-terminal');
+            terminal.open(terminalContainer);
+
+            // Set the container to match terminal dimensions
+            const charWidth = terminal._core._renderService.dimensions.actualCellWidth;
+            const charHeight = terminal._core._renderService.dimensions.actualCellHeight;
+            const width = (header.width || 80) * charWidth;
+            const height = (header.height || 24) * charHeight;
+            terminalContainer.style.width = `${width}px`;
+            terminalContainer.style.height = `${height}px`;
+
+            window.currentPlayerInstance = {
+                terminal,
+                events: [],
+                currentIndex: 0,
+                currentTime: 0,
+                duration: 0,
+                isPlaying: false,
+                speed: 1.0,
+                playbackTimer: null
+            };
+        }
+
+        const player = window.currentPlayerInstance;
+        player.events = data.events;
+        player.currentIndex = 0;
+        player.currentTime = 0;
+
+        // Calculate duration
+        if (player.events.length > 0) {
+            const lastEvent = player.events[player.events.length - 1];
+            const firstEvent = player.events[0];
+            player.duration = new Date(lastEvent.timestamp).getTime() -
+                             new Date(firstEvent.timestamp).getTime();
+        }
+
+        player.terminal.clear();
+        updatePlayerTimeDisplay();
+
+    } catch (error) {
+        console.error('Failed to load recording:', error);
+        alert('Failed to load recording');
+    }
+}
+
+function playPlayerRecording() {
+    const player = window.currentPlayerInstance;
+    if (!player || !player.events || player.events.length === 0) return;
+
+    player.isPlaying = true;
+    playNextPlayerEvent();
+}
+
+function playNextPlayerEvent() {
+    const player = window.currentPlayerInstance;
+    if (!player || !player.isPlaying) return;
+
+    if (player.currentIndex >= player.events.length) {
+        stopPlayerRecording();
+        return;
+    }
+
+    const event = player.events[player.currentIndex];
+    const eventTime = new Date(event.timestamp).getTime() -
+                     new Date(player.events[0].timestamp).getTime();
+
+    player.currentTime = eventTime;
+
+    // Batch events with sliding window - combine outputs within 180ms of each other
+    // This matches the recording batching strategy
+    let batchedOutput = '';
+    let currentIdx = player.currentIndex;
+    let batchEndTime = eventTime;
+    let lastEventTime = eventTime;
+
+    while (currentIdx < player.events.length) {
+        const currentEvent = player.events[currentIdx];
+        const currentEventTime = new Date(currentEvent.timestamp).getTime() -
+                                 new Date(player.events[0].timestamp).getTime();
+
+        // Stop batching if gap from last event is > 180ms or total batch duration > 250ms
+        const gapFromLast = currentEventTime - lastEventTime;
+        const batchDuration = currentEventTime - eventTime;
+
+        if (gapFromLast > 180 || batchDuration > 250) {
+            break;
+        }
+
+        // Add output events to batch
+        if (currentEvent.type === 'output') {
+            // Ensure data is a string and not an object
+            let eventData = currentEvent.data;
+            if (typeof eventData === 'object' && eventData !== null) {
+                // If it's an object, extract the actual terminal data
+                eventData = eventData.data || eventData.content || JSON.stringify(eventData);
+            }
+
+            batchedOutput += eventData;
+        }
+
+        lastEventTime = currentEventTime;
+        batchEndTime = currentEventTime;
+        currentIdx++;
+    }
+
+    // Write all batched output at once
+    if (batchedOutput) {
+        player.terminal.write(batchedOutput);
+    }
+
+    player.currentIndex = currentIdx;
+    player.currentTime = batchEndTime;
+
+    if (player.currentIndex < player.events.length) {
+        const nextEvent = player.events[player.currentIndex];
+        const nextEventTime = new Date(nextEvent.timestamp).getTime() -
+                             new Date(player.events[0].timestamp).getTime();
+
+        let delay = Math.max(16, (nextEventTime - batchEndTime) / player.speed);
+
+        player.playbackTimer = setTimeout(() => {
+            playNextPlayerEvent();
+        }, delay);
+    } else {
+        stopPlayerRecording();
+    }
+
+    updatePlayerTimeDisplay();
+}
+
+function pausePlayerRecording() {
+    const player = window.currentPlayerInstance;
+    if (!player) return;
+
+    player.isPlaying = false;
+    if (player.playbackTimer) {
+        clearTimeout(player.playbackTimer);
+        player.playbackTimer = null;
+    }
+}
+
+function stopPlayerRecording() {
+    const player = window.currentPlayerInstance;
+    if (!player) return;
+
+    player.isPlaying = false;
+    player.currentIndex = 0;
+    player.currentTime = 0;
+
+    if (player.playbackTimer) {
+        clearTimeout(player.playbackTimer);
+        player.playbackTimer = null;
+    }
+
+    player.terminal.clear();
+    updatePlayerTimeDisplay();
+}
+
+function setPlayerSpeed(speed) {
+    const player = window.currentPlayerInstance;
+    if (!player) return;
+    player.speed = speed;
+}
+
+function updatePlayerTimeDisplay() {
+    const player = window.currentPlayerInstance;
+    if (!player) return;
+
+    const current = player.currentTime || 0;
+    const total = player.duration || 0;
+
+    const formatTime = (ms) => {
+        const seconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        const m = minutes % 60;
+        return `${m}:${String(s).padStart(2, '0')}`;
+    };
+
+    const display = document.getElementById('player-time-display');
+    if (display) {
+        display.textContent = `${formatTime(current)} / ${formatTime(total)}`;
+    }
+
+    const timeline = document.getElementById('player-timeline');
+    if (timeline && total > 0) {
+        timeline.value = (current / total) * 100;
+    }
+}
+
+async function deleteRecordingInline(recordingId) {
+    if (!confirm('Delete this recording?')) return;
+
+    try {
+        const response = await fetch(`/api/v1/recordings/${recordingId}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) throw new Error('Failed to delete');
+
+        // Reload the list
+        await loadRecordings();
+    } catch (error) {
+        console.error('Error deleting recording:', error);
+        alert('Failed to delete recording');
+    }
+}
+
+function showExportMenu(event, recordingId) {
+    event.stopPropagation();
+
+    const formats = [
+        { name: 'JSON', value: 'json', ext: 'json' },
+        { name: 'Asciinema', value: 'asciinema', ext: 'cast' },
+        { name: 'HTML', value: 'html', ext: 'html' },
+        { name: 'Text', value: 'text', ext: 'txt' }
+    ];
+
+    const menu = formats.map(f =>
+        `<button onclick="exportRecordingInline('${recordingId}', '${f.value}', '${f.ext}')">${f.name}</button>`
+    ).join('');
+
+    // Simple prompt for now
+    const choice = prompt('Export format:\n1 = JSON\n2 = Asciinema\n3 = HTML\n4 = Text');
+    const format = ['json', 'asciinema', 'html', 'text'][parseInt(choice) - 1];
+    const ext = ['json', 'cast', 'html', 'txt'][parseInt(choice) - 1];
+
+    if (format) {
+        exportRecordingInline(recordingId, format, ext);
+    }
+}
+
+async function exportRecordingInline(recordingId, format, ext) {
+    try {
+        const response = await fetch(`/api/v1/recordings/${recordingId}/export`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ format })
+        });
+
+        if (!response.ok) throw new Error('Export failed');
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `recording_${recordingId}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    } catch (error) {
+        console.error('Export error:', error);
+        alert('Failed to export recording');
+    }
+}
+</script>

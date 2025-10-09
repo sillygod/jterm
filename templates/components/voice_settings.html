@@ -1,0 +1,103 @@
+<!-- Voice Settings Modal -->
+<div class="modal-content voice-settings-modal">
+    <div class="modal-header">
+        <h3>🎤 Voice Settings</h3>
+        <button class="btn btn-icon" onclick="document.getElementById('voice-settings-modal').style.display = 'none'">
+            <span class="icon">✕</span>
+        </button>
+    </div>
+
+    <div class="modal-body">
+        <!-- Voice Input Settings -->
+        <div class="settings-section">
+            <h4>Voice Input</h4>
+
+            <div class="setting-item">
+                <label for="voice-language">Language</label>
+                <select id="voice-language" class="setting-select">
+                    <option value="en-US">English (US)</option>
+                    <option value="en-GB">English (UK)</option>
+                    <option value="es-ES">Spanish (Spain)</option>
+                    <option value="es-MX">Spanish (Mexico)</option>
+                    <option value="fr-FR">French</option>
+                    <option value="de-DE">German</option>
+                    <option value="it-IT">Italian</option>
+                    <option value="pt-BR">Portuguese (Brazil)</option>
+                    <option value="ru-RU">Russian</option>
+                    <option value="ja-JP">Japanese</option>
+                    <option value="ko-KR">Korean</option>
+                    <option value="zh-CN">Chinese (Simplified)</option>
+                    <option value="zh-TW">Chinese (Traditional)</option>
+                </select>
+            </div>
+
+            <div class="setting-item">
+                <label for="voice-continuous">
+                    <input type="checkbox" id="voice-continuous">
+                    Continuous mode (keep listening)
+                </label>
+            </div>
+
+            <div class="setting-item">
+                <label for="voice-interim">
+                    <input type="checkbox" id="voice-interim" checked>
+                    Show interim results
+                </label>
+            </div>
+        </div>
+
+        <!-- Voice Output Settings -->
+        <div class="settings-section">
+            <h4>Voice Output (Text-to-Speech)</h4>
+
+            <div class="setting-item">
+                <label for="tts-enabled">
+                    <input type="checkbox" id="tts-enabled">
+                    Enable text-to-speech for AI responses
+                </label>
+            </div>
+
+            <div class="setting-item">
+                <label for="tts-voice">Voice</label>
+                <select id="tts-voice" class="setting-select">
+                    <option value="">Default</option>
+                    <!-- Will be populated by JavaScript -->
+                </select>
+            </div>
+
+            <div class="setting-item">
+                <label for="tts-rate">Speech Rate: <span id="tts-rate-value">1.0</span></label>
+                <input type="range" id="tts-rate" min="0.5" max="2.0" step="0.1" value="1.0" class="setting-slider">
+            </div>
+
+            <div class="setting-item">
+                <label for="tts-pitch">Pitch: <span id="tts-pitch-value">1.0</span></label>
+                <input type="range" id="tts-pitch" min="0.5" max="2.0" step="0.1" value="1.0" class="setting-slider">
+            </div>
+
+            <div class="setting-item">
+                <label for="tts-volume">Volume: <span id="tts-volume-value">100%</span></label>
+                <input type="range" id="tts-volume" min="0" max="1" step="0.1" value="1.0" class="setting-slider">
+            </div>
+        </div>
+
+        <!-- Test Section -->
+        <div class="settings-section">
+            <h4>Test Voice</h4>
+            <div class="setting-item">
+                <button class="btn btn-primary" id="test-voice-button">
+                    🔊 Test Text-to-Speech
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-footer">
+        <button class="btn" onclick="document.getElementById('voice-settings-modal').style.display = 'none'">
+            Close
+        </button>
+        <button class="btn btn-primary" id="save-voice-settings">
+            Save Settings
+        </button>
+    </div>
+</div>

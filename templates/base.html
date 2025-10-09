@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Web Terminal{% endblock %}</title>
+
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.8/dist/htmx.min.js"></script>
+
+    <!-- Hyperscript -->
+    <script src="https://unpkg.com/hyperscript.org@0.9.12/dist/_hyperscript.min.js"></script>
+
+    <!-- xterm.js -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-search@0.13.0/lib/xterm-addon-search.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-unicode11@0.6.0/lib/xterm-addon-unicode11.js"></script>
+
+    <!-- Marked.js for markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/main.css">
+    {% block extra_css %}{% endblock %}
+
+    <!-- Meta and SEO -->
+    <meta name="description" content="Web-based terminal emulator with multimedia support, AI assistance, and session recording">
+    <meta name="keywords" content="terminal, web terminal, command line, xterm, AI assistant">
+</head>
+<body class="terminal-app"
+      _="on htmx:beforeRequest add .loading to .loading-indicator
+         on htmx:afterRequest remove .loading from .loading-indicator">
+
+    <!-- Header -->
+    <header class="app-header">
+        <div class="header-left">
+            <h1 class="app-title">
+                <span class="terminal-icon">⚡</span>
+                Web Terminal
+            </h1>
+        </div>
+
+        <div class="header-center">
+            {% block header_center %}
+            <div class="session-tabs" id="session-tabs">
+                <!-- Session tabs will be populated by HTMX -->
+            </div>
+            {% endblock %}
+        </div>
+
+        <div class="header-right">
+            <div class="header-controls">
+                <button class="btn btn-icon"
+                        hx-get="/api/terminal/sessions/new"
+                        hx-target="#main-content"
+                        title="New Terminal Session"
+                        _="on click add .pulse to me">
+                    <span class="icon">+</span>
+                </button>
+
+                <button class="btn btn-icon ai-sidebar-toggle"
+                        title="Toggle AI Assistant"
+                        onclick="const sidebar = document.querySelector('.sidebar'); sidebar.style.display = sidebar.style.display === 'none' ? 'block' : 'none'">
+                    <span class="icon">🤖</span>
+                </button>
+
+                <button class="btn btn-icon recording-toggle"
+                        id="recording-toggle"
+                        title="Session Recording"
+                        onclick="toggleRecordingPanel()">
+                    <span class="icon">⏺</span>
+                </button>
+
+                <button class="btn btn-icon recordings-sidebar-toggle"
+                        title="Toggle Recordings"
+                        onclick="toggleRecordingsPanel()">
+                    <span class="icon">📹</span>
+                </button>
+
+                <button class="btn btn-icon theme-toggle"
+                        _="on click
+                           if <html/>'s @data-theme is 'dark' then
+                             set <html/>'s @data-theme to 'light'
+                           else
+                             set <html/>'s @data-theme to 'dark'
+                           end">
+                    <span class="icon">🌙</span>
+                </button>
+
+                <button class="btn btn-icon settings-btn"
+                        hx-get="/api/settings"
+                        hx-target="#settings-modal"
+                        hx-swap="innerHTML"
+                        onclick="setTimeout(() => document.getElementById('settings-modal').style.display = 'flex', 50)">
+                    <span class="icon">⚙️</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="app-main" id="main-content">
+        {% block content %}
+        <!-- Default terminal interface -->
+        <div class="terminal-container">
+            <div class="terminal-wrapper">
+                <div id="xterm-container" class="xterm-container"></div>
+                <div class="media-overlay" id="media-overlay"></div>
+            </div>
+
+            <div class="sidebar" id="sidebar">
+                <div class="sidebar-resize-handle" id="sidebar-resize-handle"></div>
+                <div class="sidebar-content">
+                    {% include "components/ai_sidebar.html" %}
+                </div>
+            </div>
+
+            <div class="sidebar recordings-sidebar" id="recordings-sidebar" style="display: none;">
+                <div class="sidebar-resize-handle" id="recordings-resize-handle"></div>
+                <div class="sidebar-content">
+                    {% include "components/recordings_sidebar.html" %}
+                </div>
+            </div>
+        </div>
+        {% endblock %}
+    </main>
+
+    <!-- Footer/Status Bar -->
+    <footer class="status-bar">
+        <div class="status-left">
+            <span class="connection-status"
+                  id="connection-status"
+                  _="init set my textContent to 'Connecting...'">
+                Disconnected
+            </span>
+            <span class="session-info" id="session-info"></span>
+        </div>
+
+        <div class="status-center">
+            <div class="recording-status-inline" id="recording-status-inline">
+                <!-- Inline recording status -->
+                <button class="btn btn-sm recording-start" id="recording-start-btn" title="Start Recording">
+                    <span class="icon">⏺</span> Record
+                </button>
+                <button class="btn btn-sm recording-stop-record" id="recording-stop-btn" style="display: none;" title="Stop Recording">
+                    <span class="icon">⏹</span> Stop
+                </button>
+                <span class="recording-status" id="recording-status-text"></span>
+            </div>
+        </div>
+
+        <div class="status-right">
+            <span class="loading-indicator" id="loading-indicator">
+                <span class="spinner"></span>
+            </span>
+        </div>
+    </footer>
+
+    <!-- Modals -->
+    <div id="modal-container">
+        <!-- Settings Modal -->
+        <div id="settings-modal" class="modal" style="display: none;"
+             _="on click if target == me then set my style.display to 'none' end">
+        </div>
+
+        <!-- Voice Settings Modal -->
+        <div id="voice-settings-modal" class="modal" style="display: none;"
+             _="on click if target == me then set my style.display to 'none' end">
+            {% include "components/voice_settings.html" %}
+        </div>
+
+        <!-- Media Modal -->
+        <div id="media-modal" class="modal media-modal" style="display: none;">
+        </div>
+
+        <!-- Recording Panel Modal -->
+        <div id="recording-panel-modal" class="modal" style="display: none;"
+             _="on click if target == me then set my style.display to 'none' end">
+            <div class="modal-content recording-panel-content">
+                <div class="modal-header">
+                    <h3>Session Recording</h3>
+                    <button class="btn btn-icon" onclick="document.getElementById('recording-panel-modal').style.display = 'none'">
+                        <span class="icon">✕</span>
+                    </button>
+                </div>
+                <div class="modal-body" id="recording-panel-body">
+                    <!-- Recording controls will be loaded here -->
+                    <div class="recording-panel-placeholder">
+                        <p>Loading recording controls...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="/static/js/terminal.js"></script>
+    <script src="/static/js/media.js"></script>
+    <script src="/static/js/voice.js"></script>
+    <script src="/static/js/ai.js"></script>
+    <script src="/static/js/recording.js"></script>
+    <script src="/static/js/sidebar-resize.js"></script>
+    <script src="/static/js/voice-settings.js"></script>
+    {% block extra_js %}{% endblock %}
+
+    <!-- HTMX Configuration -->
+    <script>
+        // Configure HTMX
+        htmx.config.globalViewTransitions = true;
+        htmx.config.historyCacheSize = 0;
+
+        // WebSocket connection setup
+        htmx.on('htmx:wsOpen', function(e) {
+            document.getElementById('connection-status').textContent = 'Connected';
+            document.getElementById('connection-status').className = 'connection-status connected';
+        });
+
+        htmx.on('htmx:wsClose', function(e) {
+            document.getElementById('connection-status').textContent = 'Disconnected';
+            document.getElementById('connection-status').className = 'connection-status disconnected';
+        });
+
+        htmx.on('htmx:wsError', function(e) {
+            document.getElementById('connection-status').textContent = 'Error';
+            document.getElementById('connection-status').className = 'connection-status error';
+        });
+
+        // Recording panel toggle
+        function toggleRecordingPanel() {
+            const modal = document.getElementById('recording-panel-modal');
+            if (modal.style.display === 'none' || !modal.style.display) {
+                modal.style.display = 'flex';
+
+                // Load recording controls if not already loaded
+                const body = document.getElementById('recording-panel-body');
+                if (body.querySelector('.recording-panel-placeholder')) {
+                    const sessionId = window.webTerminal?.sessionId || '00000000-0000-0000-0000-000000000001';
+                    body.innerHTML = `
+                        <div class="recording-panel-info">
+                            <p>Session recording allows you to capture and replay terminal sessions.</p>
+                            <p>Features:</p>
+                            <ul>
+                                <li>Record terminal sessions with minimal performance impact (&lt;5%)</li>
+                                <li>Play back recordings with speed control and seeking</li>
+                                <li>Export to JSON, Asciinema, HTML, or text formats</li>
+                                <li>Automatic 30-day retention</li>
+                            </ul>
+                        </div>
+                        <div class="recording-panel-controls">
+                            <h4>Quick Controls</h4>
+                            <p>Use the buttons in the status bar to start/stop recording.</p>
+                            <p>Recording ID: <code>${sessionId}</code></p>
+                        </div>
+                    `;
+                }
+            } else {
+                modal.style.display = 'none';
+            }
+        }
+
+        // Toggle recordings panel
+        function toggleRecordingsPanel() {
+            const panel = document.getElementById('recordings-sidebar');
+            const aiPanel = document.getElementById('sidebar');
+
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+                // Hide AI panel if open
+                if (aiPanel.style.display !== 'none') {
+                    aiPanel.style.display = 'none';
+                }
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        // Recording controls are initialized by recording.js RecordingController
+        // Event handlers for recording status display
+        document.addEventListener('recording-started', (e) => {
+            const statusText = document.getElementById('recording-status-text');
+            if (statusText) {
+                statusText.textContent = 'Recording...';
+                statusText.style.color = '#f44336';
+            }
+        });
+
+        document.addEventListener('recording-stopped', (e) => {
+            const statusText = document.getElementById('recording-status-text');
+            if (statusText && e.detail.recordingId) {
+                statusText.textContent = 'Recording saved: ' + e.detail.recordingId.substring(0, 8);
+                statusText.style.color = '#4caf50';
+                setTimeout(() => {
+                    statusText.textContent = '';
+                }, 5000);
+            }
+        });
+
+        document.addEventListener('recording-error', (e) => {
+            const statusText = document.getElementById('recording-status-text');
+            if (statusText) {
+                statusText.textContent = 'Recording error';
+                statusText.style.color = '#f44336';
+                setTimeout(() => {
+                    statusText.textContent = '';
+                }, 5000);
+            }
+        });
+    </script>
+</body>
+</html>

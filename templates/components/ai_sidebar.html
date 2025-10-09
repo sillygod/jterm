@@ -1,0 +1,54 @@
+<!-- AI Assistant Sidebar Component -->
+<div class="ai-sidebar" id="ai-sidebar">
+    <div class="ai-header">
+        <h3>🤖 AI Assistant</h3>
+        <button class="btn btn-icon ai-toggle"
+                title="Hide AI sidebar"
+                onclick="document.querySelector('.sidebar').style.display = 'none'">
+            <span class="icon">✕</span>
+        </button>
+    </div>
+
+    <div class="ai-content">
+        <div class="ai-status">
+            <span class="status-indicator offline"></span>
+            <span class="status-text">Initializing...</span>
+        </div>
+
+        <div class="ai-chat" id="ai-chat" style="display: none;">
+            <div class="chat-messages" id="chat-messages">
+                <!-- Chat messages will be populated here -->
+            </div>
+
+            <div class="chat-input">
+                <form>
+                    <input type="text"
+                           id="chat-input"
+                           placeholder="Ask AI assistant..."
+                           autocomplete="off"
+                           disabled>
+                    <button type="submit" class="btn btn-primary" disabled>
+                        Send
+                    </button>
+                </form>
+            </div>
+
+            <!-- Voice Controls -->
+            <div class="voice-controls">
+                <button class="btn btn-icon voice-input-button" title="Voice input">
+                    <span class="icon">🎤</span>
+                </button>
+                <button class="btn btn-icon" id="voice-settings-button" title="Voice settings"
+                        onclick="document.getElementById('voice-settings-modal').style.display = 'flex'">
+                    <span class="icon">⚙️</span>
+                </button>
+            </div>
+            <div class="voice-status"></div>
+            <div class="voice-transcript"></div>
+        </div>
+
+        <div class="ai-suggestions" id="ai-suggestions">
+            <!-- AI suggestions will appear here -->
+        </div>
+    </div>
+</div>

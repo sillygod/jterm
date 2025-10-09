@@ -1,0 +1,163 @@
+<!-- Settings Modal Content -->
+<div class="modal-content">
+    <div class="modal-header">
+        <h2>Settings</h2>
+        <button class="btn btn-icon"
+                onclick="document.getElementById('settings-modal').style.display='none'">
+            ✕
+        </button>
+    </div>
+
+    <div class="modal-body">
+        <div class="settings-section">
+            <h3>Terminal</h3>
+            <div class="setting-item">
+                <label for="font-size">Font Size</label>
+                <select id="font-size" class="form-control">
+                    <option value="12">12px</option>
+                    <option value="13" selected>13px</option>
+                    <option value="14">14px</option>
+                    <option value="16">16px</option>
+                    <option value="18">18px</option>
+                </select>
+            </div>
+
+            <div class="setting-item">
+                <label for="font-family">Font Family</label>
+                <select id="font-family" class="form-control">
+                    <option value="Courier New" selected>Courier New</option>
+                    <option value="Monaco">Monaco</option>
+                    <option value="Menlo">Menlo</option>
+                    <option value="Consolas">Consolas</option>
+                </select>
+            </div>
+
+            <div class="setting-item">
+                <label>
+                    <input type="checkbox" id="cursor-blink" checked>
+                    Cursor Blink
+                </label>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <h3>Theme</h3>
+            <div class="setting-item">
+                <label for="theme-select">Color Theme</label>
+                <select id="theme-select" class="form-control">
+                    <option value="dark" selected>Dark</option>
+                    <option value="light">Light</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <h3>About</h3>
+            <p>Web Terminal v1.0.0</p>
+            <p>A modern web-based terminal emulator with multimedia support.</p>
+        </div>
+    </div>
+
+    <div class="modal-footer">
+        <button class="btn btn-primary"
+                onclick="document.getElementById('settings-modal').style.display='none'">
+            Close
+        </button>
+    </div>
+</div>
+
+<style>
+.modal-content {
+    min-width: 500px;
+    max-width: 600px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.modal-body {
+    margin-bottom: 1.5rem;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.settings-section {
+    margin-bottom: 2rem;
+}
+
+.settings-section h3 {
+    font-size: 1.125rem;
+    margin-bottom: 1rem;
+    color: var(--accent-text);
+}
+
+.setting-item {
+    margin-bottom: 1rem;
+}
+
+.setting-item label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.5rem;
+    background: var(--accent-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    color: var(--primary-text);
+    font-size: 0.875rem;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--accent-text);
+}
+
+input[type="checkbox"] {
+    margin-right: 0.5rem;
+}
+</style>
+
+<script>
+// Apply settings changes
+document.getElementById('theme-select')?.addEventListener('change', (e) => {
+    document.documentElement.setAttribute('data-theme', e.target.value);
+});
+
+document.getElementById('font-size')?.addEventListener('change', (e) => {
+    if (window.webTerminal?.terminal) {
+        window.webTerminal.terminal.options.fontSize = parseInt(e.target.value);
+    }
+});
+
+document.getElementById('font-family')?.addEventListener('change', (e) => {
+    if (window.webTerminal?.terminal) {
+        window.webTerminal.terminal.options.fontFamily = e.target.value;
+    }
+});
+
+document.getElementById('cursor-blink')?.addEventListener('change', (e) => {
+    if (window.webTerminal?.terminal) {
+        window.webTerminal.terminal.options.cursorBlink = e.target.checked;
+    }
+});
+</script>

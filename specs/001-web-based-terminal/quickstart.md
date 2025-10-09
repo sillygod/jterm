@@ -48,9 +48,11 @@ This quickstart guide provides step-by-step instructions for setting up and usin
 
 4. **Initialize SQLite database**
    ```bash
-   # Database is automatically created on first run
-   # Run migrations if needed
+   # Run database migrations
    alembic upgrade head
+
+   # Default user is created automatically on server startup
+   # (Optional: You can also run ./bin/setup_db.sh to create it manually)
    ```
 
 5. **Set environment variables**
@@ -82,7 +84,7 @@ For development with hot reload and debugging:
 
 2. **Start with auto-reload**
    ```bash
-   uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+   uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
    ```
 
 3. **Access development features**
@@ -133,309 +135,259 @@ For development with hot reload and debugging:
 
 ## Media Features
 
+The web terminal includes built-in commands for viewing media files directly in the browser. These commands are automatically available when you start a terminal session.
+
 ### Viewing Images
 
 1. **Display images inline**
    ```bash
-   # View image files
-   view screenshot.png
-   view photo.jpg
-   view diagram.gif
+   # View image files - opens in overlay viewer
+   imgcat screenshot.png
+   imgcat photo.jpg
+   imgcat diagram.svg
    ```
 
-2. **Remote images**
-   ```bash
-   # View images from URLs
-   view https://example.com/image.png
-   ```
+2. **Supported formats**
+   - JPG, JPEG, PNG, GIF, WebP, BMP, SVG
 
-3. **Image controls**
-   - **Zoom**: Scroll wheel or +/- keys
-   - **Pan**: Click and drag
-   - **Full screen**: Double-click image
-   - **Info**: Press 'i' for image details
+3. **Image viewer controls**
+   - **Zoom In**: Click + button or scroll up
+   - **Zoom Out**: Click - button or scroll down
+   - **Reset Zoom**: Click ⟲ button
+   - **Fullscreen**: Click ⛶ button
+   - **Close**: Click ✕ button or press Escape
 
 ### Playing Videos
 
 1. **Video playback**
    ```bash
-   # Play video files (up to 50MB)
-   play demo.mp4
-   play recording.webm
+   # Play video files (served through backend)
+   vidcat demo.mp4
+   vidcat recording.webm
    ```
 
-2. **Video controls**
-   - **Play/Pause**: Spacebar or click play button
-   - **Seek**: Arrow keys or progress bar
-   - **Volume**: Up/Down arrows or volume slider
-   - **Full screen**: 'f' key or full screen button
+2. **Supported formats**
+   - MP4, WebM, OGG, MOV, AVI
+   - Maximum file size: 50MB
+
+3. **Video controls**
+   - Standard HTML5 video controls
+   - Play/Pause, seek, volume
+   - Fullscreen support
 
 ### HTML Preview
 
 1. **Preview HTML files**
    ```bash
-   # Preview local HTML files
-   htmlview index.html
-   htmlview documentation.html
+   # Preview local HTML files in sandboxed iframe
+   htmlcat index.html
+   htmlcat documentation.html
    ```
 
-2. **Security settings**
-   - JavaScript disabled by default
-   - Enable JS with: `htmlview --allow-js index.html`
-   - Sandboxed iframe with CSP protection
+2. **Security features**
+   - JavaScript disabled by default for security
+   - Sandboxed iframe prevents malicious code execution
+   - Same-origin policy enforced
 
 ### Markdown Rendering
 
-1. **Render markdown files**
+1. **View markdown files**
    ```bash
-   # Open markdown in split-pane view
-   mdview README.md
-   mdview documentation.md
+   # Open markdown with GitHub-flavored styling
+   mdcat README.md
+   mdcat documentation.md
    ```
 
 2. **Markdown features**
+   - GitHub-flavored dark theme styling
    - Syntax highlighting for code blocks
-   - Interactive tables and lists
-   - Clickable links (open in new tab)
-   - Math rendering with KaTeX
-   - Mermaid diagram support
+   - Tables with striped rows
+   - Clickable links
+   - Properly formatted headings and lists
+   - Close with ✕ button or Escape key
 
 ## AI Assistant
 
-### Basic AI Interaction
+The terminal includes an AI assistant that can help with commands, explain outputs, and provide context-aware suggestions.
 
-1. **Enable AI assistant**
-   - Go to Settings → AI Assistant
-   - Choose provider (OpenAI, Anthropic, Local)
-   - Enter API key if required
-   - Enable desired features
+### Enabling AI Assistant
 
-2. **Text-based queries**
+1. **Configure API Keys**
    ```bash
-   # Ask for command suggestions
-   ai suggest "how to find large files"
-
-   # Explain command output
-   ai explain "ls -la output"
-
-   # Get help with errors
-   ai help "permission denied error"
+   # In .env file
+   AI_PROVIDER=openai           # or anthropic, local
+   OPENAI_API_KEY=sk-...       # Your OpenAI API key
+   # OR
+   ANTHROPIC_API_KEY=sk-ant-... # Your Anthropic API key
    ```
 
-3. **AI chat sidebar**
-   - Click AI icon in sidebar
-   - Type questions or commands
-   - Get contextual responses
-   - View conversation history
+2. **Access the AI Sidebar**
+   - Click the 🤖 icon in the top-right header
+   - The AI sidebar will appear on the right side
+   - Status indicator shows if AI is online/offline
 
-### Voice Input
+### Using AI Chat
 
-1. **Enable voice features**
-   - Go to Settings → AI Assistant → Voice
-   - Grant microphone permissions
-   - Test microphone and speaker
+1. **Text Chat**
+   - Type your question in the chat input field
+   - Press Enter or click "Send"
+   - AI provides context-aware responses based on terminal history
+   - Responses are rendered with markdown formatting
 
-2. **Voice commands**
-   - **Activate**: Press and hold 'Ctrl+Space'
-   - **Speak**: Give voice command or question
-   - **Release**: Let go to process
-   - **Listen**: AI responds with voice (optional)
+2. **Voice Input** (if configured)
+   - Click the 🎤 microphone icon
+   - Speak your command or question
+   - AI transcribes and responds
+   - Click the ⚙️ icon for voice settings
 
-3. **Voice command examples**
-   - "List files in current directory"
-   - "Create a new folder called projects"
-   - "Show git status"
-   - "Explain this error message"
+### AI Features
 
-### AI Modes
-
-1. **Inline suggestions**
-   - Type partial command
-   - See AI suggestions appear
-   - Press Tab to accept suggestion
-   - Press Esc to dismiss
-
-2. **Sidebar chat**
-   - Full conversation interface
-   - Context from terminal session
-   - Code examples and explanations
-   - Command history integration
-
-3. **Voice-only mode**
-   - Hands-free operation
-   - Speak commands and questions
-   - Audio responses
-   - Visual confirmations for actions
+- **Command Suggestions**: AI suggests commands based on your goal
+- **Output Explanation**: AI explains command outputs and errors
+- **Context-Aware**: AI remembers your terminal session history
+- **Multiple Providers**: Support for OpenAI, Anthropic, and local models
 
 ## Session Recording
 
-### Recording Sessions
+The terminal can record and replay your terminal sessions for documentation, debugging, or sharing.
 
-1. **Start recording**
-   ```bash
-   # Manual recording control
-   record start
+### Starting a Recording
 
-   # Or use interface button
-   # Click record button in status bar
+1. **Access Recording Controls**
+   - Click the ⏺ recording icon in the top-right header to view recording info
+   - Use the "Record" button in the status bar (bottom center) to start
+
+2. **Start Recording**
+   - Click the "Record" button in the status bar
+   - Recording indicator appears showing "Recording..." in red
+   - Minimal performance impact (<5%)
+
+3. **Stop Recording**
+   - Click the "Stop" button that replaces the Record button
+   - Recording is automatically saved
+   - Recording ID displayed briefly in status bar
+
+### Using Recording Features
+
+1. **Playback**
+   - Recordings are saved with unique IDs
+   - Access via API: `/api/v1/recordings/{recording_id}`
+   - Use recording.js player for playback with controls
+
+2. **Export Formats**
+   - JSON: Full event data with timestamps
+   - Asciinema: Compatible with asciinema.org
+   - HTML: Self-contained playable recording
+   - Text: Plain text transcript
+
+3. **Performance**
+   - <5% performance overhead during recording
+   - Automatic compression enabled
+   - Checkpoints for efficient seeking
+
+4. **Retention**
+   - Recordings stored for 30 days by default
+   - Automatic cleanup of old recordings
+   - Configure via `RECORDING_RETENTION_DAYS` in `.env`
+
+## Settings
+
+The terminal includes a settings panel for basic customization:
+
+1. **Access Settings**
+   - Click the ⚙️ icon in the top-right corner
+   - Settings modal will appear
+
+2. **Available Settings**
+   - **Font Size**: 12px, 13px, 14px, 16px, 18px (default: 14px)
+   - **Font Family**: Courier New (default), Monaco, Menlo, Consolas
+   - **Cursor Blink**: Toggle cursor blinking on/off
+   - **Color Theme**: Dark (default), Light
+
+3. **Apply Changes**
+   - Changes take effect immediately
+   - Click "Close" to exit settings
+
+## Implementation Status
+
+### ✅ Fully Functional (User-Accessible)
+- **Terminal Emulation**: Full xterm.js terminal with PTY support
+- **Media Viewing**: `imgcat`, `vidcat`, `mdcat`, `htmlcat` commands
+  - Image viewer with zoom, fullscreen, pan controls
+  - GitHub-flavored markdown rendering
+  - Sandboxed HTML preview
+- **Settings Panel**: Font size, family, cursor, theme customization
+- **WebSocket Communication**: Real-time terminal I/O
+- **Session Management**: Create and manage terminal sessions
+
+### ✅ Fully Functional - AI Assistant
+The AI Assistant is now **fully integrated and user-accessible**:
+- **Status**: Complete backend and frontend integration
+- **Access**: Click the 🤖 icon in the header to toggle the AI sidebar
+- **Code Location**:
+  - Backend: `src/services/ai_service.py`, `src/api/ai_endpoints.py`, `src/websockets/ai_handler.py`
+  - Frontend: `static/js/ai.js`, `static/js/voice.js`, `templates/components/ai_sidebar.html`
+- **Available Features**:
+  - Text-based chat with streaming responses
+  - Multiple AI providers (OpenAI, Anthropic, local)
+  - Voice input/output support
+  - Context-aware terminal assistance
+  - Command suggestions and output explanations
+- **Configuration**: Set `AI_PROVIDER`, `OPENAI_API_KEY`, or `ANTHROPIC_API_KEY` in `.env`
+
+### ✅ Fully Functional - Session Recording
+The Session Recording feature is now **fully integrated and user-accessible**:
+- **Status**: Complete backend and frontend integration
+- **Access**:
+  - Click the ⏺ icon in the header to view recording info
+  - Use Record/Stop buttons in the status bar to control recording
+- **Code Location**:
+  - Backend: `src/services/recording_service.py`, `src/api/recording_endpoints.py`, `src/websockets/recording_handler.py`
+  - Frontend: `static/js/recording.js`, `templates/components/recording_controls.html`
+- **Available Features**:
+  - Record terminal sessions with <5% performance impact
+  - Playback with speed control and seeking
+  - Export to JSON, Asciinema, HTML, text formats
+  - 30-day retention with auto-cleanup
+  - Real-time recording status in status bar
+
+#### Theme & Extension Management
+- **Status**: Backend services and models exist
+- **Missing**: API endpoints not registered, no UI
+- **Code Location**:
+  - Backend: `src/services/theme_service.py`, `src/services/extension_service.py`
+  - Frontend: `templates/components/theme_selector.html`
+- **Capabilities** (when integrated):
+  - Custom color themes
+  - VS Code theme import
+  - Extension marketplace
+  - Plugin system
+
+### 🚧 Not Yet Started
+- Multi-session tabs UI
+- File upload/download features
+- Remote SSH connection support
+- Collaborative editing/shared sessions
+
+### Integration Steps Required
+
+To activate implemented-but-not-integrated features:
+
+1. **Load JavaScript files** in `templates/base.html`:
+   ```html
+   <script src="/static/js/recording.js"></script>
+   <script src="/static/js/voice.js"></script>
    ```
 
-2. **Recording settings**
-   - **Auto-record**: Enable in settings for all sessions
-   - **Quality**: Choose compression level (1-9)
-   - **Duration**: Set maximum recording length
-   - **Storage**: Local or cloud storage
-
-3. **Stop recording**
-   ```bash
-   record stop
-
-   # Or click stop button in interface
+2. **Register API endpoints** in `src/main.py`:
+   ```python
+   from src.api.ai_endpoints import router as ai_router
+   from src.api.customization_endpoints import router as customization_router
+   app.include_router(ai_router)
+   app.include_router(customization_router)
    ```
 
-### Playback and Management
-
-1. **List recordings**
-   ```bash
-   # View all recordings
-   record list
-
-   # Filter by date
-   record list --since "2025-09-20"
-   ```
-
-2. **Playback recordings**
-   ```bash
-   # Play recording by ID
-   record play 123e4567-e89b-12d3-a456-426614174000
-
-   # Or use the recordings panel
-   ```
-
-3. **Playback controls**
-   - **Play/Pause**: Spacebar
-   - **Speed**: 0.5x, 1x, 2x, 4x speed
-   - **Seek**: Progress bar or arrow keys
-   - **Skip**: Jump to next/previous command
-   - **Timeline**: Click to jump to time
-
-### Export Options
-
-1. **Export formats**
-   ```bash
-   # Export as JSON (original format)
-   record export --format json recording-id
-
-   # Export as GIF animation
-   record export --format gif recording-id
-
-   # Export as MP4 video
-   record export --format mp4 recording-id
-
-   # Export as text log
-   record export --format txt recording-id
-   ```
-
-2. **Export settings**
-   - **Resolution**: Original, 720p, 1080p
-   - **Frame rate**: 15, 30, 60 FPS
-   - **Duration**: Full or time range
-   - **Quality**: Compression settings
-
-### Sharing Recordings
-
-1. **Create share links**
-   ```bash
-   # Create public share link
-   record share recording-id
-
-   # Create password-protected link
-   record share --password mypassword recording-id
-
-   # Create expiring link (7 days)
-   record share --expires 7d recording-id
-   ```
-
-2. **Share settings**
-   - **View-only**: Recipients can only watch
-   - **Download**: Allow downloading original
-   - **Comments**: Enable comments on playback
-   - **Analytics**: Track view counts and duration
-
-## Customization
-
-### Themes
-
-1. **Apply built-in themes**
-   - Go to Settings → Appearance → Themes
-   - Browse available themes
-   - Click to preview
-   - Click "Apply" to use
-
-2. **Popular built-in themes**
-   - **Dark Ocean**: Deep blue with teal accents
-   - **Monokai Pro**: Classic dark with vibrant colors
-   - **Solarized Dark**: Popular programmer theme
-   - **Dracula**: Purple and pink dark theme
-   - **Light Modern**: Clean light theme
-
-3. **Import custom themes**
-   ```bash
-   # Import theme from file
-   theme import my-theme.json
-
-   # Import from URL
-   theme import https://example.com/theme.json
-   ```
-
-4. **Create custom themes**
-   - Use the theme editor in settings
-   - Customize colors, fonts, animations
-   - Preview changes in real-time
-   - Export for sharing
-
-### Extensions
-
-1. **Browse extensions**
-   - Go to Settings → Extensions → Browse
-   - Categories: Productivity, Development, Utilities
-   - Search by name or functionality
-   - Read descriptions and reviews
-
-2. **Popular extensions**
-   - **Git Enhanced**: Advanced git commands and visualization
-   - **File Manager**: GUI file operations
-   - **System Monitor**: Real-time system stats
-   - **Color Picker**: Select colors from terminal
-   - **ASCII Art Generator**: Create text art
-
-3. **Install extensions**
-   ```bash
-   # Install by name
-   ext install git-enhanced
-
-   # Install from file
-   ext install extension-package.zip
-
-   # Install from repository
-   ext install https://github.com/user/terminal-extension
-   ```
-
-4. **Manage extensions**
-   ```bash
-   # List installed extensions
-   ext list
-
-   # Enable/disable extension
-   ext enable git-enhanced
-   ext disable file-manager
-
-   # Update extensions
-   ext update --all
-
-   # Configure extension
-   ext config git-enhanced
-   ```
+3. **Make UI components visible** (currently hidden or not activated)
 
 ## Advanced Configuration
 
@@ -568,6 +520,32 @@ RECORDING_RETENTION_DAYS=30          # Auto-delete after 30 days
    - Reduce recording quality settings
    - Use local media files instead of remote URLs
    - Consider upgrading internet connection
+
+### Recording Issues
+
+If you get a 404 error when clicking the Record button:
+
+1. **Check server startup logs**
+   ```bash
+   # The server automatically creates a default user on startup
+   # Look for: "👤 Created default user" or "👤 Default user already exists"
+   ```
+
+2. **Manually create default user (if needed)**
+   ```bash
+   ./bin/setup_db.sh
+   ```
+
+3. **Verify database tables**
+   ```bash
+   sqlite3 webterminal.db ".tables"
+   # Should show: recordings, terminal_sessions, user_profiles, etc.
+   ```
+
+4. **Check logs for errors**
+   ```bash
+   # Look for errors in the terminal running uvicorn
+   ```
 
 ### Getting Help
 
