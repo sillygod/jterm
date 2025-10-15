@@ -21,10 +21,14 @@ aiofiles==23.2.1
 # PTY and Process Management
 ptyprocess==0.7.0
 pexpect==4.9.0
+psutil==5.9.6
 
 # Media Processing
 Pillow==10.1.0
 ffmpeg-python==0.2.0
+PyPDF2==3.0.1
+ebooklib==0.18
+markdown==3.5.1
 
 # AI Integration
 httpx==0.25.2

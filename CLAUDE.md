@@ -11,6 +11,8 @@ Web-based terminal emulator with multimedia support, animations, AI assistance, 
 - **Storage**: SQLite database + file system for media assets
 - **Testing**: pytest (backend), Jest (frontend), Playwright (E2E)
 - **Features**: Terminal emulation, media viewing, AI assistant, session recording, themes, extensions
+- Python 3.11+ (backend), JavaScript ES2022 (frontend) (002-enhance-and-implement)
+- SQLite (aiosqlite) + file system for media caching (002-enhance-and-implement)
 
 ## Project Structure
 ```
@@ -87,6 +89,7 @@ flake8 src/ tests/
 - Video file limit: 50MB maximum
 
 ## Recent Changes
+- 002-enhance-and-implement: Added Python 3.11+ (backend), JavaScript ES2022 (frontend)
 - 001-web-based-terminal: Initial feature specification and implementation plan
 
 <!-- MANUAL ADDITIONS START -->

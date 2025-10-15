@@ -1,0 +1,204 @@
+openapi: 3.0.0
+info:
+  title: Performance Monitoring API
+  version: 1.0.0
+  description: API for collecting and retrieving system performance metrics
+
+servers:
+  - url: http://localhost:8000
+    description: Development server
+
+paths:
+  /api/performance/current:
+    get:
+      summary: Get current performance snapshot
+      description: Returns latest performance metrics for current session
+      responses:
+        '200':
+          description: Current performance metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerformanceSnapshot'
+
+  /api/performance/history:
+    get:
+      summary: Get historical performance snapshots
+      description: Retrieve performance metrics over a time range
+      parameters:
+        - name: minutes
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1440
+            default: 60
+          description: Time range in minutes (max 24 hours)
+        - name: session_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter by specific terminal session
+      responses:
+        '200':
+          description: Historical snapshots
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  snapshots:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PerformanceSnapshot'
+                  count:
+                    type: integer
+                    example: 120
+
+  /api/performance/snapshot:
+    post:
+      summary: Submit client-side performance metrics
+      description: Client posts browser-side metrics (FPS, memory)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - session_id
+              properties:
+                session_id:
+                  type: string
+                  format: uuid
+                client_fps:
+                  type: number
+                  format: float
+                  nullable: true
+                  example: 60.0
+                client_memory_mb:
+                  type: number
+                  format: float
+                  nullable: true
+                  example: 128.4
+      responses:
+        '201':
+          description: Snapshot recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recorded:
+                    type: boolean
+                    example: true
+
+  /api/user/preferences/performance:
+    put:
+      summary: Update performance metrics preferences
+      description: User configures metrics display and refresh interval
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                show_performance_metrics:
+                  type: boolean
+                  description: Toggle metrics display
+                performance_metric_refresh_interval:
+                  type: integer
+                  minimum: 1000
+                  maximum: 60000
+                  description: Refresh interval in milliseconds
+      responses:
+        '200':
+          description: Preferences updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerformancePreferences'
+
+    get:
+      summary: Get performance metrics preferences
+      description: Retrieve current user preferences
+      responses:
+        '200':
+          description: Current preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerformancePreferences'
+
+components:
+  schemas:
+    PerformanceSnapshot:
+      type: object
+      required:
+        - id
+        - session_id
+        - timestamp
+        - cpu_percent
+        - memory_mb
+        - active_websockets
+        - terminal_updates_per_sec
+      properties:
+        id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-10-09T10:05:30Z"
+        cpu_percent:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          example: 4.2
+        memory_mb:
+          type: number
+          format: float
+          minimum: 0
+          example: 256.8
+        active_websockets:
+          type: integer
+          minimum: 0
+          example: 3
+        terminal_updates_per_sec:
+          type: number
+          format: float
+          minimum: 0
+          example: 12.5
+        client_fps:
+          type: number
+          format: float
+          nullable: true
+          example: 60.0
+        client_memory_mb:
+          type: number
+          format: float
+          nullable: true
+          example: 128.4
+
+    PerformancePreferences:
+      type: object
+      required:
+        - show_performance_metrics
+        - performance_metric_refresh_interval
+      properties:
+        show_performance_metrics:
+          type: boolean
+          example: true
+        performance_metric_refresh_interval:
+          type: integer
+          minimum: 1000
+          maximum: 60000
+          example: 5000
