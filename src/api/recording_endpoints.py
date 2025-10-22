@@ -698,3 +698,88 @@ async def export_recording(
         media_type=media_types[export_format],
         filename=filename
     )
+
+
+# Additional router for recording playback API (without /v1 prefix)
+playback_router = APIRouter(prefix="/api/recordings", tags=["Recording Playback"])
+
+
+class RecordingDimensionsResponse(BaseModel):
+    """Response model for recording dimensions."""
+    recording_id: str
+    rows: int = Field(..., ge=1, description="Terminal height in rows")
+    columns: int = Field(..., ge=1, description="Terminal width in columns")
+    created_at: str
+
+
+class RecordingDimensionsError(BaseModel):
+    """Error response for recording dimensions."""
+    error: str
+    message: str
+
+
+@playback_router.get(
+    "/{id}/dimensions",
+    response_model=RecordingDimensionsResponse,
+    responses={
+        200: {"description": "Terminal dimensions"},
+        404: {"description": "Recording not found", "model": RecordingDimensionsError}
+    },
+    summary="Get terminal dimensions for recording"
+)
+async def get_recording_dimensions(
+    id: str = Path(..., description="Recording ID"),
+    db: AsyncSession = Depends(get_db)
+) -> RecordingDimensionsResponse:
+    """
+    Get terminal dimensions for recording.
+
+    Returns terminal size (rows, columns) for scaling calculations.
+
+    Args:
+        id: Recording ID
+        db: Database session
+
+    Returns:
+        RecordingDimensionsResponse with dimensions
+
+    Raises:
+        HTTPException 404: If recording not found
+    """
+    try:
+        # Query recording from database
+        query = select(Recording).where(Recording.recording_id == id)
+        result = await db.execute(query)
+        recording = result.scalar_one_or_none()
+
+        if not recording:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error": "RECORDING_NOT_FOUND",
+                    "message": f"No recording found with ID {id}"
+                }
+            )
+
+        # Extract dimensions from terminal_size metadata
+        # Recording model has terminal_size as JSON field
+        terminal_size = recording.terminal_size or {"cols": 80, "rows": 24}
+
+        return RecordingDimensionsResponse(
+            recording_id=recording.recording_id,
+            rows=terminal_size.get("rows", 24),
+            columns=terminal_size.get("cols", 80),
+            created_at=recording.started_at.isoformat() if recording.started_at else datetime.now().isoformat()
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving recording dimensions: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "INTERNAL_ERROR",
+                "message": f"Failed to retrieve dimensions: {str(e)}"
+            }
+        )

@@ -1,0 +1,584 @@
+<!-- Performance Metrics Widget Component -->
+
+<!-- Collapsible Performance Widget (top-right corner) -->
+<div class="performance-widget"
+     id="performance-widget"
+     data-enabled="false"
+     style="display: none;">
+
+    <!-- Widget Header (collapsible) -->
+    <div class="performance-header"
+         _="on click toggle .collapsed on #performance-widget">
+        <div class="header-left">
+            <span class="widget-icon">📊</span>
+            <span class="widget-title">Performance</span>
+        </div>
+        <div class="header-right">
+            <button class="btn btn-icon btn-sm collapse-toggle"
+                    title="Collapse/Expand">
+                <span class="icon collapse-icon">▼</span>
+            </button>
+            <button class="btn btn-icon btn-sm"
+                    _="on click remove #performance-widget"
+                    title="Close">
+                <span class="icon">✕</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Widget Body (collapsible content) -->
+    <div class="performance-body" id="performance-body">
+        <!-- Server Metrics Section -->
+        <div class="metrics-section">
+            <h4 class="section-title">Server</h4>
+
+            <div class="metric-item">
+                <div class="metric-label">
+                    <span class="metric-icon">⚡</span>
+                    CPU Usage
+                </div>
+                <div class="metric-value-container">
+                    <span class="metric-value" id="metric-cpu">--</span>
+                    <span class="metric-unit">%</span>
+                </div>
+                <div class="metric-bar">
+                    <div class="metric-bar-fill"
+                         id="metric-cpu-bar"
+                         style="width: 0%"
+                         data-threshold="warning"></div>
+                </div>
+            </div>
+
+            <div class="metric-item">
+                <div class="metric-label">
+                    <span class="metric-icon">💾</span>
+                    Memory
+                </div>
+                <div class="metric-value-container">
+                    <span class="metric-value" id="metric-memory">--</span>
+                    <span class="metric-unit">MB</span>
+                </div>
+                <div class="metric-bar">
+                    <div class="metric-bar-fill"
+                         id="metric-memory-bar"
+                         style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="metric-item metric-item-compact">
+                <div class="metric-label">
+                    <span class="metric-icon">🔌</span>
+                    WebSockets
+                </div>
+                <div class="metric-value-container">
+                    <span class="metric-value" id="metric-websockets">--</span>
+                </div>
+            </div>
+
+            <div class="metric-item metric-item-compact">
+                <div class="metric-label">
+                    <span class="metric-icon">📝</span>
+                    Updates/sec
+                </div>
+                <div class="metric-value-container">
+                    <span class="metric-value" id="metric-updates">--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Client Metrics Section (optional) -->
+        <div class="metrics-section">
+            <h4 class="section-title">Client</h4>
+
+            <div class="metric-item metric-item-compact">
+                <div class="metric-label">
+                    <span class="metric-icon">🎨</span>
+                    FPS
+                </div>
+                <div class="metric-value-container">
+                    <span class="metric-value" id="metric-fps">--</span>
+                </div>
+            </div>
+
+            <div class="metric-item metric-item-compact">
+                <div class="metric-label">
+                    <span class="metric-icon">🧠</span>
+                    JS Heap
+                </div>
+                <div class="metric-value-container">
+                    <span class="metric-value" id="metric-client-memory">--</span>
+                    <span class="metric-unit">MB</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Widget Footer with Controls -->
+        <div class="performance-footer">
+            <div class="footer-info">
+                <span class="last-update" id="last-update">Never</span>
+            </div>
+            <div class="footer-controls">
+                <button class="btn btn-sm btn-icon"
+                        id="refresh-metrics"
+                        _="on click call performanceMonitor.refreshNow()"
+                        title="Refresh Now">
+                    <span class="icon">↻</span>
+                </button>
+                <button class="btn btn-sm btn-icon"
+                        id="history-toggle"
+                        _="on click toggle .history-visible on #performance-widget"
+                        title="View History">
+                    <span class="icon">📈</span>
+                </button>
+                <button class="btn btn-sm btn-icon"
+                        hx-get="/api/settings"
+                        hx-target="#settings-modal"
+                        hx-swap="innerHTML"
+                        onclick="setTimeout(() => document.getElementById('settings-modal').style.display = 'flex', 50)"
+                        title="Settings">
+                    <span class="icon">⚙️</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- History Chart (hidden by default) -->
+        <div class="performance-history" id="performance-history" style="display: none;">
+            <div class="history-header">
+                <h4>Performance History</h4>
+                <button class="btn btn-sm"
+                        _="on click toggle .history-visible on #performance-widget">
+                    Close
+                </button>
+            </div>
+            <div class="history-chart" id="history-chart">
+                <!-- Mini sparkline charts will be inserted here by JavaScript -->
+                <div class="chart-placeholder">
+                    <p>Loading history...</p>
+                </div>
+            </div>
+            <div class="history-controls">
+                <label>
+                    <input type="radio"
+                           name="history-range"
+                           value="15"
+                           checked
+                           _="on change call performanceMonitor.loadHistory(15)">
+                    15m
+                </label>
+                <label>
+                    <input type="radio"
+                           name="history-range"
+                           value="30"
+                           _="on change call performanceMonitor.loadHistory(30)">
+                    30m
+                </label>
+                <label>
+                    <input type="radio"
+                           name="history-range"
+                           value="60"
+                           _="on change call performanceMonitor.loadHistory(60)">
+                    1h
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Widget Status Indicator -->
+    <div class="performance-status" id="performance-status">
+        <span class="status-dot status-ok"></span>
+        <span class="status-text">Monitoring</span>
+    </div>
+</div>
+
+<style>
+/* Performance Widget Styles */
+.performance-widget {
+    position: fixed;
+    top: 60px;
+    right: 20px;
+    width: 320px;
+    background: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 12px var(--shadow);
+    z-index: 800;
+    transition: all 0.3s ease;
+    animation: slideInRight 0.3s ease-out;
+}
+
+.performance-widget.collapsed .performance-body {
+    display: none;
+}
+
+.performance-widget.collapsed .collapse-icon {
+    transform: rotate(-90deg);
+}
+
+.performance-widget.history-visible .performance-history {
+    display: block !important;
+}
+
+/* Header */
+.performance-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: var(--accent-bg);
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    user-select: none;
+}
+
+.performance-header:hover {
+    background: var(--hover-bg);
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.widget-icon {
+    font-size: 1.25rem;
+}
+
+.widget-title {
+    font-weight: 600;
+    font-size: 0.9375rem;
+}
+
+.header-right {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.collapse-icon {
+    transition: transform 0.3s ease;
+}
+
+/* Body */
+.performance-body {
+    padding: 1rem;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+/* Metrics Section */
+.metrics-section {
+    margin-bottom: 1.5rem;
+}
+
+.metrics-section:last-of-type {
+    margin-bottom: 0;
+}
+
+.section-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--secondary-text);
+    margin: 0 0 0.75rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Metric Items */
+.metric-item {
+    margin-bottom: 1rem;
+}
+
+.metric-item-compact {
+    margin-bottom: 0.75rem;
+}
+
+.metric-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text-color);
+    margin-bottom: 0.25rem;
+}
+
+.metric-icon {
+    font-size: 1rem;
+}
+
+.metric-value-container {
+    display: flex;
+    align-items: baseline;
+    gap: 0.25rem;
+    margin-bottom: 0.25rem;
+}
+
+.metric-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--primary-color);
+}
+
+.metric-unit {
+    font-size: 0.875rem;
+    color: var(--secondary-text);
+    font-weight: 500;
+}
+
+/* Progress Bars */
+.metric-bar {
+    height: 4px;
+    background: var(--border-color);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.metric-bar-fill {
+    height: 100%;
+    background: var(--primary-color);
+    transition: width 0.5s ease, background-color 0.3s ease;
+}
+
+.metric-bar-fill[data-threshold="warning"] {
+    background: linear-gradient(90deg, var(--primary-color), #ff9800);
+}
+
+.metric-bar-fill[data-threshold="danger"] {
+    background: linear-gradient(90deg, #ff9800, #f44336);
+}
+
+/* Footer */
+.performance-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 0.75rem;
+    margin-top: 0.75rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.footer-info {
+    font-size: 0.75rem;
+    color: var(--secondary-text);
+}
+
+.last-update {
+    font-weight: 500;
+}
+
+.footer-controls {
+    display: flex;
+    gap: 0.25rem;
+}
+
+/* Status Indicator */
+.performance-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--accent-bg);
+    border-top: 1px solid var(--border-color);
+    font-size: 0.75rem;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+.status-dot.status-ok {
+    background: #4caf50;
+}
+
+.status-dot.status-warning {
+    background: #ff9800;
+}
+
+.status-dot.status-error {
+    background: #f44336;
+}
+
+.status-text {
+    font-weight: 500;
+    color: var(--secondary-text);
+}
+
+/* History Section */
+.performance-history {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.history-header h4 {
+    font-size: 0.875rem;
+    margin: 0;
+    font-weight: 600;
+}
+
+.history-chart {
+    min-height: 100px;
+    background: var(--accent-bg);
+    border-radius: 0.25rem;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.chart-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100px;
+    color: var(--secondary-text);
+    font-size: 0.875rem;
+}
+
+.history-controls {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.history-controls label {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    cursor: pointer;
+}
+
+.history-controls input[type="radio"] {
+    cursor: pointer;
+}
+
+/* Animations */
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(100px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .performance-widget {
+        top: auto;
+        bottom: 20px;
+        right: 20px;
+        left: 20px;
+        width: auto;
+    }
+}
+
+/* Dark/Light Theme Adjustments */
+[data-theme="light"] .performance-widget {
+    background: #ffffff;
+}
+
+[data-theme="light"] .metric-bar {
+    background: #e0e0e0;
+}
+
+[data-theme="light"] .performance-header:hover {
+    background: #f5f5f5;
+}
+
+/* Scrollbar styling */
+.performance-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.performance-body::-webkit-scrollbar-track {
+    background: var(--accent-bg);
+}
+
+.performance-body::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+.performance-body::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary-text);
+}
+
+/* Compact mode for narrow screens */
+@media (max-width: 1024px) {
+    .performance-widget {
+        width: 280px;
+    }
+
+    .metric-value {
+        font-size: 1.25rem;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .performance-widget {
+        border: 2px solid var(--border-color);
+    }
+
+    .metric-bar-fill {
+        border: 1px solid currentColor;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .performance-widget,
+    .collapse-icon,
+    .metric-bar-fill {
+        transition: none;
+    }
+
+    .performance-widget {
+        animation: none;
+    }
+
+    .status-dot {
+        animation: none;
+    }
+}
+</style>
+
+<script>
+// Initialize performance widget display based on user preferences
+(function() {
+    // This will be controlled by the performance-monitor.js
+    // Just set up initial state here
+    const widget = document.getElementById('performance-widget');
+
+    // Check if user has enabled performance metrics (would come from settings)
+    const preferencesEnabled = localStorage.getItem('show_performance_metrics') === 'true';
+
+    if (preferencesEnabled && widget) {
+        widget.style.display = 'block';
+        widget.setAttribute('data-enabled', 'true');
+    }
+})();
+</script>

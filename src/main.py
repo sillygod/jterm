@@ -16,7 +16,9 @@ from src.websockets.ai_handler import get_ai_handler
 from src.websockets.recording_handler import get_recording_handler
 from src.api.media_endpoints import router as media_router
 from src.api.ai_endpoints import router as ai_router
-from src.api.recording_endpoints import router as recording_router
+from src.api.recording_endpoints import router as recording_router, playback_router
+from src.api.ebook_endpoints import router as ebook_router
+from src.api.performance_endpoints import router as performance_router
 
 
 @asynccontextmanager
@@ -411,6 +413,9 @@ async def preview_html(request: Request, filePath: str = "", allowJS: bool = Fal
 app.include_router(media_router)
 app.include_router(ai_router)
 app.include_router(recording_router)
+app.include_router(playback_router)
+app.include_router(ebook_router)
+app.include_router(performance_router)
 
 
 # WebSocket endpoints

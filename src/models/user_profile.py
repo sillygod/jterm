@@ -167,6 +167,20 @@ class UserProfile(Base):
         comment="Privacy and data retention preferences"
     )
 
+    # Performance monitoring preferences
+    show_performance_metrics = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        comment="Toggle performance metrics display"
+    )
+    performance_metric_refresh_interval = Column(
+        Integer,
+        nullable=False,
+        default=5000,
+        comment="Performance metrics refresh interval in milliseconds (1000-60000)"
+    )
+
     # Storage management
     storage_quota = Column(
         BigInteger,
@@ -230,6 +244,11 @@ class UserProfile(Base):
     ai_contexts = relationship(
         "AIContext",
         back_populates="user_profile",
+        cascade="all, delete-orphan"
+    )
+    ebook_metadata = relationship(
+        "EbookMetadata",
+        back_populates="user",
         cascade="all, delete-orphan"
     )
 
@@ -354,6 +373,17 @@ class UserProfile(Base):
 
         if hasattr(self, 'storage_quota') and self.storage_quota and value > self.storage_quota:
             raise ValueError("Storage used cannot exceed storage quota")
+
+        return value
+
+    @validates('performance_metric_refresh_interval')
+    def validate_performance_interval(self, key: str, value: int) -> int:
+        """Validate performance metric refresh interval."""
+        if not isinstance(value, int):
+            raise ValueError("Performance metric refresh interval must be an integer")
+
+        if value < 1000 or value > 60000:
+            raise ValueError("Performance metric refresh interval must be between 1000 and 60000 milliseconds (1-60 seconds)")
 
         return value
 

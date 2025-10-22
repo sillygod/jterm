@@ -22,6 +22,9 @@
     <!-- Marked.js for markdown rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
 
+    <!-- foliate-js for ebook viewing (PDF/EPUB) -->
+    <script type="module" src="https://cdn.jsdelivr.net/npm/foliate-js@latest/view.js"></script>
+
     <!-- Custom CSS -->
     <link rel="stylesheet" href="/static/css/main.css">
     {% block extra_css %}{% endblock %}
@@ -199,6 +202,7 @@
     <!-- JavaScript -->
     <script src="/static/js/terminal.js"></script>
     <script src="/static/js/media.js"></script>
+    <script src="/static/js/ebook-viewer.js"></script>
     <script src="/static/js/voice.js"></script>
     <script src="/static/js/ai.js"></script>
     <script src="/static/js/recording.js"></script>
