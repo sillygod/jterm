@@ -55,7 +55,7 @@ class RecordingConfig:
     compression_level: int = 6
     enable_compression: bool = True
     buffer_size: int = 5000  # Increased to handle high-volume output
-    flush_interval: float = 3.0  # Seconds - flush more frequently
+    flush_interval: float = 10.0  # T046: Increased from 3.0s to reduce wakeups (still under 30s checkpoint target)
     performance_monitoring: bool = True
     retention_days: int = 30
 

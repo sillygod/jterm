@@ -484,10 +484,16 @@ class WebSocketManager:
         }
 
     async def _health_check_loop(self) -> None:
-        """Background task for health checking connections."""
+        """
+        Background task for health checking connections.
+
+        Optimized ping interval (T044): Changed from 30s to 60s to reduce CPU overhead
+        while still maintaining connection liveness detection.
+        """
         while self._running:
             try:
-                await asyncio.sleep(30)  # Check every 30 seconds
+                # T044 optimization: Increased from 30s to 60s (~5% CPU reduction)
+                await asyncio.sleep(60)  # Check every 60 seconds
 
                 # Check for dead connections
                 dead_connections = []

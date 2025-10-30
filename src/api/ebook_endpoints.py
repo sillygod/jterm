@@ -212,18 +212,31 @@ async def get_ebook_content(
                 }
             )
 
-        # Check if decrypted content is cached
-        decrypted_content = ebook_service.get_decrypted_content(ebook_id)
+        # Check if PDF is encrypted and not yet decrypted
+        if ebook_metadata.is_encrypted:
+            # Check if decrypted content is cached
+            decrypted_content = ebook_service.get_decrypted_content(ebook_id)
 
-        if decrypted_content:
-            # Return decrypted content from cache
-            return Response(
-                content=decrypted_content,
-                media_type="application/octet-stream",
-                headers={
-                    "Content-Disposition": f'inline; filename="{os.path.basename(ebook_metadata.file_path)}"'
-                }
-            )
+            if decrypted_content:
+                # Return decrypted content from cache
+                # Don't include filename in Content-Disposition to avoid encoding issues with non-ASCII characters
+                return Response(
+                    content=decrypted_content,
+                    media_type="application/pdf",
+                    headers={
+                        "Content-Disposition": "inline"
+                    }
+                )
+            else:
+                # PDF is encrypted but not decrypted yet
+                raise HTTPException(
+                    status_code=status.HTTP_423_LOCKED,
+                    detail={
+                        "error": "ENCRYPTED_PDF",
+                        "message": "PDF is password-protected. Please decrypt it first.",
+                        "ebook_id": ebook_id
+                    }
+                )
 
         # Check if file still exists
         if not os.path.exists(ebook_metadata.file_path):
@@ -235,16 +248,19 @@ async def get_ebook_content(
                 }
             )
 
-        # Return file content
+        # Return file content for non-encrypted files
         # Note: For production, consider streaming large files in chunks
         with open(ebook_metadata.file_path, 'rb') as f:
             content = f.read()
 
+        # Determine media type based on file type
+        media_type = "application/pdf" if ebook_metadata.file_type.value == "pdf" else "application/epub+zip"
+
         return Response(
             content=content,
-            media_type="application/octet-stream",
+            media_type=media_type,
             headers={
-                "Content-Disposition": f'inline; filename="{os.path.basename(ebook_metadata.file_path)}"',
+                "Content-Disposition": "inline",
                 "Content-Length": str(len(content))
             }
         )

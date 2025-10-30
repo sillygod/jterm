@@ -62,6 +62,7 @@ class RecordingResponse(BaseModel):
     fileSize: int
     filePath: Optional[str]
     compressionEnabled: bool
+    terminalSize: Optional[dict]
     metadata: Optional[dict]
 
     class Config:
@@ -191,6 +192,7 @@ async def list_recordings(
             fileSize=r.file_size,
             filePath=r.extra_metadata.get('file_path') if r.extra_metadata else None,
             compressionEnabled=r.compression_ratio > 0 if r.compression_ratio else False,
+            terminalSize=r.terminal_size or {},
             metadata=r.extra_metadata or {}
         )
         for r in recordings
@@ -248,6 +250,7 @@ async def get_recording(
         fileSize=recording.file_size,
         filePath=getattr(recording, 'file_path', None),
         compressionEnabled=getattr(recording, 'compression_enabled', False),
+        terminalSize=recording.terminal_size or {},
         metadata=getattr(recording, 'extra_metadata', {})
     )
 
@@ -404,6 +407,7 @@ async def start_recording(
         fileSize=recording.file_size,
         filePath=getattr(recording, 'file_path', None),
         compressionEnabled=getattr(recording, 'compression_enabled', False),
+        terminalSize=recording.terminal_size or {},
         metadata=getattr(recording, 'extra_metadata', {})
     )
 
@@ -486,6 +490,7 @@ async def stop_recording(
         fileSize=recording.file_size,
         filePath=getattr(recording, 'file_path', None),
         compressionEnabled=getattr(recording, 'compression_enabled', False),
+        terminalSize=recording.terminal_size or {},
         metadata=getattr(recording, 'extra_metadata', {})
     )
 

@@ -23,6 +23,7 @@ from sqlalchemy import select, delete
 from src.models.performance_snapshot import PerformanceSnapshot
 from src.models.user_profile import UserProfile
 from src.database.base import AsyncSessionLocal
+from src.websockets.manager import ws_manager
 
 
 logger = logging.getLogger(__name__)
@@ -59,7 +60,6 @@ class PerformanceService:
     def __init__(self, config: Optional[PerformanceConfig] = None):
         """Initialize performance service with configuration."""
         self.config = config or PerformanceConfig()
-        self._active_websocket_connections: List[Any] = []
         self._cached_snapshots: Dict[str, Tuple[str, float]] = {}  # (json_string, cache_time)
         self._cleanup_task: Optional[asyncio.Task] = None
 
@@ -86,15 +86,19 @@ class PerformanceService:
             }
 
         try:
-            # Get CPU percentage (non-blocking, interval=None uses cached value)
-            cpu_percent = psutil.cpu_percent(interval=0.1)
+            # Get current process
+            process = psutil.Process()
 
-            # Get memory usage in MB
-            memory_info = psutil.virtual_memory()
-            memory_mb = memory_info.used / (1024 * 1024)
+            # Get CPU percentage for THIS process only (not system-wide)
+            # interval=0.1 means 100ms sampling interval
+            cpu_percent = process.cpu_percent(interval=0.1)
 
-            # Count active WebSocket connections
-            active_websockets = len(self._active_websocket_connections)
+            # Get memory usage in MB for THIS process only (not system-wide)
+            memory_info = process.memory_info()
+            memory_mb = memory_info.rss / (1024 * 1024)  # RSS = Resident Set Size (actual RAM used)
+
+            # Count active WebSocket connections from the WebSocketManager
+            active_websockets = len(ws_manager.get_all_connections())
 
             # Terminal updates per second (would be calculated from actual terminal activity)
             # For now, return 0.0 - this would be updated by terminal service
@@ -248,23 +252,25 @@ class PerformanceService:
         """
         Register a WebSocket connection for metric updates.
 
+        Note: This method is deprecated - WebSocket connections are now managed
+        by the global ws_manager. Kept for backward compatibility.
+
         Args:
             ws_connection: WebSocket connection object
         """
-        if ws_connection not in self._active_websocket_connections:
-            self._active_websocket_connections.append(ws_connection)
-            logger.debug(f"Registered WebSocket connection (total: {len(self._active_websocket_connections)})")
+        logger.debug("register_websocket called - WebSockets are now managed by ws_manager")
 
     def unregister_websocket(self, ws_connection: Any):
         """
         Unregister a WebSocket connection.
 
+        Note: This method is deprecated - WebSocket connections are now managed
+        by the global ws_manager. Kept for backward compatibility.
+
         Args:
             ws_connection: WebSocket connection object
         """
-        if ws_connection in self._active_websocket_connections:
-            self._active_websocket_connections.remove(ws_connection)
-            logger.debug(f"Unregistered WebSocket connection (total: {len(self._active_websocket_connections)})")
+        logger.debug("unregister_websocket called - WebSockets are now managed by ws_manager")
 
     def get_cached_json(self, snapshot: PerformanceSnapshot, max_age_seconds: float = 1.0) -> Optional[str]:
         """
@@ -311,38 +317,34 @@ class PerformanceService:
 
         Implementation:
         - Serialize to JSON (with caching)
-        - Broadcast to all active WebSocket connections
+        - Broadcast to all active WebSocket connections via ws_manager
         - Handle disconnected clients gracefully
         """
-        if not self._active_websocket_connections:
+        # Get all active connections from ws_manager
+        connections = ws_manager.get_all_connections()
+
+        if not connections:
             return
 
         # Check cache first
         cached_json = self.get_cached_json(snapshot)
 
         if cached_json:
-            json_data = cached_json
+            message_data = json.loads(cached_json)
         else:
-            # Serialize to JSON
-            json_data = json.dumps(snapshot.to_dict())
-            self.cache_json(snapshot, json_data)
+            # Serialize to dict
+            message_data = snapshot.to_dict()
+            json_str = json.dumps(message_data)
+            self.cache_json(snapshot, json_str)
 
-        # Broadcast to active clients
-        disconnected = []
-        for ws in self._active_websocket_connections:
-            try:
-                # Assume WebSocket has a send_text method (actual implementation depends on framework)
-                if hasattr(ws, 'send_text'):
-                    await ws.send_text(json_data)
-                elif hasattr(ws, 'send'):
-                    await ws.send(json_data)
-            except Exception as e:
-                logger.warning(f"Failed to send to WebSocket: {e}")
-                disconnected.append(ws)
+        # Prepare WebSocket message with type
+        ws_message = {
+            'type': 'performance_update',
+            'data': message_data
+        }
 
-        # Remove disconnected clients
-        for ws in disconnected:
-            self.unregister_websocket(ws)
+        # Broadcast to all active clients using ws_manager
+        await ws_manager.broadcast_json(ws_message)
 
     async def get_current_snapshot(
         self,

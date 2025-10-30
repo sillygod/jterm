@@ -15,10 +15,15 @@ from typing import Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 
 try:
-    from PyPDF2 import PdfReader, PdfWriter
+    from pypdf import PdfReader, PdfWriter
     PYPDF2_AVAILABLE = True
 except ImportError:
-    PYPDF2_AVAILABLE = False
+    try:
+        # Fallback to PyPDF2 for backwards compatibility
+        from PyPDF2 import PdfReader, PdfWriter
+        PYPDF2_AVAILABLE = True
+    except ImportError:
+        PYPDF2_AVAILABLE = False
 
 try:
     import ebooklib
@@ -218,19 +223,82 @@ class EbookService:
             raise EbookProcessingError("PyPDF2 not available")
 
         try:
-            reader = PdfReader(file_path)
+            # Use strict=False to handle malformed PDFs more gracefully
+            reader = PdfReader(file_path, strict=False)
 
+            # Check if encrypted first (before trying to access pages)
+            is_encrypted = False
+            try:
+                is_encrypted = reader.is_encrypted
+            except Exception as e:
+                logger.warning(f"Error checking encryption status: {e}")
+                # Assume not encrypted if we can't check
+                is_encrypted = False
+
+            if is_encrypted:
+                # For encrypted PDFs, return minimal metadata
+                # Don't try to access pages or metadata until decrypted
+                metadata = {
+                    'title': None,
+                    'author': None,
+                    'total_pages': None,  # Unknown until decrypted
+                    'is_encrypted': True
+                }
+                logger.info(f"PDF is encrypted: {file_path}")
+                return metadata
+
+            # For non-encrypted PDFs, extract full metadata
             metadata = {
                 'title': None,
                 'author': None,
-                'total_pages': len(reader.pages),
-                'is_encrypted': reader.is_encrypted
+                'total_pages': None,
+                'is_encrypted': False
             }
 
-            # Extract metadata if available
-            if reader.metadata:
-                metadata['title'] = reader.metadata.get('/Title')
-                metadata['author'] = reader.metadata.get('/Author')
+            # Try to get page count
+            try:
+                metadata['total_pages'] = len(reader.pages)
+            except Exception as e:
+                logger.warning(f"Error getting page count: {e}")
+
+            # Try to extract metadata if available (handle encoding errors)
+            try:
+                if reader.metadata:
+                    # Get title with encoding fallback
+                    try:
+                        title = reader.metadata.get('/Title')
+                        if title:
+                            # Try to decode if it's bytes
+                            if isinstance(title, bytes):
+                                try:
+                                    title = title.decode('utf-8')
+                                except UnicodeDecodeError:
+                                    try:
+                                        title = title.decode('latin-1')
+                                    except:
+                                        title = None
+                            metadata['title'] = title
+                    except Exception as e:
+                        logger.warning(f"Error extracting title: {e}")
+
+                    # Get author with encoding fallback
+                    try:
+                        author = reader.metadata.get('/Author')
+                        if author:
+                            # Try to decode if it's bytes
+                            if isinstance(author, bytes):
+                                try:
+                                    author = author.decode('utf-8')
+                                except UnicodeDecodeError:
+                                    try:
+                                        author = author.decode('latin-1')
+                                    except:
+                                        author = None
+                            metadata['author'] = author
+                    except Exception as e:
+                        logger.warning(f"Error extracting author: {e}")
+            except Exception as e:
+                logger.warning(f"Error extracting metadata: {e}")
 
             return metadata
 
@@ -305,7 +373,8 @@ class EbookService:
             )
 
         try:
-            reader = PdfReader(file_path)
+            # Use strict=False to handle PDFs with encoding issues
+            reader = PdfReader(file_path, strict=False)
 
             if not reader.is_encrypted:
                 raise EbookDecryptionError("PDF is not encrypted")
@@ -319,14 +388,33 @@ class EbookService:
                 raise EbookDecryptionError("Incorrect password")
 
             # Decryption successful - cache the decrypted content
+            # Create writer without strict mode to handle encoding issues
             writer = PdfWriter()
-            for page in reader.pages:
-                writer.add_page(page)
+
+            # Copy all pages from decrypted reader to writer
+            try:
+                for page in reader.pages:
+                    writer.add_page(page)
+            except Exception as e:
+                logger.warning(f"Error copying pages, attempting alternative method: {e}")
+                # Alternative: try cloning pages
+                for i in range(len(reader.pages)):
+                    try:
+                        page = reader.pages[i]
+                        writer.add_page(page)
+                    except Exception as page_error:
+                        logger.error(f"Failed to copy page {i}: {page_error}")
+                        raise EbookDecryptionError(f"Failed to decrypt page {i}: {str(page_error)}")
 
             # Write to memory buffer
             from io import BytesIO
             buffer = BytesIO()
-            writer.write(buffer)
+            try:
+                writer.write(buffer)
+            except Exception as e:
+                logger.error(f"Error writing decrypted PDF: {e}")
+                raise EbookDecryptionError(f"Failed to write decrypted content: {str(e)}")
+
             decrypted_content = buffer.getvalue()
 
             # Cache with expiry time

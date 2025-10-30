@@ -52,6 +52,27 @@
         </div>
 
         <div class="settings-section">
+            <h3>Performance</h3>
+            <div class="setting-item">
+                <label>
+                    <input type="checkbox" id="show-performance-metrics">
+                    Show Performance Metrics
+                </label>
+                <p class="setting-description">Display real-time CPU, memory, and WebSocket metrics</p>
+            </div>
+
+            <div class="setting-item" id="refresh-interval-setting" style="display: none;">
+                <label for="metrics-refresh-interval">Refresh Interval</label>
+                <select id="metrics-refresh-interval" class="form-control">
+                    <option value="3000" selected>3 seconds</option>
+                    <option value="5000">5 seconds</option>
+                    <option value="10000">10 seconds</option>
+                    <option value="30000">30 seconds</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="settings-section">
             <h3>About</h3>
             <p>Web Terminal v1.0.0</p>
             <p>A modern web-based terminal emulator with multimedia support.</p>
@@ -117,6 +138,12 @@
     font-weight: 500;
 }
 
+.setting-description {
+    margin: 0.25rem 0 0 1.5rem;
+    font-size: 0.8125rem;
+    color: var(--secondary-text);
+}
+
 .form-control {
     width: 100%;
     padding: 0.5rem;
@@ -138,26 +165,126 @@ input[type="checkbox"] {
 </style>
 
 <script>
-// Apply settings changes
-document.getElementById('theme-select')?.addEventListener('change', (e) => {
-    document.documentElement.setAttribute('data-theme', e.target.value);
-});
+// Initialize settings after content is loaded (HTMX afterSwap)
+(function initSettings() {
+    // Apply settings changes
+    document.getElementById('theme-select')?.addEventListener('change', (e) => {
+        document.documentElement.setAttribute('data-theme', e.target.value);
+    });
 
-document.getElementById('font-size')?.addEventListener('change', (e) => {
-    if (window.webTerminal?.terminal) {
-        window.webTerminal.terminal.options.fontSize = parseInt(e.target.value);
-    }
-});
+    document.getElementById('font-size')?.addEventListener('change', (e) => {
+        if (window.webTerminal?.terminal) {
+            window.webTerminal.terminal.options.fontSize = parseInt(e.target.value);
+        }
+    });
 
-document.getElementById('font-family')?.addEventListener('change', (e) => {
-    if (window.webTerminal?.terminal) {
-        window.webTerminal.terminal.options.fontFamily = e.target.value;
-    }
-});
+    document.getElementById('font-family')?.addEventListener('change', (e) => {
+        if (window.webTerminal?.terminal) {
+            window.webTerminal.terminal.options.fontFamily = e.target.value;
+        }
+    });
 
-document.getElementById('cursor-blink')?.addEventListener('change', (e) => {
-    if (window.webTerminal?.terminal) {
-        window.webTerminal.terminal.options.cursorBlink = e.target.checked;
+    document.getElementById('cursor-blink')?.addEventListener('change', (e) => {
+        if (window.webTerminal?.terminal) {
+            window.webTerminal.terminal.options.cursorBlink = e.target.checked;
+        }
+    });
+
+    // Performance metrics toggle
+    const perfCheckbox = document.getElementById('show-performance-metrics');
+    const refreshIntervalSetting = document.getElementById('refresh-interval-setting');
+    const refreshIntervalSelect = document.getElementById('metrics-refresh-interval');
+
+    // Load current settings from localStorage
+    if (perfCheckbox) {
+        const isEnabled = localStorage.getItem('show_performance_metrics') === 'true';
+        perfCheckbox.checked = isEnabled;
+
+        // Show refresh interval setting if metrics are enabled
+        if (refreshIntervalSetting && isEnabled) {
+            refreshIntervalSetting.style.display = 'block';
+        }
+
+        // Load saved refresh interval
+        if (refreshIntervalSelect) {
+            const savedInterval = localStorage.getItem('metrics_refresh_interval') || '3000';
+            refreshIntervalSelect.value = savedInterval;
+        }
     }
-});
+
+    // Handle performance metrics toggle
+    perfCheckbox?.addEventListener('change', (e) => {
+        const isEnabled = e.target.checked;
+        localStorage.setItem('show_performance_metrics', isEnabled.toString());
+
+        console.log('Performance metrics toggle:', isEnabled);
+
+        // Show/hide refresh interval setting
+        if (refreshIntervalSetting) {
+            refreshIntervalSetting.style.display = isEnabled ? 'block' : 'none';
+        }
+
+        // Show/hide the performance widget
+        const widget = document.getElementById('performance-widget');
+        console.log('Performance widget found:', !!widget);
+
+        if (widget) {
+            if (isEnabled) {
+                widget.style.display = 'block';
+                widget.setAttribute('data-enabled', 'true');
+
+                console.log('Starting performance monitor...');
+
+                // Initialize performance monitor if available
+                if (window.performanceMonitor) {
+                    window.performanceMonitor.enabled = true;
+
+                    // Set interval first if available
+                    if (refreshIntervalSelect?.value) {
+                        const interval = parseInt(refreshIntervalSelect.value);
+                        window.performanceMonitor.refreshInterval = interval;
+                    }
+
+                    // Start monitoring
+                    if (typeof window.performanceMonitor.start === 'function') {
+                        window.performanceMonitor.start();
+                    }
+                } else {
+                    console.error('window.performanceMonitor not found!');
+                }
+            } else {
+                widget.style.display = 'none';
+                widget.setAttribute('data-enabled', 'false');
+
+                console.log('Stopping performance monitor...');
+
+                // Stop performance monitor if available
+                if (window.performanceMonitor) {
+                    window.performanceMonitor.enabled = false;
+
+                    if (typeof window.performanceMonitor.stop === 'function') {
+                        window.performanceMonitor.stop();
+                    }
+                }
+            }
+        } else {
+            console.error('Performance widget element not found in DOM!');
+        }
+    });
+
+    // Handle refresh interval change
+    refreshIntervalSelect?.addEventListener('change', (e) => {
+        const interval = parseInt(e.target.value);
+        localStorage.setItem('metrics_refresh_interval', interval.toString());
+
+        console.log('Refresh interval changed to:', interval);
+
+        // Update performance monitor interval if running
+        if (window.performanceMonitor && typeof window.performanceMonitor.setInterval === 'function') {
+            window.performanceMonitor.setInterval(interval);
+        }
+    });
+
+    console.log('Settings initialized');
+})();
 </script>

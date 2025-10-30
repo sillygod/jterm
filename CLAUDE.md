@@ -45,15 +45,17 @@ tests/
 ## Key Features
 1. **Terminal Emulation**: xterm.js with WebSocket PTY communication
 2. **Media Support**: Inline images (<1s load), videos (50MB max), HTML preview with sandboxing
-3. **AI Assistant**: Voice input/output, context-aware suggestions (2s simple, 5s complex responses)
+3. **Ebook Viewer** (`bookcat` command): PDF and EPUB rendering with foliate-js, password-protected PDF support, up to 50MB files
+4. **AI Assistant**: Voice input/output, context-aware suggestions (2s simple, 5s complex responses)
 
 https://github.com/KoljaB/RealtimeSTT (options)
 ps aux | grep "jterm/venv/bin/python3" | awk '{print $2}' | xargs kill -9 (clean some orphan processes)
 
 
-4. **Session Recording**: Record/replay/export with 30-day retention, <5% performance impact
-5. **Customization**: Themes, extensions, VS Code theme import
-6. **Security**: HTML sandboxing, file validation, secure API communications
+5. **Session Recording**: Record/replay/export with 30-day retention, <5% performance impact, responsive width scaling (80-200 columns)
+6. **Performance Monitoring**: Real-time CPU/memory metrics, configurable refresh intervals, 24-hour retention
+7. **Customization**: Themes, extensions, VS Code theme import
+8. **Security**: HTML sandboxing, file validation, secure API communications
 
 ## Development Commands
 ```bash
@@ -83,14 +85,31 @@ flake8 src/ tests/
 - **Architecture**: Single responsibility principle, service layer pattern
 
 ## Performance Requirements
-- Image loading: <1 second
-- AI responses: <2s simple, <5s complex
-- Session recording impact: <5% performance degradation
-- Video file limit: 50MB maximum
+- **Image loading**: <1 second
+- **AI responses**: <2s simple, <5s complex
+- **Ebook rendering**: PDF (<3s for 10MB), EPUB (<2s for 5MB)
+- **Page navigation**: <500ms
+- **Recording playback resize**: <200ms
+- **CPU usage**:
+  - Idle: <5% (achieved: 0.08%, 99.9% reduction from 78.6% baseline)
+  - Active terminal: <15%
+  - Recording playback: <25%
+- **Session recording impact**: <5% performance degradation
+- **Video file limit**: 50MB maximum
+- **Ebook file limit**: 50MB maximum
 
 ## Recent Changes
-- 002-enhance-and-implement: Added Python 3.11+ (backend), JavaScript ES2022 (frontend)
-- 001-web-based-terminal: Initial feature specification and implementation plan
+- **002-enhance-and-implement** (2025-10-27): ✅ COMPLETE
+  - Added ebook viewer (`bookcat` command) with PDF/EPUB support via foliate-js
+  - Implemented recording playback responsive width scaling (80-200 columns)
+  - **CPU optimization**: Reduced idle CPU from 78.6% to 0.08% (99.9% reduction!)
+    - WebSocket ping interval: 30s → 60s
+    - Terminal output debouncing: 100ms batch window
+    - **Critical fix**: PTY output timeout 0.1s → 1.0s (eliminated primary CPU consumer)
+    - Lazy-load xterm.js addons (deferred loading)
+  - Added performance monitoring with real-time metrics display
+  - Libraries: PyPDF2 (PDF), ebooklib (EPUB), psutil (performance), foliate-js (frontend)
+- **001-web-based-terminal**: Initial feature specification and implementation plan
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

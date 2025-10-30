@@ -26,7 +26,8 @@ psutil==5.9.6
 # Media Processing
 Pillow==10.1.0
 ffmpeg-python==0.2.0
-PyPDF2==3.0.1
+pypdf==4.0.1
+PyCryptodome==3.19.0
 ebooklib==0.18
 markdown==3.5.1
 

@@ -187,8 +187,9 @@ class TerminalWebSocketHandler:
                         if session_id in self._decoders:
                             del self._decoders[session_id]
 
-                        await self.pty_service.destroy_pty(session_id)
-                        logger.info(f"Cleaned up PTY for session {session_id}")
+                        # Force kill the PTY to prevent orphan processes
+                        await self.pty_service.destroy_pty(session_id, force=True)
+                        logger.info(f"Cleaned up PTY for session {session_id} (force=True)")
                     except Exception as e:
                         logger.error(f"Error cleaning up PTY: {e}")
 
@@ -315,6 +316,24 @@ class TerminalWebSocketHandler:
             await self.pty_service.add_output_callback(session_id, output_callback)
             print(f"DEBUG: Output callback registered")
 
+            # Register OSC callback for ebook viewer
+            async def ebook_osc_callback(file_path: str):
+                """Handle ebook OSC sequence - trigger viewer via WebSocket."""
+                logger.info(f"Ebook OSC triggered for file: {file_path}")
+                try:
+                    # Send WebSocket message to frontend to open ebook viewer
+                    await self._send_message(
+                        connection_id,
+                        "ebook_viewer",
+                        {"file_path": file_path, "session_id": session_id},
+                        session_id
+                    )
+                except Exception as e:
+                    logger.error(f"Error sending ebook viewer message: {e}")
+
+            await self.pty_service.register_osc_callback(session_id, 'ebook', ebook_osc_callback)
+            logger.info(f"Registered ebook OSC callback for session {session_id}")
+
             # Update connection with session ID
             await self.ws_manager.update_connection_metadata(
                 connection_id,
@@ -340,7 +359,7 @@ class TerminalWebSocketHandler:
                 "\r\n\033[36m✨ Web Terminal Ready!\033[0m\r\n"
                 "\033[90mMedia commands available: \033[0m\033[33mimgcat\033[0m\033[90m, \033[0m"
                 "\033[33mvidcat\033[0m\033[90m, \033[0m\033[33mmdcat\033[0m\033[90m, \033[0m"
-                "\033[33mhtmlcat\033[0m\r\n\r\n"
+                "\033[33mhtmlcat\033[0m\033[90m, \033[0m\033[33mbookcat\033[0m\r\n\r\n"
             )
             await self._send_message(
                 connection_id,
