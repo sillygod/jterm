@@ -399,6 +399,9 @@ async function loadRecordingInPlayer(recordingId) {
         if (!metaResponse.ok) throw new Error('Failed to load recording metadata');
         const metadata = await metaResponse.json();
 
+        console.log('[Sidebar] Recording metadata:', metadata);
+        console.log('[Sidebar] Terminal size from metadata:', metadata.terminalSize || 'not found');
+
         // Fetch events in asciinema format (which has proper batching)
         const response = await fetch(`/api/v1/recordings/${recordingId}/export?format=asciinema`);
         if (!response.ok) throw new Error('Failed to load recording');
@@ -407,18 +410,32 @@ async function loadRecordingInPlayer(recordingId) {
         const lines = castText.trim().split('\n');
         const header = JSON.parse(lines[0]);
 
-        // Parse asciicast events
+        console.log('[Sidebar] Asciinema header:', header);
+        console.log('[Sidebar] Terminal dimensions from header:', {
+            width: header.width,
+            height: header.height
+        });
+
+        // Parse asciicast events - asciinema format uses DELTA times (seconds since previous event)
+        // We need to calculate cumulative time ourselves
         const events = [];
+        let cumulativeTime = 0;
         for (let i = 1; i < lines.length; i++) {
             if (lines[i].trim()) {
-                const [time, type, data] = JSON.parse(lines[i]);
+                const [deltaTime, type, data] = JSON.parse(lines[i]);
+                // Add delta to cumulative (convert seconds to milliseconds)
+                cumulativeTime += deltaTime * 1000;
                 events.push({
-                    timestamp: new Date(header.timestamp * 1000 + time * 1000).toISOString(),
                     type: type === 'o' ? 'output' : 'input',
                     data: data,
-                    deltaTime: time * 1000
+                    cumulativeTime: cumulativeTime
                 });
             }
+        }
+
+        console.log(`[Sidebar] Parsed ${events.length} events, cumulative time: ${cumulativeTime}ms (${(cumulativeTime/1000).toFixed(1)}s)`);
+        if (events.length > 0) {
+            console.log(`[Sidebar] Last event:`, events[events.length - 1]);
         }
 
         const data = { events };
@@ -468,13 +485,13 @@ async function loadRecordingInPlayer(recordingId) {
         player.currentIndex = 0;
         player.currentTime = 0;
 
-        // Calculate duration
+        // Calculate duration from cumulative time
         if (player.events.length > 0) {
             const lastEvent = player.events[player.events.length - 1];
-            const firstEvent = player.events[0];
-            player.duration = new Date(lastEvent.timestamp).getTime() -
-                             new Date(firstEvent.timestamp).getTime();
+            player.duration = lastEvent.cumulativeTime || 0;
         }
+
+        console.log(`[Sidebar Player] Loaded ${player.events.length} events, duration: ${player.duration}ms`);
 
         player.terminal.clear();
         updatePlayerTimeDisplay();
@@ -503,8 +520,7 @@ function playNextPlayerEvent() {
     }
 
     const event = player.events[player.currentIndex];
-    const eventTime = new Date(event.timestamp).getTime() -
-                     new Date(player.events[0].timestamp).getTime();
+    const eventTime = event.cumulativeTime || 0;
 
     player.currentTime = eventTime;
 
@@ -517,8 +533,7 @@ function playNextPlayerEvent() {
 
     while (currentIdx < player.events.length) {
         const currentEvent = player.events[currentIdx];
-        const currentEventTime = new Date(currentEvent.timestamp).getTime() -
-                                 new Date(player.events[0].timestamp).getTime();
+        const currentEventTime = currentEvent.cumulativeTime || 0;
 
         // Stop batching if gap from last event is > 180ms or total batch duration > 250ms
         const gapFromLast = currentEventTime - lastEventTime;
@@ -555,8 +570,7 @@ function playNextPlayerEvent() {
 
     if (player.currentIndex < player.events.length) {
         const nextEvent = player.events[player.currentIndex];
-        const nextEventTime = new Date(nextEvent.timestamp).getTime() -
-                             new Date(player.events[0].timestamp).getTime();
+        const nextEventTime = nextEvent.cumulativeTime || 0;
 
         let delay = Math.max(16, (nextEventTime - batchEndTime) / player.speed);
 
@@ -607,6 +621,8 @@ function setPlayerSpeed(speed) {
 function updatePlayerTimeDisplay() {
     const player = window.currentPlayerInstance;
     if (!player) return;
+
+     console.log(player);
 
     const current = player.currentTime || 0;
     const total = player.duration || 0;

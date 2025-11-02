@@ -1,0 +1,585 @@
+<!-- Recording Playback Component - Full-screen recording playback with responsive scaling -->
+
+<div class="recording-playback-container" id="recording-playback-{{ recording_id }}" data-recording-id="{{ recording_id }}">
+    <!-- Playback Header -->
+    <div class="playback-header">
+        <div class="header-left">
+            <span class="icon">📹</span>
+            <div class="recording-info-header">
+                <h3 class="recording-title">{{ recording_title or 'Recording' }}</h3>
+                <span class="recording-meta">
+                    {{ recording_date }} • {{ terminal_size.cols }}×{{ terminal_size.rows }}
+                </span>
+            </div>
+        </div>
+        <div class="header-right">
+            <button class="btn btn-icon"
+                    _="on click toggle .fullscreen on #recording-playback-{{ recording_id }}"
+                    title="Toggle Fullscreen">
+                <span class="icon">⛶</span>
+            </button>
+            <button class="btn btn-icon close-btn"
+                    _="on click remove #recording-playback-{{ recording_id }}"
+                    title="Close">
+                <span class="icon">✕</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Playback Viewer with Scaling Container -->
+    <div class="playback-viewer" id="playback-viewer-{{ recording_id }}">
+        <!-- Scaling Wrapper -->
+        <div class="playback-scaling-wrapper"
+             id="playback-scaling-wrapper-{{ recording_id }}"
+             data-terminal-cols="{{ terminal_size.cols }}"
+             data-terminal-rows="{{ terminal_size.rows }}">
+
+            <!-- Terminal Container (xterm.js will be mounted here) -->
+            <div class="playback-terminal-container"
+                 id="playback-terminal-{{ recording_id }}"
+                 style="width: {{ terminal_size.cols * 9 }}px; height: {{ terminal_size.rows * 17 }}px;">
+                <!-- xterm.js terminal will be initialized here by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div class="playback-loading" id="playback-loading-{{ recording_id }}">
+            <div class="loading-spinner"></div>
+            <p>Loading recording...</p>
+            <div class="loading-progress">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="playback-progress-{{ recording_id }}" style="width: 0%"></div>
+                </div>
+                <span class="progress-text" id="playback-progress-text-{{ recording_id }}">0%</span>
+            </div>
+        </div>
+
+        <!-- Error Display -->
+        <div class="playback-error" id="playback-error-{{ recording_id }}" style="display: none;">
+            <span class="error-icon">⚠️</span>
+            <h3>Failed to load recording</h3>
+            <p class="error-message" id="playback-error-message-{{ recording_id }}"></p>
+            <button class="btn btn-primary"
+                    _="on click call recordingPlayer.retry('{{ recording_id }}')">
+                Retry
+            </button>
+        </div>
+    </div>
+
+    <!-- Playback Controls -->
+    <div class="playback-controls-bar">
+        <!-- Playback Buttons -->
+        <div class="controls-left">
+            <button class="btn btn-icon"
+                    id="play-pause-{{ recording_id }}"
+                    _="on click call recordingPlayer.togglePlayPause('{{ recording_id }}')"
+                    title="Play/Pause">
+                <span class="icon play-icon">▶️</span>
+            </button>
+            <button class="btn btn-icon"
+                    _="on click call recordingPlayer.stop('{{ recording_id }}')"
+                    title="Stop">
+                <span class="icon">⏹</span>
+            </button>
+            <button class="btn btn-icon"
+                    _="on click call recordingPlayer.seekBackward('{{ recording_id }}', 10)"
+                    title="Rewind 10s">
+                <span class="icon">⏪</span>
+            </button>
+            <button class="btn btn-icon"
+                    _="on click call recordingPlayer.seekForward('{{ recording_id }}', 10)"
+                    title="Forward 10s">
+                <span class="icon">⏩</span>
+            </button>
+        </div>
+
+        <!-- Timeline Scrubber -->
+        <div class="controls-center">
+            <div class="timeline-container">
+                <span class="timeline-time time-current" id="time-current-{{ recording_id }}">00:00</span>
+                <input type="range"
+                       class="timeline-scrubber"
+                       id="timeline-scrubber-{{ recording_id }}"
+                       min="0"
+                       max="100"
+                       value="0"
+                       _="on input call recordingPlayer.seek('{{ recording_id }}', me.value)">
+                <span class="timeline-time time-total" id="time-total-{{ recording_id }}">{{ duration or '00:00' }}</span>
+            </div>
+        </div>
+
+        <!-- Playback Settings -->
+        <div class="controls-right">
+            <!-- Speed Control -->
+            <div class="speed-control">
+                <label class="speed-label">Speed:</label>
+                <select class="speed-select"
+                        id="speed-select-{{ recording_id }}"
+                        _="on change call recordingPlayer.setSpeed('{{ recording_id }}', me.value)">
+                    <option value="0.25">0.25x</option>
+                    <option value="0.5">0.5x</option>
+                    <option value="1" selected>1x</option>
+                    <option value="1.5">1.5x</option>
+                    <option value="2">2x</option>
+                    <option value="3">3x</option>
+                </select>
+            </div>
+
+            <!-- Scale Indicator -->
+            <div class="scale-indicator" id="scale-indicator-{{ recording_id }}">
+                <span class="scale-icon">🔍</span>
+                <span class="scale-value" id="scale-value-{{ recording_id }}">100%</span>
+            </div>
+
+            <!-- Download Button -->
+            <button class="btn btn-icon"
+                    hx-get="/api/recordings/{{ recording_id }}/download"
+                    title="Download Recording">
+                <span class="icon">⬇️</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Playback Info Footer -->
+    <div class="playback-footer">
+        <div class="footer-info">
+            <span class="info-item">
+                <span class="info-label">Terminal Size:</span>
+                <span class="info-value">{{ terminal_size.cols }}×{{ terminal_size.rows }}</span>
+            </span>
+            <span class="info-item">
+                <span class="info-label">Duration:</span>
+                <span class="info-value">{{ duration }}</span>
+            </span>
+            <span class="info-item">
+                <span class="info-label">Events:</span>
+                <span class="info-value">{{ event_count }}</span>
+            </span>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Recording Playback Styles */
+.recording-playback-container {
+    position: fixed;
+    top: 5%;
+    left: 5%;
+    right: 5%;
+    bottom: 5%;
+    display: flex;
+    flex-direction: column;
+    background: var(--secondary-bg);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 8px 32px var(--shadow);
+    z-index: 900;
+    animation: slideIn 0.3s ease-out;
+}
+
+.recording-playback-container.fullscreen {
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 0;
+    z-index: 1000;
+}
+
+/* Header */
+.playback-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: var(--accent-bg);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.header-left .icon {
+    font-size: 1.5rem;
+}
+
+.recording-info-header {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.recording-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.recording-meta {
+    font-size: 0.875rem;
+    color: var(--secondary-text);
+}
+
+.header-right {
+    display: flex;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+
+/* Playback Viewer */
+.playback-viewer {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: var(--terminal-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Scaling Wrapper - KEY COMPONENT FOR RESPONSIVE SCALING */
+.playback-scaling-wrapper {
+    position: relative;
+    transform-origin: top left;
+    transition: transform 0.15s ease-out;
+    will-change: transform;
+}
+
+/* Terminal Container */
+.playback-terminal-container {
+    /* Size set dynamically based on terminal dimensions */
+    position: relative;
+}
+
+/* Loading State */
+.playback-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--terminal-bg);
+    z-index: 10;
+}
+
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid var(--border-color);
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.loading-progress {
+    width: 300px;
+    margin-top: 1rem;
+}
+
+.progress-bar {
+    height: 4px;
+    background: var(--border-color);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--primary-color);
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    font-size: 0.875rem;
+    color: var(--secondary-text);
+}
+
+/* Error State */
+.playback-error {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    text-align: center;
+    z-index: 10;
+}
+
+.playback-error .error-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.playback-error h3 {
+    margin: 0 0 0.5rem 0;
+    color: var(--error-color);
+}
+
+.playback-error .error-message {
+    color: var(--secondary-text);
+    margin-bottom: 1.5rem;
+}
+
+/* Playback Controls Bar */
+.playback-controls-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: var(--accent-bg);
+    border-top: 1px solid var(--border-color);
+    flex-shrink: 0;
+    gap: 1rem;
+}
+
+.controls-left,
+.controls-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.controls-center {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Timeline */
+.timeline-container {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.timeline-time {
+    font-size: 0.875rem;
+    font-variant-numeric: tabular-nums;
+    min-width: 3rem;
+    text-align: center;
+}
+
+.timeline-scrubber {
+    flex: 1;
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--border-color);
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+}
+
+.timeline-scrubber::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.timeline-scrubber::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+}
+
+/* Speed Control */
+.speed-control {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.speed-label {
+    font-size: 0.875rem;
+    color: var(--secondary-text);
+}
+
+.speed-select {
+    padding: 0.25rem 0.5rem;
+    background: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    color: var(--text-color);
+    font-size: 0.875rem;
+    cursor: pointer;
+}
+
+.speed-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+/* Scale Indicator */
+.scale-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    background: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+}
+
+.scale-icon {
+    font-size: 1rem;
+}
+
+.scale-value {
+    font-variant-numeric: tabular-nums;
+    min-width: 2.5rem;
+    text-align: right;
+}
+
+/* Footer */
+.playback-footer {
+    padding: 0.5rem 1rem;
+    background: var(--accent-bg);
+    border-top: 1px solid var(--border-color);
+    font-size: 0.875rem;
+}
+
+.footer-info {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.info-item {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.info-label {
+    color: var(--secondary-text);
+}
+
+.info-value {
+    font-weight: 500;
+}
+
+/* Play/Pause Icon Toggle */
+.play-icon.playing::before {
+    content: '⏸';
+}
+
+/* Animations */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .recording-playback-container {
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        border-radius: 0;
+    }
+
+    .playback-controls-bar {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .controls-left,
+    .controls-right {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .controls-center {
+        width: 100%;
+    }
+
+    .playback-footer {
+        display: none;
+    }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+    .recording-playback-container {
+        border: 2px solid var(--border-color);
+    }
+
+    .timeline-scrubber {
+        border: 1px solid currentColor;
+    }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    .recording-playback-container,
+    .playback-scaling-wrapper {
+        animation: none;
+        transition: none;
+    }
+
+    .loading-spinner {
+        animation: none;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .recording-playback-container {
+        display: none;
+    }
+}
+</style>
+
+<script>
+// Initialize recording playback after template loads
+(async function() {
+    const recordingId = '{{ recording_id }}';
+    const container = document.getElementById(`recording-playback-${recordingId}`);
+
+    if (container && window.recordingPlayer) {
+        // Initialize the recording player and load events
+        try {
+            await window.recordingPlayer.init(recordingId, {
+                terminalCols: {{ terminal_size.cols }},
+                terminalRows: {{ terminal_size.rows }},
+                duration: '{{ duration }}',
+                autoScale: true
+            });
+        } catch (error) {
+            console.error('Failed to initialize recording player:', error);
+        }
+    }
+})();
+</script>

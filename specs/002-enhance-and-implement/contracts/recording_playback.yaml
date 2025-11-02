@@ -1,0 +1,77 @@
+openapi: 3.0.0
+info:
+  title: Recording Playback API
+  version: 1.0.0
+  description: API additions for recording playback width scaling
+
+servers:
+  - url: http://localhost:8000
+    description: Development server
+
+paths:
+  /api/recordings/{id}/dimensions:
+    get:
+      summary: Get terminal dimensions for recording
+      description: Returns terminal size (rows, columns) for scaling calculations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Recording ID
+      responses:
+        '200':
+          description: Terminal dimensions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordingDimensions'
+        '404':
+          description: Recording not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    RecordingDimensions:
+      type: object
+      required:
+        - recording_id
+        - rows
+        - columns
+      properties:
+        recording_id:
+          type: string
+          format: uuid
+          example: "770e8400-e29b-41d4-a716-446655440000"
+        rows:
+          type: integer
+          minimum: 1
+          example: 24
+          description: Terminal height in rows
+        columns:
+          type: integer
+          minimum: 1
+          example: 150
+          description: Terminal width in columns
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-10-09T09:30:00Z"
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          example: "RECORDING_NOT_FOUND"
+        message:
+          type: string
+          example: "No recording found with ID 770e8400-e29b-41d4-a716-446655440000"

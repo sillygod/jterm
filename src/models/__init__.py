@@ -7,6 +7,8 @@ from .theme_config import ThemeConfiguration
 from .extension import Extension
 from .ai_context import AIContext
 from .user_profile import UserProfile
+from .ebook_metadata import EbookMetadata, EbookFileType
+from .performance_snapshot import PerformanceSnapshot
 
 __all__ = [
     "TerminalSession",
@@ -16,4 +18,7 @@ __all__ = [
     "Extension",
     "AIContext",
     "UserProfile",
+    "EbookMetadata",
+    "EbookFileType",
+    "PerformanceSnapshot",
 ]

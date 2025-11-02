@@ -6,6 +6,8 @@ from .recording_service import RecordingService
 from .ai_service import AIService
 from .theme_service import ThemeService
 from .extension_service import ExtensionService
+from .ebook_service import EbookService, get_ebook_service
+from .performance_service import PerformanceService, get_performance_service
 
 __all__ = [
     "PTYService",
@@ -14,4 +16,8 @@ __all__ = [
     "AIService",
     "ThemeService",
     "ExtensionService",
+    "EbookService",
+    "get_ebook_service",
+    "PerformanceService",
+    "get_performance_service",
 ]

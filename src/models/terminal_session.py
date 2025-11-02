@@ -147,6 +147,11 @@ class TerminalSession(Base):
         back_populates="terminal_session",
         cascade="all, delete-orphan"
     )
+    performance_snapshots = relationship(
+        "PerformanceSnapshot",
+        back_populates="session",
+        cascade="all, delete-orphan"
+    )
     user_profile = relationship(
         "UserProfile",
         back_populates="terminal_sessions"

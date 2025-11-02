@@ -24,8 +24,18 @@ class RecordingPlayer {
         this.pauseButton = null;
         this.stopButton = null;
         this.timeline = null;
-        this.timeDisplay = null;
+        this.timeCurrentDisplay = null;
+        this.timeTotalDisplay = null;
         this.speedControl = null;
+
+        // Scaling state (T042)
+        this.terminalCols = null;
+        this.terminalRows = null;
+        this.currentScale = 1.0;
+        this.scalingWrapper = null;
+        this.scaleIndicator = null;
+        this.resizeDebounceTimer = null;
+        this.resizeDebounceMs = 200;
 
         this.init();
     }
@@ -42,7 +52,7 @@ class RecordingPlayer {
     setupUI() {
         const container = document.getElementById(this.containerId);
         if (!container) {
-            console.warn(`Recording player container #${this.containerId} not found`);
+            console.warn(`[RecordingPlayer] Container #${this.containerId} not found`);
             return;
         }
 
@@ -51,8 +61,19 @@ class RecordingPlayer {
         this.pauseButton = container.querySelector('.recording-pause');
         this.stopButton = container.querySelector('.recording-stop');
         this.timeline = container.querySelector('.recording-timeline');
-        this.timeDisplay = container.querySelector('.recording-time');
+        this.timeCurrentDisplay = container.querySelector('.time-current');
+        this.timeTotalDisplay = container.querySelector('.time-total');
         this.speedControl = container.querySelector('.recording-speed');
+
+        console.log(`[RecordingPlayer] UI elements found:`, {
+            playButton: !!this.playButton,
+            pauseButton: !!this.pauseButton,
+            stopButton: !!this.stopButton,
+            timeline: !!this.timeline,
+            timeCurrentDisplay: !!this.timeCurrentDisplay,
+            timeTotalDisplay: !!this.timeTotalDisplay,
+            speedControl: !!this.speedControl
+        });
 
         // Setup event listeners
         if (this.playButton) {
@@ -80,28 +101,59 @@ class RecordingPlayer {
         this.recordingId = recordingId;
 
         try {
+            console.log(`[RecordingPlayer] Loading recording ${recordingId}...`);
+
             // Fetch recording events from API
-            const response = await fetch(`/api/v1/recordings/${recordingId}/events?limit=10000`);
+            const eventsUrl = `/api/v1/recordings/${recordingId}/events?limit=10000`;
+            console.log(`[RecordingPlayer] Fetching events from: ${eventsUrl}`);
+
+            const response = await fetch(eventsUrl);
             if (!response.ok) {
-                throw new Error(`Failed to load recording: ${response.statusText}`);
+                throw new Error(`Failed to load recording: ${response.status} ${response.statusText}`);
             }
 
             const data = await response.json();
-            this.events = data.events;
+            this.events = data.events || [];
+
+            console.log(`[RecordingPlayer] Loaded ${this.events.length} events`);
+            if (this.events.length > 0) {
+                console.log(`[RecordingPlayer] First event:`, this.events[0]);
+                console.log(`[RecordingPlayer] Last event:`, this.events[this.events.length - 1]);
+            }
+
+            // Preprocess events: calculate cumulative time for each event
+            let cumulativeTime = 0;
+            for (const event of this.events) {
+                // deltaTime from backend is milliseconds since previous event
+                cumulativeTime += event.deltaTime || 0;
+                event.cumulativeTime = cumulativeTime;
+            }
 
             // Calculate duration from events
             if (this.events.length > 0) {
                 const lastEvent = this.events[this.events.length - 1];
-                this.duration = new Date(lastEvent.timestamp).getTime() -
-                               new Date(this.events[0].timestamp).getTime();
+
+                // Use cumulative time which we just calculated
+                this.duration = lastEvent.cumulativeTime || 0;
+
+                console.log(`[RecordingPlayer] Duration calculated: ${this.duration}ms (${this.formatTime(this.duration)})`);
+            } else {
+                console.warn(`[RecordingPlayer] No events found, duration: ${this.duration}ms`);
             }
 
+            // Fetch dimensions and setup scaling (T042)
+            await this.fetchDimensions(recordingId);
+            this.setupScaling(recordingId);
+            this.applyScale();
+
             this.updateUI();
+            console.log(`[RecordingPlayer] UI updated, current time: ${this.currentTime}, duration: ${this.duration}`);
+
             this.dispatchEvent('recording-loaded', { recordingId, eventCount: this.events.length });
 
             return true;
         } catch (error) {
-            console.error('Failed to load recording:', error);
+            console.error('[RecordingPlayer] Failed to load recording:', error);
             this.dispatchEvent('recording-error', { error: error.message });
             return false;
         }
@@ -164,11 +216,12 @@ class RecordingPlayer {
         // Position is between 0 and 1
         const targetTime = position * this.duration;
 
-        // Find the event closest to target time
+        // Find the event closest to target time using cumulative time
         let targetIndex = 0;
         for (let i = 0; i < this.events.length; i++) {
-            const eventTime = new Date(this.events[i].timestamp).getTime() -
-                            new Date(this.events[0].timestamp).getTime();
+            const event = this.events[i];
+            const eventTime = event.cumulativeTime || 0;
+
             if (eventTime <= targetTime) {
                 targetIndex = i;
             } else {
@@ -204,8 +257,8 @@ class RecordingPlayer {
         }
 
         const event = this.events[this.currentEventIndex];
-        const eventTime = new Date(event.timestamp).getTime() -
-                         new Date(this.events[0].timestamp).getTime();
+        // Use cumulative time which was calculated during loadRecording
+        const eventTime = event.cumulativeTime || 0;
 
         // Calculate delay until next event (adjusted for playback speed)
         const currentPlayTime = Date.now() - this.startTime;
@@ -272,11 +325,14 @@ class RecordingPlayer {
             this.timeline.value = position;
         }
 
-        // Update time display
-        if (this.timeDisplay) {
+        // Update time displays (separate current and total elements)
+        if (this.timeCurrentDisplay) {
             const current = this.formatTime(this.currentTime);
+            this.timeCurrentDisplay.textContent = current;
+        }
+        if (this.timeTotalDisplay) {
             const total = this.formatTime(this.duration);
-            this.timeDisplay.textContent = `${current} / ${total}`;
+            this.timeTotalDisplay.textContent = total;
         }
 
         // Update speed display
@@ -339,6 +395,145 @@ class RecordingPlayer {
         const newTime = Math.max(0, Math.min(this.duration, this.currentTime + milliseconds));
         const position = newTime / this.duration;
         this.seek(position);
+    }
+
+    /**
+     * Fetch recording dimensions from API (T042)
+     */
+    async fetchDimensions(recordingId) {
+        try {
+            const response = await fetch(`/api/recordings/${recordingId}/dimensions`);
+            if (!response.ok) {
+                console.warn('Failed to fetch dimensions, using defaults');
+                this.terminalCols = 80;
+                this.terminalRows = 24;
+                return;
+            }
+
+            const data = await response.json();
+            this.terminalCols = data.cols || 80;
+            this.terminalRows = data.rows || 24;
+
+            console.log('Recording dimensions:', {
+                cols: this.terminalCols,
+                rows: this.terminalRows
+            });
+        } catch (error) {
+            console.warn('Error fetching dimensions:', error);
+            this.terminalCols = 80;
+            this.terminalRows = 24;
+        }
+    }
+
+    /**
+     * Setup scaling elements and resize listener (T042)
+     */
+    setupScaling(recordingId) {
+        // Cache scaling wrapper and indicator elements
+        this.scalingWrapper = document.getElementById(`playback-scaling-wrapper-${recordingId}`);
+        this.scaleIndicator = document.getElementById(`scale-value-${recordingId}`);
+
+        if (!this.scalingWrapper) {
+            console.warn('Scaling wrapper not found, scaling disabled');
+            return;
+        }
+
+        // Read dimensions from data attributes if available
+        if (this.scalingWrapper.dataset.terminalCols) {
+            this.terminalCols = parseInt(this.scalingWrapper.dataset.terminalCols);
+        }
+        if (this.scalingWrapper.dataset.terminalRows) {
+            this.terminalRows = parseInt(this.scalingWrapper.dataset.terminalRows);
+        }
+
+        // Setup resize listener with debouncing (200ms as per T042)
+        const debouncedResize = () => {
+            if (this.resizeDebounceTimer) {
+                clearTimeout(this.resizeDebounceTimer);
+            }
+
+            this.resizeDebounceTimer = setTimeout(() => {
+                const startTime = performance.now();
+                this.applyScale();
+                const endTime = performance.now();
+                const latency = endTime - startTime;
+
+                console.log(`Resize latency: ${latency.toFixed(2)}ms`);
+
+                // Validate < 200ms requirement from T014
+                if (latency > 200) {
+                    console.warn(`Resize latency exceeded 200ms: ${latency.toFixed(2)}ms`);
+                }
+            }, this.resizeDebounceMs);
+        };
+
+        // Add resize listener
+        window.addEventListener('resize', debouncedResize);
+
+        // Store reference for cleanup
+        this.resizeListener = debouncedResize;
+    }
+
+    /**
+     * Calculate and apply scale transform (T042)
+     */
+    applyScale() {
+        if (!this.scalingWrapper || !this.terminalCols) {
+            return;
+        }
+
+        // Get viewport dimensions
+        const viewer = this.scalingWrapper.closest('.playback-viewer');
+        if (!viewer) {
+            console.warn('Playback viewer not found');
+            return;
+        }
+
+        const viewportWidth = viewer.clientWidth;
+        const viewportHeight = viewer.clientHeight;
+
+        // Calculate terminal dimensions (9px char width, 17px char height)
+        const charWidth = 9;
+        const charHeight = 17;
+        const terminalWidth = this.terminalCols * charWidth;
+        const terminalHeight = this.terminalRows * charHeight;
+
+        // Calculate scale: min(1.0, viewportWidth / terminalWidth)
+        const scaleX = viewportWidth / terminalWidth;
+        const scaleY = viewportHeight / terminalHeight;
+        const scale = Math.min(1.0, scaleX, scaleY);
+
+        // Apply transform
+        this.currentScale = scale;
+        this.scalingWrapper.style.transform = `scale(${scale})`;
+
+        // Update scale indicator
+        if (this.scaleIndicator) {
+            this.scaleIndicator.textContent = `${Math.round(scale * 100)}%`;
+        }
+
+        console.log('Scale applied:', {
+            viewportWidth,
+            viewportHeight,
+            terminalWidth,
+            terminalHeight,
+            scale: `${Math.round(scale * 100)}%`
+        });
+    }
+
+    /**
+     * Cleanup scaling (call when destroying player)
+     */
+    cleanupScaling() {
+        if (this.resizeListener) {
+            window.removeEventListener('resize', this.resizeListener);
+            this.resizeListener = null;
+        }
+
+        if (this.resizeDebounceTimer) {
+            clearTimeout(this.resizeDebounceTimer);
+            this.resizeDebounceTimer = null;
+        }
     }
 
     dispatchEvent(eventName, detail = {}) {
@@ -556,13 +751,150 @@ class RecordingController {
 let recordingPlayer = null;
 let recordingController = null;
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Initialize recording player if player container exists (singleton)
-    if (document.getElementById('recording-player') && !window.recordingPlayer) {
-        recordingPlayer = new RecordingPlayer('recording-player');
-        window.recordingPlayer = recordingPlayer;
-    }
+// Global recording player manager for multiple playback instances
+if (!window.recordingPlayer) {
+    window.recordingPlayer = {
+        players: new Map(),
 
+        /**
+         * Initialize a recording player instance (called from template script)
+         * @param {string} recordingId - The recording ID
+         * @param {Object} options - Configuration options
+         */
+        async init(recordingId, options = {}) {
+            console.log('[RecordingPlayer.init] Starting initialization for:', recordingId, 'with options:', options);
+
+            const { terminalCols, terminalRows, duration, autoScale = true } = options;
+
+            // Create player instance for this recording
+            const player = new RecordingPlayer(`recording-playback-${recordingId}`);
+            player.recordingId = recordingId;
+            player.terminalCols = terminalCols;
+            player.terminalRows = terminalRows;
+
+            // Store preliminary duration from template (will be recalculated after loading events)
+            if (duration) {
+                player.duration = this.parseDuration(duration);
+                console.log('[RecordingPlayer.init] Parsed duration from template:', player.duration, 'ms');
+            }
+
+            this.players.set(recordingId, player);
+
+            // Load the recording events (this calculates cumulative time and accurate duration)
+            console.log('[RecordingPlayer.init] Calling loadRecording...');
+            const success = await player.loadRecording(recordingId);
+
+            if (success) {
+                console.log('[RecordingPlayer.init] Successfully initialized and loaded:', recordingId);
+            } else {
+                console.error('[RecordingPlayer.init] Failed to load recording:', recordingId);
+            }
+
+            return player;
+        },
+
+        /**
+         * Get player instance by recording ID
+         */
+        getPlayer(recordingId) {
+            return this.players.get(recordingId);
+        },
+
+        /**
+         * Toggle play/pause for a recording
+         */
+        togglePlayPause(recordingId) {
+            const player = this.players.get(recordingId);
+            if (!player) return;
+
+            if (player.isPlaying) {
+                player.pause();
+            } else {
+                player.play();
+            }
+        },
+
+        /**
+         * Stop playback
+         */
+        stop(recordingId) {
+            const player = this.players.get(recordingId);
+            if (player) {
+                player.stop();
+            }
+        },
+
+        /**
+         * Seek to position (0-100)
+         */
+        seek(recordingId, value) {
+            const player = this.players.get(recordingId);
+            if (player) {
+                player.seek(parseFloat(value) / 100);
+            }
+        },
+
+        /**
+         * Seek backward by seconds
+         */
+        seekBackward(recordingId, seconds) {
+            const player = this.players.get(recordingId);
+            if (player) {
+                player.skip(-seconds * 1000);
+            }
+        },
+
+        /**
+         * Seek forward by seconds
+         */
+        seekForward(recordingId, seconds) {
+            const player = this.players.get(recordingId);
+            if (player) {
+                player.skip(seconds * 1000);
+            }
+        },
+
+        /**
+         * Set playback speed
+         */
+        setSpeed(recordingId, speed) {
+            const player = this.players.get(recordingId);
+            if (player) {
+                player.setSpeed(parseFloat(speed));
+            }
+        },
+
+        /**
+         * Retry loading a recording (called from error state)
+         */
+        async retry(recordingId) {
+            const player = this.players.get(recordingId);
+            if (player) {
+                await player.loadRecording(recordingId);
+            }
+        },
+
+        /**
+         * Parse duration string (MM:SS or HH:MM:SS) to milliseconds
+         */
+        parseDuration(durationStr) {
+            const parts = durationStr.split(':').map(Number);
+            let milliseconds = 0;
+
+            if (parts.length === 2) {
+                // MM:SS
+                milliseconds = (parts[0] * 60 + parts[1]) * 1000;
+            } else if (parts.length === 3) {
+                // HH:MM:SS
+                milliseconds = (parts[0] * 3600 + parts[1] * 60 + parts[2]) * 1000;
+            }
+
+            return milliseconds;
+        }
+    };
+}
+
+document.addEventListener('DOMContentLoaded', () => {
     // Initialize recording controller (singleton)
     if (!window.recordingController) {
         recordingController = new RecordingController();
