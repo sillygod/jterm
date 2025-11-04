@@ -1,0 +1,784 @@
+openapi: 3.0.3
+info:
+  title: jterm Cat Commands API
+  description: |
+    API endpoints for web-enhanced terminal commands: logcat, certcat, sqlcat, curlcat.
+    All commands follow OSC sequence pattern and integrate with jterm terminal emulator.
+  version: 1.0.0
+  contact:
+    name: jterm Development
+
+servers:
+  - url: http://localhost:8000/api
+    description: Local development server
+
+tags:
+  - name: logs
+    description: Log viewing and filtering (logcat)
+  - name: certificates
+    description: Certificate inspection (certcat)
+  - name: sql
+    description: SQL query execution (sqlcat)
+  - name: http
+    description: HTTP request testing (curlcat)
+
+paths:
+  # ========== LOGCAT ENDPOINTS ==========
+  /logs/parse:
+    post:
+      tags: [logs]
+      summary: Parse log file and return entries
+      operationId: parseLogs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [file_path]
+              properties:
+                file_path:
+                  type: string
+                  example: "/var/log/app.log"
+                format:
+                  type: string
+                  enum: [json, apache_combined, apache_common, nginx_error, plain_text, auto]
+                  default: auto
+                offset:
+                  type: integer
+                  default: 0
+                  description: "Start line number"
+                limit:
+                  type: integer
+                  default: 1000
+                  maximum: 10000
+      responses:
+        '200':
+          description: Parsed log entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogParseResponse'
+        '404':
+          description: Log file not found
+        '400':
+          description: Invalid file path or format
+
+  /logs/filter:
+    post:
+      tags: [logs]
+      summary: Filter log entries
+      operationId: filterLogs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogFilter'
+      responses:
+        '200':
+          description: Filtered log entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogParseResponse'
+
+  /logs/stream:
+    get:
+      tags: [logs]
+      summary: Stream log file updates (WebSocket upgrade)
+      operationId: streamLogs
+      parameters:
+        - name: file_path
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, apache_combined, apache_common, nginx_error, plain_text, auto]
+      responses:
+        '101':
+          description: WebSocket upgrade successful
+        '400':
+          description: Invalid parameters
+
+  /logs/export:
+    post:
+      tags: [logs]
+      summary: Export filtered logs
+      operationId: exportLogs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [entries, format]
+              properties:
+                entries:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/LogEntry'
+                format:
+                  type: string
+                  enum: [json, csv, txt]
+      responses:
+        '200':
+          description: Exported file
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  file_path:
+                    type: string
+                  download_url:
+                    type: string
+
+  # ========== CERTCAT ENDPOINTS ==========
+  /certificates/fetch:
+    post:
+      tags: [certificates]
+      summary: Fetch certificate from remote endpoint or local file
+      operationId: fetchCertificate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source]
+              properties:
+                source:
+                  type: string
+                  description: "URL (https://example.com) or file path (/path/to/cert.pem)"
+                  example: "https://example.com"
+                include_chain:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: Certificate details with chain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CertificateResponse'
+        '400':
+          description: Invalid source or failed to fetch
+        '404':
+          description: Certificate file not found
+
+  /certificates/compare:
+    post:
+      tags: [certificates]
+      summary: Compare two certificates
+      operationId: compareCertificates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source1, source2]
+              properties:
+                source1:
+                  type: string
+                source2:
+                  type: string
+      responses:
+        '200':
+          description: Certificate comparison
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cert1:
+                    $ref: '#/components/schemas/Certificate'
+                  cert2:
+                    $ref: '#/components/schemas/Certificate'
+                  differences:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        field:
+                          type: string
+                        value1:
+                          type: string
+                        value2:
+                          type: string
+
+  /certificates/export:
+    post:
+      tags: [certificates]
+      summary: Export certificate in various formats
+      operationId: exportCertificate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source, format]
+              properties:
+                source:
+                  type: string
+                format:
+                  type: string
+                  enum: [pem, der, text]
+      responses:
+        '200':
+          description: Exported certificate
+          content:
+            text/plain:
+              schema:
+                type: string
+            application/x-pem-file:
+              schema:
+                type: string
+            application/x-x509-ca-cert:
+              schema:
+                type: string
+                format: binary
+
+  # ========== SQLCAT ENDPOINTS ==========
+  /sql/connect:
+    post:
+      tags: [sql]
+      summary: Connect to database
+      operationId: connectDatabase
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [connection_string]
+              properties:
+                connection_string:
+                  type: string
+                  example: "sqlite:///path/to/database.db"
+                  description: "SQLite path or PostgreSQL DSN"
+      responses:
+        '200':
+          description: Connection established
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatabaseConnection'
+        '400':
+          description: Invalid connection string
+        '500':
+          description: Connection failed
+
+  /sql/schema:
+    get:
+      tags: [sql]
+      summary: Get database schema
+      operationId: getSchema
+      parameters:
+        - name: connection_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Database schema
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TableSchema'
+
+  /sql/query:
+    post:
+      tags: [sql]
+      summary: Execute SQL query
+      operationId: executeQuery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [connection_id, query]
+              properties:
+                connection_id:
+                  type: string
+                query:
+                  type: string
+                  example: "SELECT * FROM users WHERE id = ?"
+                params:
+                  type: array
+                  items:
+                    type: string
+                offset:
+                  type: integer
+                  default: 0
+                limit:
+                  type: integer
+                  default: 1000
+                  maximum: 10000
+                explain:
+                  type: boolean
+                  default: false
+                  description: "Include EXPLAIN plan"
+      responses:
+        '200':
+          description: Query results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryResult'
+        '400':
+          description: SQL syntax error
+        '403':
+          description: Write operation requires --write flag
+
+  /sql/export:
+    post:
+      tags: [sql]
+      summary: Export query results
+      operationId: exportQueryResults
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [result, format]
+              properties:
+                result:
+                  $ref: '#/components/schemas/QueryResult'
+                format:
+                  type: string
+                  enum: [csv, json, excel]
+      responses:
+        '200':
+          description: Exported file
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  file_path:
+                    type: string
+                  download_url:
+                    type: string
+
+  # ========== CURLCAT ENDPOINTS ==========
+  /http/execute:
+    post:
+      tags: [http]
+      summary: Execute HTTP request
+      operationId: executeHTTPRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HTTPRequest'
+      responses:
+        '200':
+          description: HTTP response with timing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPResponse'
+        '400':
+          description: Invalid request
+        '500':
+          description: Request failed
+
+  /http/history:
+    get:
+      tags: [http]
+      summary: Get request history
+      operationId: getRequestHistory
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 500
+        - name: search
+          in: query
+          schema:
+            type: string
+            description: "Filter by URL or method"
+      responses:
+        '200':
+          description: Request history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RequestHistory'
+
+  /http/export:
+    post:
+      tags: [http]
+      summary: Export request as code snippet
+      operationId: exportRequestAsCode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [request, language]
+              properties:
+                request:
+                  $ref: '#/components/schemas/HTTPRequest'
+                language:
+                  type: string
+                  enum: [curl, fetch, axios, python_requests]
+      responses:
+        '200':
+          description: Code snippet
+          content:
+            text/plain:
+              schema:
+                type: string
+
+components:
+  schemas:
+    # ========== LOG MODELS ==========
+    LogEntry:
+      type: object
+      required: [timestamp, level, message, line_number]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        level:
+          type: string
+          enum: [TRACE, DEBUG, INFO, WARN, ERROR, FATAL]
+        message:
+          type: string
+        source:
+          type: string
+          nullable: true
+        line_number:
+          type: integer
+        raw_text:
+          type: string
+        structured_fields:
+          type: object
+          additionalProperties: true
+        stack_trace:
+          type: string
+          nullable: true
+
+    LogFilter:
+      type: object
+      properties:
+        levels:
+          type: array
+          items:
+            type: string
+            enum: [TRACE, DEBUG, INFO, WARN, ERROR, FATAL]
+        search_pattern:
+          type: string
+          description: "Regex pattern"
+        since:
+          type: string
+          format: date-time
+        until:
+          type: string
+          format: date-time
+        source:
+          type: string
+        has_stack_trace:
+          type: boolean
+
+    LogParseResponse:
+      type: object
+      required: [entries, total_count, statistics]
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogEntry'
+        total_count:
+          type: integer
+        statistics:
+          type: object
+          properties:
+            level_counts:
+              type: object
+              additionalProperties:
+                type: integer
+            error_rate:
+              type: number
+            time_range:
+              type: object
+              properties:
+                start:
+                  type: string
+                  format: date-time
+                end:
+                  type: string
+                  format: date-time
+        format_detected:
+          type: string
+
+    # ========== CERTIFICATE MODELS ==========
+    Certificate:
+      type: object
+      required: [subject, issuer, serial_number, not_before, not_after, public_key]
+      properties:
+        subject:
+          type: string
+        issuer:
+          type: string
+        serial_number:
+          type: string
+        not_before:
+          type: string
+          format: date-time
+        not_after:
+          type: string
+          format: date-time
+        public_key:
+          type: object
+          properties:
+            algorithm:
+              type: string
+              enum: [RSA, ECDSA, DSA, Ed25519]
+            size_bits:
+              type: integer
+            fingerprint_sha256:
+              type: string
+            fingerprint_sha1:
+              type: string
+        san:
+          type: array
+          items:
+            type: string
+        is_self_signed:
+          type: boolean
+        is_ca:
+          type: boolean
+        trust_status:
+          type: string
+          enum: [trusted, untrusted, expired, not_yet_valid, revoked]
+        expiry_warning:
+          type: string
+          nullable: true
+        days_until_expiry:
+          type: integer
+
+    CertificateResponse:
+      type: object
+      required: [leaf]
+      properties:
+        leaf:
+          $ref: '#/components/schemas/Certificate'
+        intermediates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Certificate'
+        root:
+          $ref: '#/components/schemas/Certificate'
+          nullable: true
+        chain_length:
+          type: integer
+
+    # ========== SQL MODELS ==========
+    DatabaseConnection:
+      type: object
+      required: [db_type, connection_string]
+      properties:
+        db_type:
+          type: string
+          enum: [sqlite, postgresql]
+        connection_string:
+          type: string
+        masked_connection_string:
+          type: string
+        is_connected:
+          type: boolean
+        tables:
+          type: array
+          items:
+            $ref: '#/components/schemas/TableSchema'
+
+    TableSchema:
+      type: object
+      required: [name, columns]
+      properties:
+        name:
+          type: string
+        columns:
+          type: array
+          items:
+            type: object
+            required: [name, data_type]
+            properties:
+              name:
+                type: string
+              data_type:
+                type: string
+              nullable:
+                type: boolean
+              primary_key:
+                type: boolean
+        row_count:
+          type: integer
+          nullable: true
+        indexes:
+          type: array
+          items:
+            type: string
+
+    QueryResult:
+      type: object
+      required: [columns, rows, row_count, execution_time_ms]
+      properties:
+        columns:
+          type: array
+          items:
+            type: string
+        rows:
+          type: array
+          items:
+            type: array
+            items: {}
+        row_count:
+          type: integer
+        execution_time_ms:
+          type: number
+        offset:
+          type: integer
+        limit:
+          type: integer
+        has_more:
+          type: boolean
+        query:
+          type: string
+        explain_plan:
+          type: string
+          nullable: true
+
+    # ========== HTTP MODELS ==========
+    HTTPRequest:
+      type: object
+      required: [method, url]
+      properties:
+        method:
+          type: string
+          enum: [GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS]
+        url:
+          type: string
+          format: uri
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+        body:
+          type: string
+          nullable: true
+        auth_type:
+          type: string
+          enum: [none, basic, bearer, api_key]
+        auth_credentials:
+          type: string
+          nullable: true
+        follow_redirects:
+          type: boolean
+          default: true
+        timeout_seconds:
+          type: integer
+          default: 30
+          minimum: 1
+          maximum: 300
+        verify_ssl:
+          type: boolean
+          default: true
+        environment:
+          type: object
+          additionalProperties:
+            type: string
+
+    HTTPResponse:
+      type: object
+      required: [status_code]
+      properties:
+        status_code:
+          type: integer
+          minimum: 100
+          maximum: 599
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+        body:
+          type: string
+        timing:
+          type: object
+          properties:
+            dns_lookup_ms:
+              type: number
+            tcp_connect_ms:
+              type: number
+            tls_handshake_ms:
+              type: number
+            server_processing_ms:
+              type: number
+            transfer_ms:
+              type: number
+            total_ms:
+              type: number
+        redirect_chain:
+          type: array
+          items:
+            type: string
+        certificate:
+          $ref: '#/components/schemas/Certificate'
+          nullable: true
+        status_category:
+          type: string
+          enum: [success, redirect, client_error, server_error, unknown]
+
+    RequestHistory:
+      type: object
+      required: [request, timestamp]
+      properties:
+        request:
+          $ref: '#/components/schemas/HTTPRequest'
+        response:
+          $ref: '#/components/schemas/HTTPResponse'
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        success:
+          type: boolean
+        error_message:
+          type: string
+          nullable: true
+        name:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+
+  securitySchemes:
+    # Future: Add authentication if needed
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+security: []  # No authentication required for local terminal use
