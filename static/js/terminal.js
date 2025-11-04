@@ -25,7 +25,7 @@ class WebTerminal {
     }
 
     init() {
-        // Initialize xterm.js terminal
+        // Initialize xterm.js terminal with vibrant ANSI color palette
         this.terminal = new Terminal({
             theme: {
                 background: getComputedStyle(document.documentElement)
@@ -36,6 +36,23 @@ class WebTerminal {
                     .getPropertyValue('--terminal-cursor').trim() || '#ffffff',
                 selection: getComputedStyle(document.documentElement)
                     .getPropertyValue('--terminal-selection').trim() || 'rgba(255, 255, 255, 0.3)',
+                // ANSI Colors - More vibrant palette matching modern terminals
+                black: '#000000',
+                red: '#E06C75',           // Brighter red
+                green: '#98C379',         // Brighter green
+                yellow: '#E5C07B',        // Brighter yellow
+                blue: '#61AFEF',          // Brighter blue
+                magenta: '#C678DD',       // Brighter magenta
+                cyan: '#56B6C2',          // Brighter cyan
+                white: '#ABB2BF',         // Brighter white
+                brightBlack: '#5C6370',   // Bright black (gray)
+                brightRed: '#E06C75',     // Bright red
+                brightGreen: '#98C379',   // Bright green
+                brightYellow: '#E5C07B',  // Bright yellow
+                brightBlue: '#61AFEF',    // Bright blue
+                brightMagenta: '#C678DD', // Bright magenta
+                brightCyan: '#56B6C2',    // Bright cyan
+                brightWhite: '#FFFFFF',   // Bright white
             },
             fontFamily: '"Courier New", Courier, monospace',
             fontSize: 14,
@@ -76,6 +93,45 @@ class WebTerminal {
     }
 
     setupEventListeners() {
+        // Capture keyboard events before browser handles them
+        // This allows terminal shortcuts (like Cmd+L, Cmd+H) to work in tmux/vim
+        this.terminal.attachCustomKeyEventHandler((event) => {
+            // List of key combinations to intercept and send to terminal
+            // These would normally be handled by the browser
+            const shouldIntercept = (
+                // Cmd/Ctrl + L (clear screen / tmux navigate)
+                (event.key === 'l' && (event.metaKey || event.ctrlKey)) ||
+                // Cmd/Ctrl + H (backspace / tmux navigate)
+                (event.key === 'h' && (event.metaKey || event.ctrlKey)) ||
+                // Cmd/Ctrl + J (tmux navigate)
+                (event.key === 'j' && (event.metaKey || event.ctrlKey)) ||
+                // Cmd/Ctrl + K (tmux navigate / clear to top)
+                (event.key === 'k' && (event.metaKey || event.ctrlKey)) ||
+                // Cmd/Ctrl + W (close window in browser, but delete word in terminal)
+                (event.key === 'w' && (event.metaKey || event.ctrlKey)) ||
+                // Cmd/Ctrl + T (new tab in browser, but tmux command)
+                (event.key === 't' && (event.metaKey || event.ctrlKey)) ||
+                // Cmd/Ctrl + N (new window in browser, but next in tmux)
+                (event.key === 'n' && (event.metaKey || event.ctrlKey)) ||
+                // Cmd/Ctrl + P (print in browser, but previous in tmux)
+                (event.key === 'p' && (event.metaKey || event.ctrlKey)) ||
+                // Cmd/Ctrl + [ and ] (browser navigation, but tmux escape/navigate)
+                (event.key === '[' && (event.metaKey || event.ctrlKey)) ||
+                (event.key === ']' && (event.metaKey || event.ctrlKey))
+            );
+
+            if (shouldIntercept) {
+                // Prevent browser from handling this event
+                event.preventDefault();
+                event.stopPropagation();
+                // Return false to let xterm.js handle it normally
+                return false;
+            }
+
+            // Allow browser to handle other shortcuts (Cmd+C for copy, Cmd+V for paste, etc.)
+            return true;
+        });
+
         // Terminal data handler
         this.terminal.onData((data) => {
             if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
@@ -139,6 +195,24 @@ class WebTerminal {
                 this.fitAddon.fit();
             }
         });
+
+        // ResizeObserver to handle container size changes (e.g., sidebar toggle)
+        // This automatically resizes the terminal when the container dimensions change
+        const container = document.getElementById(this.containerId);
+        if (container && window.ResizeObserver) {
+            const resizeObserver = new ResizeObserver((entries) => {
+                // Debounce resize to avoid excessive calls
+                if (this.resizeTimeout) {
+                    clearTimeout(this.resizeTimeout);
+                }
+                this.resizeTimeout = setTimeout(() => {
+                    if (this.fitAddon) {
+                        this.fitAddon.fit();
+                    }
+                }, 100);
+            });
+            resizeObserver.observe(container);
+        }
 
         // Theme change handler
         document.addEventListener('htmx:afterSettle', () => {
@@ -407,6 +481,23 @@ class WebTerminal {
                     .getPropertyValue('--terminal-cursor').trim(),
                 selection: getComputedStyle(document.documentElement)
                     .getPropertyValue('--terminal-selection').trim(),
+                // Keep vibrant ANSI colors even when theme changes
+                black: '#000000',
+                red: '#E06C75',
+                green: '#98C379',
+                yellow: '#E5C07B',
+                blue: '#61AFEF',
+                magenta: '#C678DD',
+                cyan: '#56B6C2',
+                white: '#ABB2BF',
+                brightBlack: '#5C6370',
+                brightRed: '#E06C75',
+                brightGreen: '#98C379',
+                brightYellow: '#E5C07B',
+                brightBlue: '#61AFEF',
+                brightMagenta: '#C678DD',
+                brightCyan: '#56B6C2',
+                brightWhite: '#FFFFFF',
             };
 
             this.terminal.options.theme = newTheme;

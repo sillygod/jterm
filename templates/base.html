@@ -73,7 +73,7 @@
 
                 <button class="btn btn-icon ai-sidebar-toggle"
                         title="Toggle AI Assistant"
-                        onclick="const sidebar = document.querySelector('.sidebar'); sidebar.style.display = sidebar.style.display === 'none' ? 'block' : 'none'">
+                        onclick="toggleAISidebar()">
                     <span class="icon">🤖</span>
                 </button>
 
@@ -141,9 +141,16 @@
     <!-- Performance Metrics Widget -->
     {% include "components/performance_metrics.html" %}
 
-    <!-- Footer/Status Bar -->
+    <!-- Footer/Status Bar (now contains all controls) -->
     <footer class="status-bar">
         <div class="status-left">
+            <!-- App title moved from header -->
+            <span class="app-title">
+                <span class="terminal-icon">⚡</span>
+                Web Terminal
+            </span>
+
+            <!-- Connection and session info -->
             <span class="connection-status"
                   id="connection-status"
                   _="init set my textContent to 'Connecting...'">
@@ -153,19 +160,65 @@
         </div>
 
         <div class="status-center">
+            <!-- Recording status (compact) -->
             <div class="recording-status-inline" id="recording-status-inline">
-                <!-- Inline recording status -->
                 <button class="btn btn-sm recording-start" id="recording-start-btn" title="Start Recording">
-                    <span class="icon">⏺</span> Record
+                    <span class="icon">⏺</span>
                 </button>
                 <button class="btn btn-sm recording-stop-record" id="recording-stop-btn" style="display: none;" title="Stop Recording">
-                    <span class="icon">⏹</span> Stop
+                    <span class="icon">⏹</span>
                 </button>
                 <span class="recording-status" id="recording-status-text"></span>
             </div>
         </div>
 
         <div class="status-right">
+            <!-- All header controls moved here -->
+            <button class="btn btn-icon"
+                    hx-get="/api/terminal/sessions/new"
+                    hx-target="#main-content"
+                    title="New Terminal Session"
+                    _="on click add .pulse to me">
+                <span class="icon">+</span>
+            </button>
+
+            <button class="btn btn-icon ai-sidebar-toggle"
+                    title="Toggle AI Assistant"
+                    onclick="toggleAISidebar()">
+                <span class="icon">🤖</span>
+            </button>
+
+            <button class="btn btn-icon recording-toggle"
+                    id="recording-toggle"
+                    title="Session Recording"
+                    onclick="toggleRecordingPanel()">
+                <span class="icon">⏺</span>
+            </button>
+
+            <button class="btn btn-icon recordings-sidebar-toggle"
+                    title="Toggle Recordings"
+                    onclick="toggleRecordingsPanel()">
+                <span class="icon">📹</span>
+            </button>
+
+            <button class="btn btn-icon theme-toggle"
+                    _="on click
+                       if <html/>'s @data-theme is 'dark' then
+                         set <html/>'s @data-theme to 'light'
+                       else
+                         set <html/>'s @data-theme to 'dark'
+                       end">
+                <span class="icon">🌙</span>
+            </button>
+
+            <button class="btn btn-icon settings-btn"
+                    hx-get="/api/settings"
+                    hx-target="#settings-modal"
+                    hx-swap="innerHTML"
+                    onclick="setTimeout(() => document.getElementById('settings-modal').style.display = 'flex', 50)">
+                <span class="icon">⚙️</span>
+            </button>
+
             <span class="loading-indicator" id="loading-indicator">
                 <span class="spinner"></span>
             </span>
@@ -276,6 +329,23 @@
             }
         }
 
+        // Toggle AI sidebar
+        function toggleAISidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            const isCurrentlyVisible = sidebar.style.display !== 'none';
+
+            // Toggle sidebar visibility
+            sidebar.style.display = isCurrentlyVisible ? 'none' : 'block';
+
+            // Resize terminal after sidebar toggle
+            // Use setTimeout to allow the browser to complete the layout change
+            setTimeout(() => {
+                if (window.webTerminal && window.webTerminal.resize) {
+                    window.webTerminal.resize();
+                }
+            }, 50);
+        }
+
         // Toggle recordings panel
         function toggleRecordingsPanel() {
             const panel = document.getElementById('recordings-sidebar');
@@ -290,6 +360,13 @@
             } else {
                 panel.style.display = 'none';
             }
+
+            // Resize terminal after panel toggle
+            setTimeout(() => {
+                if (window.webTerminal && window.webTerminal.resize) {
+                    window.webTerminal.resize();
+                }
+            }, 50);
         }
 
         // Recording controls are initialized by recording.js RecordingController
