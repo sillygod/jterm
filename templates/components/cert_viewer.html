@@ -1,0 +1,249 @@
+<!--
+    Certificate Viewer Component - HTMX Template
+    T026: Certificate viewer template structure
+
+    Note: The CertViewer JavaScript class (cert-viewer.js) creates most of the UI dynamically.
+    This template is a minimal fallback/reference structure.
+-->
+
+<!-- Certificate Viewer Container (created dynamically by cert-viewer.js) -->
+<div class="cert-viewer-placeholder" style="display: none;">
+    <!-- The JavaScript CertViewer class creates the full structure dynamically -->
+    <!-- This template serves as a reference for the structure -->
+
+    <div class="viewer-overlay" id="cert-viewer-overlay">
+        <div class="viewer-container cert-viewer-container">
+            <!-- Header -->
+            <div class="viewer-header">
+                <div class="viewer-title">
+                    <span class="viewer-title-icon">🔒</span>
+                    <span>Certificate Inspector</span>
+                    <span class="viewer-subtitle">{{ source_name }}</span>
+                </div>
+                <div class="viewer-controls">
+                    <button class="viewer-btn" id="cert-export-btn" title="Export certificate">
+                        Export
+                    </button>
+                    <button class="viewer-btn-close" title="Close (Esc)">✕</button>
+                </div>
+            </div>
+
+            <!-- Body with split view -->
+            <div class="viewer-body">
+                <div class="viewer-split cert-viewer-split">
+                    <!-- Left panel: Certificate chain visualization -->
+                    <div class="viewer-panel cert-chain-panel">
+                        <div class="viewer-panel-header">Certificate Chain</div>
+                        <div class="viewer-panel-content">
+                            <div id="cert-chain-viz" class="cert-chain-visualization">
+                                <!-- Chain visualization (D3.js tree or simple list) -->
+                                {% if chain %}
+                                <div class="cert-chain-simple">
+                                    <!-- Leaf certificate -->
+                                    <div class="cert-chain-item cert-chain-item-leaf">
+                                        <div class="cert-chain-icon">🌐</div>
+                                        <div class="cert-chain-label">{{ chain.leaf.display_name }}</div>
+                                        <div class="cert-chain-type">Leaf Certificate</div>
+                                        {% if chain.leaf.is_expired %}
+                                        <div class="cert-chain-warning">⚠️ Expired</div>
+                                        {% elif chain.leaf.is_expiring_soon %}
+                                        <div class="cert-chain-warning">⚡ Expiring Soon</div>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Intermediates -->
+                                    {% for intermediate in chain.intermediates %}
+                                    <div class="cert-chain-arrow">↓</div>
+                                    <div class="cert-chain-item cert-chain-item-intermediate">
+                                        <div class="cert-chain-icon">🔗</div>
+                                        <div class="cert-chain-label">{{ intermediate.display_name }}</div>
+                                        <div class="cert-chain-type">Intermediate CA</div>
+                                    </div>
+                                    {% endfor %}
+
+                                    <!-- Root -->
+                                    {% if chain.root %}
+                                    <div class="cert-chain-arrow">↓</div>
+                                    <div class="cert-chain-item cert-chain-item-root">
+                                        <div class="cert-chain-icon">🏛️</div>
+                                        <div class="cert-chain-label">{{ chain.root.display_name }}</div>
+                                        <div class="cert-chain-type">Root CA</div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="cert-chain-summary">
+                                    <div class="cert-chain-summary-item">
+                                        <span class="cert-chain-summary-label">Chain Length:</span>
+                                        <span class="cert-chain-summary-value">{{ chain.chain_length }} certificates</span>
+                                    </div>
+                                    <div class="cert-chain-summary-item">
+                                        <span class="cert-chain-summary-label">Complete:</span>
+                                        <span class="cert-chain-summary-value">{{ 'Yes' if chain.is_complete else 'No' }}</span>
+                                    </div>
+                                    <div class="cert-chain-summary-item">
+                                        <span class="cert-chain-summary-label">Trusted:</span>
+                                        <span class="cert-chain-summary-value {{ 'cert-trusted' if chain.is_trusted else 'cert-untrusted' }}">
+                                            {{ 'Yes' if chain.is_trusted else 'No' }}
+                                        </span>
+                                    </div>
+                                </div>
+                                {% else %}
+                                <div class="cert-chain-simple">
+                                    <div class="cert-chain-item cert-chain-item-single">
+                                        <div class="cert-chain-icon">📜</div>
+                                        <div class="cert-chain-label">{{ certificate.display_name }}</div>
+                                        <div class="cert-chain-type">Single Certificate</div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right panel: Certificate details -->
+                    <div class="viewer-panel cert-detail-panel">
+                        <div class="viewer-panel-header">Certificate Details</div>
+                        <div class="viewer-panel-content">
+                            <div id="cert-detail" class="cert-detail">
+                                {% if certificate %}
+                                <!-- Warnings -->
+                                {% if warnings %}
+                                <div class="cert-warnings">
+                                    {% for warning in warnings %}
+                                    <div class="cert-warning cert-warning-{{ warning.severity }}">
+                                        <span class="cert-warning-icon">{{ '⚠️' if warning.severity == 'error' else '⚡' }}</span>
+                                        <span class="cert-warning-message">{{ warning.message }}</span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+
+                                <!-- Subject Information -->
+                                <div class="cert-section">
+                                    <div class="cert-section-header">Subject Information</div>
+                                    <div class="cert-field">
+                                        <span class="cert-field-label">Common Name:</span>
+                                        <span class="cert-field-value">{{ certificate.display_name }}</span>
+                                    </div>
+                                    <div class="cert-field">
+                                        <span class="cert-field-label">Subject:</span>
+                                        <span class="cert-field-value cert-field-mono">{{ certificate.subject }}</span>
+                                    </div>
+                                    <div class="cert-field">
+                                        <span class="cert-field-label">Serial Number:</span>
+                                        <span class="cert-field-value cert-field-mono">{{ certificate.serial_number }}</span>
+                                    </div>
+                                </div>
+
+                                <!-- Issuer Information -->
+                                <div class="cert-section">
+                                    <div class="cert-section-header">Issuer Information</div>
+                                    <div class="cert-field">
+                                        <span class="cert-field-label">Issuer:</span>
+                                        <span class="cert-field-value cert-field-mono">{{ certificate.issuer }}</span>
+                                    </div>
+                                    <div class="cert-field">
+                                        <span class="cert-field-label">Self-Signed:</span>
+                                        <span class="cert-field-value">{{ 'Yes' if certificate.is_self_signed else 'No' }}</span>
+                                    </div>
+                                    <div class="cert-field">
+                                        <span class="cert-field-label">Certificate Authority:</span>
+                                        <span class="cert-field-value">{{ 'Yes' if certificate.is_ca else 'No' }}</span>
+                                    </div>
+                                </div>
+
+                                <!-- Validity -->
+                                <div class="cert-section">
+                                    <div class="cert-section-header">Validity</div>
+                                    <div class="cert-field">
+                                        <span class="cert-field-label">Valid From:</span>
+                                        <span class="cert-field-value">{{ certificate.not_before }}</span>
+                                    </div>
+                                    <div class="cert-field">
+                                        <span class="cert-field-label">Valid Until:</span>
+                                        <span class="cert-field-value {{ 'cert-expired' if certificate.is_expired else '' }}">{{ certificate.not_after }}</span>
+                                    </div>
+                                    <div class="cert-field">
+                                        <span class="cert-field-label">Days Until Expiry:</span>
+                                        <span class="cert-field-value {{ 'cert-warning-text' if certificate.is_expiring_soon else '' }}">{{ certificate.days_until_expiry }} days</span>
+                                    </div>
+                                    <div class="cert-field">
+                                        <span class="cert-field-label">Status:</span>
+                                        <span class="cert-field-value">
+                                            <span class="cert-status cert-status-{{ certificate.trust_status }}">{{ certificate.trust_status|upper }}</span>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- Public Key -->
+                                <div class="cert-section">
+                                    <div class="cert-section-header">Public Key</div>
+                                    <div class="cert-field">
+                                        <span class="cert-field-label">Algorithm:</span>
+                                        <span class="cert-field-value">{{ certificate.public_key.display_algorithm }}</span>
+                                    </div>
+                                    <div class="cert-field">
+                                        <span class="cert-field-label">SHA-256 Fingerprint:</span>
+                                        <span class="cert-field-value cert-field-mono cert-fingerprint">{{ certificate.public_key.fingerprint_sha256 }}</span>
+                                    </div>
+                                    <div class="cert-field">
+                                        <span class="cert-field-label">SHA-1 Fingerprint:</span>
+                                        <span class="cert-field-value cert-field-mono cert-fingerprint">{{ certificate.public_key.fingerprint_sha1 }}</span>
+                                    </div>
+                                </div>
+
+                                <!-- Subject Alternative Names -->
+                                {% if certificate.san %}
+                                <div class="cert-section">
+                                    <div class="cert-section-header">Subject Alternative Names ({{ certificate.san|length }})</div>
+                                    <div class="cert-san-list">
+                                        {% for san in certificate.san %}
+                                        <div class="cert-san-item">{{ san }}</div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <!-- Key Usage -->
+                                {% if certificate.key_usage %}
+                                <div class="cert-section">
+                                    <div class="cert-section-header">Key Usage</div>
+                                    <div class="cert-usage-list">
+                                        {% for usage in certificate.key_usage %}
+                                        <div class="cert-usage-item">{{ usage }}</div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <!-- Extended Key Usage -->
+                                {% if certificate.extended_key_usage %}
+                                <div class="cert-section">
+                                    <div class="cert-section-header">Extended Key Usage</div>
+                                    <div class="cert-usage-list">
+                                        {% for usage in certificate.extended_key_usage %}
+                                        <div class="cert-usage-item">{{ usage }}</div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {% else %}
+                                <div class="viewer-empty">
+                                    <div class="viewer-empty-message">No certificate selected</div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Include certificate viewer JavaScript -->
+<script src="/static/js/cert-viewer.js"></script>
+
+<!-- Include certificate viewer CSS -->
+<link rel="stylesheet" href="/static/css/cert-viewer.css">

@@ -1,0 +1,125 @@
+#!/bin/bash
+# sqlcat - Web-enhanced SQL query tool for jterm
+# Usage: sqlcat --db <database> [options]
+
+# Default values
+DATABASE=""
+QUERY=""
+WRITE_MODE=false
+LIMIT=1000
+OFFSET=0
+EXPLAIN=false
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --db|--database)
+            DATABASE="$2"
+            shift 2
+            ;;
+        --query|-q)
+            QUERY="$2"
+            shift 2
+            ;;
+        --write)
+            WRITE_MODE=true
+            shift
+            ;;
+        --limit)
+            LIMIT="$2"
+            shift 2
+            ;;
+        --offset)
+            OFFSET="$2"
+            shift 2
+            ;;
+        --explain)
+            EXPLAIN=true
+            shift
+            ;;
+        --help|-h)
+            echo "Usage: sqlcat --db <database> [options]"
+            echo ""
+            echo "Database formats:"
+            echo "  /path/to/database.db                    - SQLite database file"
+            echo "  postgresql://user:pass@host:port/db     - PostgreSQL connection"
+            echo ""
+            echo "Options:"
+            echo "  --query, -q QUERY     SQL query to execute"
+            echo "  --write               Allow write operations (INSERT/UPDATE/DELETE/DDL)"
+            echo "  --limit LIMIT         Maximum rows to return (default: 1000)"
+            echo "  --offset OFFSET       Start from row number (default: 0)"
+            echo "  --explain             Include query execution plan"
+            echo "  --help, -h            Show this help message"
+            echo ""
+            echo "Examples:"
+            echo "  sqlcat --db app.db                                    # Interactive mode"
+            echo "  sqlcat --db app.db --query \"SELECT * FROM users\""
+            echo "  sqlcat --db postgresql://user:pass@localhost/mydb"
+            echo "  sqlcat --db app.db --query \"DELETE FROM logs\" --write"
+            exit 0
+            ;;
+        -*)
+            echo "Unknown option: $1" >&2
+            exit 1
+            ;;
+        *)
+            echo "Unexpected argument: $1" >&2
+            echo "Use --help for usage information" >&2
+            exit 1
+            ;;
+    esac
+done
+
+# Validate required arguments
+if [[ -z "$DATABASE" ]]; then
+    echo "Error: No database specified" >&2
+    echo "Usage: sqlcat --db <database> [options]" >&2
+    exit 1
+fi
+
+# Handle SQLite file paths
+if [[ "$DATABASE" != postgresql://* && "$DATABASE" != postgres://* ]]; then
+    # It's a SQLite file path
+    if [[ "$DATABASE" != /* ]]; then
+        DATABASE="$(pwd)/$DATABASE"
+    fi
+
+    # Check if SQLite file exists
+    if [[ ! -f "$DATABASE" ]]; then
+        echo "Error: SQLite database file not found: $DATABASE" >&2
+        exit 1
+    fi
+
+    # Convert to SQLite URL format
+    DATABASE="sqlite:///$DATABASE"
+fi
+
+# Validate write operations
+if [[ -n "$QUERY" && "$WRITE_MODE" == false ]]; then
+    # Check if query contains write operations
+    UPPER_QUERY=$(echo "$QUERY" | tr '[:lower:]' '[:upper:]')
+    if [[ "$UPPER_QUERY" =~ (INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|TRUNCATE) ]]; then
+        echo "Error: Query contains write operations but --write flag not specified" >&2
+        echo "Add --write flag to allow modifications to the database" >&2
+        exit 1
+    fi
+fi
+
+# Determine database type
+if [[ "$DATABASE" == postgresql://* || "$DATABASE" == postgres://* ]]; then
+    DB_TYPE="postgresql"
+else
+    DB_TYPE="sqlite"
+fi
+
+# Build JSON payload for OSC sequence
+# T038: Updated to send JSON payload matching terminal.js handler
+JSON_PAYLOAD=$(cat <<EOF
+{"dbType":"$DB_TYPE","connectionString":"$DATABASE","query":"$QUERY","writeMode":$WRITE_MODE,"limit":$LIMIT,"offset":$OFFSET,"explain":$EXPLAIN}
+EOF
+)
+
+# Send OSC 1337 sequence to trigger SQL viewer
+# Format: \033]1337;QuerySQL=<json>\007
+printf '\033]1337;QuerySQL=%s\007' "$JSON_PAYLOAD"

@@ -1,0 +1,346 @@
+/**
+ * Log Viewer Specific Styles
+ * T018: CSS styles for logcat viewer
+ *
+ * Extends shared-viewers.css with log-specific styling
+ */
+
+/* Import shared viewer base styles */
+@import url('/static/css/shared-viewers.css');
+
+/* ============================================================================
+   Log Entry List
+   ============================================================================ */
+
+.log-list {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.log-entry {
+    display: flex;
+    align-items: flex-start;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--viewer-border-light, #2d2d30);
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+.log-entry:hover {
+    background-color: var(--viewer-table-row-hover-bg, #2a2a2a);
+}
+
+.log-entry.selected {
+    background-color: var(--viewer-table-row-selected-bg, #094771);
+    border-left: 3px solid var(--viewer-btn-primary-bg, #0e639c);
+}
+
+.log-entry-error {
+    border-left: 3px solid var(--viewer-badge-error-bg, #da3633);
+}
+
+/* ============================================================================
+   Log Entry Components
+   ============================================================================ */
+
+.log-timestamp {
+    flex-shrink: 0;
+    width: 160px;
+    color: var(--viewer-subtitle-color, #858585);
+    margin-right: 12px;
+}
+
+.log-level {
+    flex-shrink: 0;
+    margin-right: 12px;
+    min-width: 60px;
+    text-align: center;
+}
+
+.log-message {
+    flex: 1;
+    color: var(--viewer-fg, #d4d4d4);
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+/* ============================================================================
+   Log Level Colors
+   ============================================================================ */
+
+.log-level-fatal {
+    border-left-color: #c41e3a;
+}
+
+.log-level-error {
+    border-left-color: #da3633;
+}
+
+.log-level-warn {
+    border-left-color: #bf8700;
+}
+
+.log-level-info {
+    border-left-color: #0969da;
+}
+
+.log-level-debug {
+    border-left-color: #8250df;
+}
+
+.log-level-trace {
+    border-left-color: #6e7781;
+}
+
+/* ============================================================================
+   Log Detail Panel
+   ============================================================================ */
+
+.log-detail {
+    padding: 16px;
+}
+
+.log-detail-content {
+    font-size: 13px;
+}
+
+.log-detail-content h3 {
+    margin: 0 0 16px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--viewer-title-color, #cccccc);
+    border-bottom: 1px solid var(--viewer-border, #3e3e42);
+    padding-bottom: 8px;
+}
+
+.log-detail-field {
+    margin-bottom: 16px;
+}
+
+.log-detail-field label {
+    display: block;
+    font-weight: 600;
+    color: var(--viewer-subtitle-color, #858585);
+    margin-bottom: 4px;
+    font-size: 12px;
+    text-transform: uppercase;
+}
+
+.log-detail-field span {
+    color: var(--viewer-fg, #d4d4d4);
+}
+
+.log-message-detail,
+.log-stack-trace,
+.log-structured-fields,
+.log-raw-text {
+    background-color: var(--viewer-code-bg, #1e1e1e);
+    border: 1px solid var(--viewer-border, #3e3e42);
+    border-radius: 4px;
+    padding: 12px;
+    margin: 0;
+    overflow-x: auto;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--viewer-code-color, #d4d4d4);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.log-stack-trace {
+    color: var(--viewer-badge-error-fg, #f85149);
+    background-color: var(--viewer-error-bg, #3f1f1f);
+    border-color: var(--viewer-error-border, #be1100);
+}
+
+/* ============================================================================
+   Toolbar Enhancements
+   ============================================================================ */
+
+.viewer-filter-label {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 12px;
+    font-size: 12px;
+    color: var(--viewer-fg, #d4d4d4);
+    cursor: pointer;
+    user-select: none;
+}
+
+.viewer-filter-label input[type="checkbox"] {
+    margin-right: 4px;
+    cursor: pointer;
+}
+
+.viewer-stats {
+    font-size: 12px;
+    color: var(--viewer-subtitle-color, #858585);
+}
+
+.stats-error-rate {
+    color: var(--viewer-badge-error-bg, #da3633);
+    font-weight: 600;
+    margin-left: 8px;
+}
+
+/* ============================================================================
+   Panel Layout
+   ============================================================================ */
+
+.log-entries-panel {
+    min-width: 400px;
+}
+
+.log-detail-panel {
+    min-width: 300px;
+}
+
+/* ============================================================================
+   Responsive Design for Log Viewer
+   ============================================================================ */
+
+@media (max-width: 1024px) {
+    .log-timestamp {
+        width: 140px;
+        font-size: 11px;
+    }
+
+    .log-level {
+        min-width: 50px;
+        font-size: 11px;
+    }
+
+    .log-message {
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 768px) {
+    .log-entry {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .log-timestamp {
+        width: 100%;
+        margin-bottom: 4px;
+    }
+
+    .log-level {
+        margin-bottom: 4px;
+    }
+
+    .log-entries-panel,
+    .log-detail-panel {
+        min-width: 100%;
+    }
+}
+
+/* ============================================================================
+   Loading and Empty States
+   ============================================================================ */
+
+.log-list .viewer-loading,
+.log-list .viewer-empty {
+    padding: 40px 20px;
+}
+
+/* ============================================================================
+   Performance Optimization
+   ============================================================================ */
+
+/* Use CSS containment for better rendering performance with large lists */
+.log-entry {
+    contain: layout style paint;
+}
+
+/* Enable GPU acceleration for smooth scrolling */
+.log-list {
+    transform: translateZ(0);
+    will-change: scroll-position;
+}
+
+/* ============================================================================
+   Syntax Highlighting for Structured Fields (JSON)
+   ============================================================================ */
+
+.log-structured-fields {
+    color: var(--viewer-json-string-color, #ce9178);
+}
+
+/* JSON syntax highlighting classes (if Prism.js is used) */
+.log-structured-fields .token.property {
+    color: var(--viewer-json-key-color, #9cdcfe);
+}
+
+.log-structured-fields .token.string {
+    color: var(--viewer-json-string-color, #ce9178);
+}
+
+.log-structured-fields .token.number {
+    color: var(--viewer-json-number-color, #b5cea8);
+}
+
+.log-structured-fields .token.boolean,
+.log-structured-fields .token.null {
+    color: var(--viewer-json-boolean-color, #569cd6);
+}
+
+/* ============================================================================
+   Accessibility Improvements
+   ============================================================================ */
+
+.log-entry:focus {
+    outline: 2px solid var(--viewer-btn-primary-bg, #0e639c);
+    outline-offset: -2px;
+}
+
+.viewer-filter-label:focus-within {
+    outline: 1px solid var(--viewer-btn-primary-bg, #0e639c);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+/* Screen reader only text */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+/* ============================================================================
+   Print Styles
+   ============================================================================ */
+
+@media print {
+    .viewer-header,
+    .viewer-toolbar,
+    .log-detail-panel {
+        display: none;
+    }
+
+    .log-entries-panel {
+        width: 100%;
+        border: none;
+    }
+
+    .log-entry {
+        page-break-inside: avoid;
+        border: 1px solid #000;
+        margin-bottom: 2px;
+    }
+
+    .log-timestamp,
+    .log-level,
+    .log-message {
+        color: #000;
+    }
+}

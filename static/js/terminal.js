@@ -144,33 +144,48 @@ class WebTerminal {
             }
         });
 
-        // OSC sequence handler for media viewing
+        // OSC sequence handler for media viewing and cat commands
         this.terminal.parser.registerOscHandler(1337, (data) => {
             const parts = data.split('=');
             if (parts.length === 2) {
                 const command = parts[0];
-                const filePath = parts[1];
+                const payload = parts[1];
 
                 switch (command) {
+                    // Existing media handlers
                     case 'ViewImage':
                         if (window.mediaHandler) {
-                            window.mediaHandler.viewFile(filePath);
+                            window.mediaHandler.viewFile(payload);
                         }
                         return true;
                     case 'PlayVideo':
                         if (window.mediaHandler) {
-                            window.mediaHandler.playVideo(filePath);
+                            window.mediaHandler.playVideo(payload);
                         }
                         return true;
                     case 'ViewHTML':
                         if (window.mediaHandler) {
-                            window.mediaHandler.previewHTML(filePath);
+                            window.mediaHandler.previewHTML(payload);
                         }
                         return true;
                     case 'ViewMarkdown':
                         if (window.mediaHandler) {
-                            window.mediaHandler.renderMarkdown(filePath);
+                            window.mediaHandler.renderMarkdown(payload);
                         }
+                        return true;
+
+                    // T007: New cat command handlers
+                    case 'ViewLog':
+                        this.handleLogViewer(payload);
+                        return true;
+                    case 'ViewCert':
+                        this.handleCertViewer(payload);
+                        return true;
+                    case 'QuerySQL':
+                        this.handleSQLViewer(payload);
+                        return true;
+                    case 'HTTPRequest':
+                        this.handleHTTPViewer(payload);
                         return true;
                 }
             }
@@ -457,6 +472,189 @@ class WebTerminal {
         }
     }
 
+    // T007: Cat command viewer handlers
+
+    async handleLogViewer(payload) {
+        /**
+         * Handle log viewer OSC sequence.
+         * Called when user runs `logcat <file>` in terminal.
+         * Payload format: JSON with file path and optional filters
+         */
+        console.log('Log viewer triggered:', payload);
+
+        try {
+            const params = JSON.parse(payload);
+
+            // Load CSS files if not already loaded
+            if (!document.querySelector('link[href="/static/css/log-viewer.css"]')) {
+                console.log('Loading log-viewer CSS...');
+                await this.loadCSS('/static/css/log-viewer.css');
+            }
+
+            // Load BaseViewer first if not already loaded
+            if (typeof window.BaseViewer === 'undefined') {
+                console.log('Loading base-viewer.js...');
+                await this.loadScript('/static/js/base-viewer.js');
+            }
+
+            // Then load log-viewer.js if not already loaded
+            if (typeof window.LogViewer === 'undefined') {
+                console.log('Loading log-viewer.js...');
+                await this.loadScript('/static/js/log-viewer.js');
+            }
+
+            // Initialize and show log viewer
+            if (window.LogViewer) {
+                const viewer = new window.LogViewer(params);
+                await viewer.open();
+            } else {
+                throw new Error('LogViewer not available after loading');
+            }
+
+        } catch (error) {
+            console.error('Error opening log viewer:', error);
+            this.terminal.write(`\r\n\x1b[31mError opening log viewer: ${error.message}\x1b[0m\r\n`);
+        }
+    }
+
+    async handleCertViewer(payload) {
+        /**
+         * Handle certificate viewer OSC sequence.
+         * Called when user runs `certcat <url|file>` in terminal.
+         * Payload format: JSON with URL/file path and options
+         */
+        console.log('Certificate viewer triggered:', payload);
+
+        try {
+            const params = JSON.parse(payload);
+
+            // Load BaseViewer first if not already loaded
+            if (typeof window.BaseViewer === 'undefined') {
+                console.log('Loading base-viewer.js...');
+                await this.loadScript('/static/js/base-viewer.js');
+            }
+
+            // Lazy-load cert-viewer.js if not already loaded
+            if (typeof window.CertViewer === 'undefined') {
+                console.log('Loading cert-viewer.js...');
+                await this.loadScript('/static/js/cert-viewer.js');
+            }
+
+            // Initialize and show certificate viewer
+            if (window.CertViewer) {
+                const viewer = new window.CertViewer(params);
+                await viewer.open();
+            } else {
+                throw new Error('CertViewer not available after loading');
+            }
+
+        } catch (error) {
+            console.error('Error opening certificate viewer:', error);
+            this.terminal.write(`\r\n\x1b[31mError opening certificate viewer: ${error.message}\x1b[0m\r\n`);
+        }
+    }
+
+    async handleSQLViewer(payload) {
+        /**
+         * Handle SQL viewer OSC sequence.
+         * Called when user runs `sqlcat <options>` in terminal.
+         * Payload format: JSON with database connection info and query
+         */
+        console.log('SQL viewer triggered:', payload);
+
+        try {
+            const params = JSON.parse(payload);
+
+            // Load CSS files if not already loaded
+            if (!document.querySelector('link[href="/static/css/shared-viewers.css"]')) {
+                console.log('Loading shared-viewers CSS...');
+                await this.loadCSS('/static/css/shared-viewers.css');
+            }
+            if (!document.querySelector('link[href="/static/css/sql-viewer.css"]')) {
+                console.log('Loading sql-viewer CSS...');
+                await this.loadCSS('/static/css/sql-viewer.css');
+            }
+
+            // Load Chart.js if not already loaded (for visualization)
+            if (typeof window.Chart === 'undefined') {
+                console.log('Loading Chart.js...');
+                await this.loadScript('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js');
+            }
+
+            // Load BaseViewer first if not already loaded
+            if (typeof window.BaseViewer === 'undefined') {
+                console.log('Loading base-viewer.js...');
+                await this.loadScript('/static/js/base-viewer.js');
+            }
+
+            // Lazy-load sql-viewer.js if not already loaded
+            if (typeof window.SQLViewer === 'undefined') {
+                console.log('Loading sql-viewer.js...');
+                await this.loadScript('/static/js/sql-viewer.js');
+            }
+
+            // Initialize and show SQL viewer
+            if (window.SQLViewer) {
+                const viewer = new window.SQLViewer(params);
+                await viewer.open();
+            } else {
+                throw new Error('SQLViewer not available after loading');
+            }
+
+        } catch (error) {
+            console.error('Error opening SQL viewer:', error);
+            this.terminal.write(`\r\n\x1b[31mError opening SQL viewer: ${error.message}\x1b[0m\r\n`);
+        }
+    }
+
+    async handleHTTPViewer(payload) {
+        /**
+         * Handle HTTP request viewer OSC sequence.
+         * Called when user runs `curlcat <url>` in terminal.
+         * Payload format: JSON with request details
+         */
+        console.log('HTTP viewer triggered:', payload);
+
+        try {
+            const params = JSON.parse(payload);
+
+            // Load CSS files if not already loaded
+            if (!document.querySelector('link[href="/static/css/curl-viewer.css"]')) {
+                console.log('Loading curl-viewer CSS...');
+                await this.loadCSS('/static/css/curl-viewer.css');
+            }
+
+            if (!document.querySelector('link[href="/static/css/shared-viewers.css"]')) {
+                console.log('Loading shared-viewers CSS...');
+                await this.loadCSS('/static/css/shared-viewers.css');
+            }
+
+            // Load BaseViewer first if not already loaded
+            if (typeof window.BaseViewer === 'undefined') {
+                console.log('Loading base-viewer.js...');
+                await this.loadScript('/static/js/base-viewer.js');
+            }
+
+            // Lazy-load curl-viewer.js if not already loaded
+            if (typeof window.CurlViewer === 'undefined') {
+                console.log('Loading curl-viewer.js...');
+                await this.loadScript('/static/js/curl-viewer.js');
+            }
+
+            // Initialize and show HTTP viewer
+            if (window.CurlViewer) {
+                const viewer = new window.CurlViewer(params);
+                await viewer.open();
+            } else {
+                throw new Error('CurlViewer not available after loading');
+            }
+
+        } catch (error) {
+            console.error('Error opening HTTP viewer:', error);
+            this.terminal.write(`\r\n\x1b[31mError opening HTTP viewer: ${error.message}\x1b[0m\r\n`);
+        }
+    }
+
     loadScript(src) {
         /**
          * Dynamically load a JavaScript file.
@@ -467,6 +665,20 @@ class WebTerminal {
             script.onload = resolve;
             script.onerror = reject;
             document.head.appendChild(script);
+        });
+    }
+
+    loadCSS(href) {
+        /**
+         * Dynamically load a CSS file.
+         */
+        return new Promise((resolve, reject) => {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = href;
+            link.onload = resolve;
+            link.onerror = reject;
+            document.head.appendChild(link);
         });
     }
 

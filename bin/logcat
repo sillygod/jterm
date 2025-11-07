@@ -1,0 +1,84 @@
+#!/bin/bash
+# logcat - Web-enhanced log viewer for jterm
+# Usage: logcat <file> [options]
+
+# Default values
+FILE_PATH=""
+FORMAT="auto"
+FOLLOW=false
+LIMIT=1000
+OFFSET=0
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --format)
+            FORMAT="$2"
+            shift 2
+            ;;
+        --follow|-f)
+            FOLLOW=true
+            shift
+            ;;
+        --limit)
+            LIMIT="$2"
+            shift 2
+            ;;
+        --offset)
+            OFFSET="$2"
+            shift 2
+            ;;
+        --help|-h)
+            echo "Usage: logcat <file> [options]"
+            echo "Options:"
+            echo "  --format FORMAT    Log format (json, apache_combined, apache_common, nginx_error, plain_text, auto)"
+            echo "  --follow, -f       Follow file for real-time updates"
+            echo "  --limit LIMIT      Maximum entries to display (default: 1000)"
+            echo "  --offset OFFSET    Start from line number (default: 0)"
+            echo "  --help, -h         Show this help message"
+            exit 0
+            ;;
+        -*)
+            echo "Unknown option: $1" >&2
+            exit 1
+            ;;
+        *)
+            if [[ -z "$FILE_PATH" ]]; then
+                FILE_PATH="$1"
+            else
+                echo "Too many arguments" >&2
+                exit 1
+            fi
+            shift
+            ;;
+    esac
+done
+
+# Validate required arguments
+if [[ -z "$FILE_PATH" ]]; then
+    echo "Error: No log file specified" >&2
+    echo "Usage: logcat <file> [options]" >&2
+    exit 1
+fi
+
+# Convert to absolute path
+if [[ "$FILE_PATH" != /* ]]; then
+    FILE_PATH="$(pwd)/$FILE_PATH"
+fi
+
+# Check if file exists
+if [[ ! -f "$FILE_PATH" ]]; then
+    echo "Error: File not found: $FILE_PATH" >&2
+    exit 1
+fi
+
+# Build JSON payload for OSC sequence
+# T019: Updated to send JSON payload matching terminal.js handler
+JSON_PAYLOAD=$(cat <<EOF
+{"filePath":"$FILE_PATH","logFormat":"$FORMAT","follow":$FOLLOW,"maxLines":$LIMIT,"offset":$OFFSET}
+EOF
+)
+
+# Send OSC 1337 sequence to trigger log viewer
+# Format: \033]1337;ViewLog=<json>\007
+printf '\033]1337;ViewLog=%s\007' "$JSON_PAYLOAD"

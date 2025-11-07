@@ -9,7 +9,6 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
-bin/
 develop-eggs/
 dist/
 downloads/
@@ -282,6 +281,8 @@ dist
 .pnp.*
 
 # Application-specific files
+# Command wrappers in bin/ are intentionally tracked (cat commands)
+
 # SQLite databases
 *.db
 *.sqlite

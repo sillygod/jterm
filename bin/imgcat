@@ -1,0 +1,36 @@
+#!/bin/bash
+# Web Terminal Image Viewer (imgcat - similar to iTerm2's imgcat)
+# Usage: imgcat <image_file>
+
+if [ -z "$1" ]; then
+    echo "Usage: imgcat <image_file>"
+    exit 1
+fi
+
+FILE_PATH="$1"
+
+# Check if file exists
+if [ ! -f "$FILE_PATH" ]; then
+    echo "Error: File not found: $FILE_PATH"
+    exit 1
+fi
+
+# Get absolute path
+ABS_PATH=$(realpath "$FILE_PATH" 2>/dev/null || readlink -f "$FILE_PATH" 2>/dev/null || echo "$FILE_PATH")
+
+# Get file extension
+EXT="${FILE_PATH##*.}"
+EXT_LOWER=$(echo "$EXT" | tr '[:upper:]' '[:lower:]')
+
+# Check if it's an image
+case "$EXT_LOWER" in
+    jpg|jpeg|png|gif|webp|bmp|svg)
+        # Send OSC sequence to trigger web terminal viewer
+        printf '\033]1337;ViewImage=%s\007' "$ABS_PATH"
+        ;;
+    *)
+        echo "Error: Unsupported image type: $EXT_LOWER"
+        echo "Supported: jpg, jpeg, png, gif, webp, bmp, svg"
+        exit 1
+        ;;
+esac

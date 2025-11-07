@@ -1,0 +1,143 @@
+<!--
+    Base Viewer Template Structure
+    T009: Common template structure for cat command viewers
+
+    This is a reference template showing the common structure.
+    Each specific viewer (log, cert, sql, curl) will extend this pattern.
+-->
+
+<!-- Viewer Overlay (Full-screen modal) -->
+<div class="viewer-overlay" id="{{ viewer_id }}-overlay" data-viewer-type="{{ viewer_type }}">
+    <div class="viewer-container" id="{{ viewer_id }}-container">
+
+        <!-- Header Section -->
+        <div class="viewer-header">
+            <div class="viewer-title">
+                <span class="viewer-title-icon">{{ title_icon }}</span>
+                <span>{{ title }}</span>
+                {% if subtitle %}
+                <span class="viewer-subtitle">{{ subtitle }}</span>
+                {% endif %}
+            </div>
+
+            <div class="viewer-controls">
+                <!-- Viewer-specific action buttons go here -->
+                {% block header_actions %}{% endblock %}
+
+                <!-- Close button (common to all viewers) -->
+                <button class="viewer-btn-close"
+                        _="on click remove #{{ viewer_id }}-overlay"
+                        title="Close (Esc)">
+                    ✕
+                </button>
+            </div>
+        </div>
+
+        <!-- Toolbar Section (optional) -->
+        {% if show_toolbar %}
+        <div class="viewer-toolbar">
+            {% block toolbar %}{% endblock %}
+        </div>
+        {% endif %}
+
+        <!-- Body Section (Main Content Area) -->
+        <div class="viewer-body">
+            {% block body %}
+            <!-- Viewer-specific content goes here -->
+            <!-- Common layouts:
+                 - Split view (2 panels)
+                 - Three-panel (sidebar + main + details)
+                 - Single panel
+            -->
+            {% endblock %}
+        </div>
+
+        <!-- Footer Section (optional) -->
+        {% if show_footer %}
+        <div class="viewer-footer">
+            {% block footer %}{% endblock %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Loading State -->
+<template id="{{ viewer_id }}-loading-template">
+    <div class="viewer-loading">
+        <div class="viewer-spinner"></div>
+        <div>{{ loading_message or 'Loading...' }}</div>
+    </div>
+</template>
+
+<!-- Empty State -->
+<template id="{{ viewer_id }}-empty-template">
+    <div class="viewer-empty">
+        <div class="viewer-empty-icon">{{ empty_icon or '📭' }}</div>
+        <div class="viewer-empty-message">{{ empty_message or 'No data to display' }}</div>
+        <div class="viewer-empty-hint">{{ empty_hint or 'Try adjusting your filters or query' }}</div>
+    </div>
+</template>
+
+<!-- Error State -->
+<template id="{{ viewer_id }}-error-template">
+    <div class="viewer-error">
+        <div class="viewer-error-title">Error</div>
+        <div class="viewer-error-message" id="{{ viewer_id }}-error-message"></div>
+    </div>
+</template>
+
+<!--
+    USAGE EXAMPLES:
+
+    1. Split-view Layout (2 panels - used by logcat):
+
+    {% block body %}
+    <div class="viewer-split">
+        <div class="viewer-panel viewer-panel-left">
+            <div class="viewer-panel-header">Filter Panel</div>
+            <div class="viewer-panel-content">
+                <!-- Filters, controls -->
+            </div>
+        </div>
+        <div class="viewer-panel">
+            <div class="viewer-panel-header">Content Panel</div>
+            <div class="viewer-panel-content">
+                <!-- Main content -->
+            </div>
+        </div>
+    </div>
+    {% endblock %}
+
+    2. Three-panel Layout (sidebar + main + details - used by sqlcat):
+
+    {% block body %}
+    <div class="viewer-three-panel">
+        <div class="viewer-sidebar">
+            <!-- Schema tree, navigation -->
+        </div>
+        <div class="viewer-main">
+            <!-- Query editor, results table -->
+        </div>
+        <div class="viewer-details">
+            <!-- Query info, statistics -->
+        </div>
+    </div>
+    {% endblock %}
+
+    3. Single Panel (used by certcat, curlcat):
+
+    {% block body %}
+    <div class="viewer-panel">
+        <div class="viewer-panel-content">
+            <!-- Certificate details, HTTP response -->
+        </div>
+    </div>
+    {% endblock %}
+-->
+
+<!-- Note: BaseViewer class has been extracted to /static/js/base-viewer.js -->
+<!-- Load it before specific viewer scripts -->
+<script src="/static/js/base-viewer.js"></script>
+
+<!-- Include shared viewer styles -->
+<link rel="stylesheet" href="/static/css/shared-viewers.css">
