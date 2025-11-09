@@ -12,6 +12,7 @@ T023: CertService implementation.
 import ssl
 import socket
 import certifi
+import httpx
 from datetime import datetime, timezone
 from typing import Optional, List, Tuple, Dict, Any
 from pathlib import Path
@@ -20,7 +21,7 @@ from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa, dsa, ec, ed25519
-from cryptography.x509.oid import ExtensionOID, NameOID
+from cryptography.x509.oid import ExtensionOID, NameOID, AuthorityInformationAccessOID
 
 from src.models.certificate import (
     Certificate,
@@ -66,26 +67,29 @@ class CertService:
         # Connect and fetch certificates
         with socket.create_connection((hostname, port), timeout=timeout) as sock:
             with context.wrap_socket(sock, server_hostname=hostname) as secure_sock:
-                # Get binary certificate chain
-                der_certs = secure_sock.getpeercert_chain()
+                # Get peer certificate in DER format (binary)
+                der_cert_bytes = secure_sock.getpeercert(binary_form=True)
 
-                if not der_certs:
-                    raise ValueError("No certificates received from server")
+                if not der_cert_bytes:
+                    raise ValueError("No certificate received from server")
 
-                # Parse certificates
-                certificates = []
-                for der_cert in der_certs:
-                    cert_bytes = der_cert.public_bytes(serialization.Encoding.DER)
-                    cert = x509.load_der_x509_certificate(cert_bytes, default_backend())
-                    parsed_cert = self._parse_x509_certificate(cert)
-                    certificates.append(parsed_cert)
+                # Parse the leaf certificate
+                cert = x509.load_der_x509_certificate(der_cert_bytes, default_backend())
+                leaf = self._parse_x509_certificate(cert)
+
+                # Fetch intermediate certificates from AIA extension
+                intermediates = await self._fetch_intermediate_certs(cert)
+
+                # Try to identify the root certificate
+                root = None
+                if intermediates:
+                    # The last intermediate might be the root or issued by root
+                    last_intermediate_cert = intermediates[-1]
+                    if last_intermediate_cert.is_self_signed:
+                        # Last intermediate is actually the root
+                        root = intermediates.pop()
 
                 # Build chain structure
-                leaf = certificates[0]
-                intermediates = certificates[1:-1] if len(certificates) > 2 else []
-                root = certificates[-1] if len(certificates) > 1 else None
-
-                # Validate chain
                 chain = CertificateChain(
                     leaf=leaf,
                     intermediates=intermediates,
@@ -366,6 +370,75 @@ class CertService:
             fingerprint_sha256=sha256_formatted,
             fingerprint_sha1=sha1_formatted
         )
+
+    async def _fetch_intermediate_certs(self, leaf_cert: x509.Certificate) -> List[Certificate]:
+        """Fetch intermediate certificates from AIA extension.
+
+        Args:
+            leaf_cert: The leaf certificate to extract AIA from
+
+        Returns:
+            List of intermediate Certificate objects
+        """
+        intermediates = []
+        current_cert = leaf_cert
+        max_depth = 10  # Prevent infinite loops
+        depth = 0
+
+        while depth < max_depth:
+            try:
+                # Get Authority Information Access extension
+                aia_ext = current_cert.extensions.get_extension_for_oid(
+                    ExtensionOID.AUTHORITY_INFORMATION_ACCESS
+                )
+
+                # Find CA Issuers URL
+                ca_issuer_url = None
+                for access_description in aia_ext.value:
+                    if access_description.access_method == AuthorityInformationAccessOID.CA_ISSUERS:
+                        ca_issuer_url = access_description.access_location.value
+                        break
+
+                if not ca_issuer_url:
+                    # No more issuers to fetch
+                    break
+
+                # Fetch the intermediate certificate
+                async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                    response = await client.get(ca_issuer_url)
+                    response.raise_for_status()
+
+                    # Parse the certificate (usually in DER format)
+                    try:
+                        intermediate_cert = x509.load_der_x509_certificate(
+                            response.content,
+                            default_backend()
+                        )
+                    except ValueError:
+                        # Try PEM format
+                        intermediate_cert = x509.load_pem_x509_certificate(
+                            response.content,
+                            default_backend()
+                        )
+
+                    # Parse and add to chain
+                    parsed_intermediate = self._parse_x509_certificate(intermediate_cert)
+                    intermediates.append(parsed_intermediate)
+
+                    # Check if this is self-signed (root)
+                    if intermediate_cert.issuer == intermediate_cert.subject:
+                        # Found the root, stop here
+                        break
+
+                    # Continue with the next level
+                    current_cert = intermediate_cert
+                    depth += 1
+
+            except (x509.ExtensionNotFound, httpx.RequestError, ValueError) as e:
+                # No AIA extension or fetch failed, stop here
+                break
+
+        return intermediates
 
     def _validate_chain_trust(self, chain: CertificateChain) -> None:
         """Validate trust status of certificate chain.

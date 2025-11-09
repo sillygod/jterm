@@ -102,14 +102,19 @@ class SQLViewer extends BaseViewer {
                         <!-- Left panel: Schema browser -->
                         <div class="sql-panel sql-schema-panel">
                             <div class="sql-panel-header">
-                                <span>Schema</span>
+                                <div class="sql-panel-tabs">
+                                    <button class="sql-tab-btn active" data-tab="schema">Schema</button>
+                                    <button class="sql-tab-btn" data-tab="er-diagram">ER Diagram</button>
+                                </div>
                                 <button class="sql-refresh-btn" id="${this.viewerId}-refresh-schema" title="Refresh schema">
                                     ↻
                                 </button>
                             </div>
                             <div class="sql-panel-content">
-                                <div id="${this.viewerId}-schema-tree" class="sql-schema-tree"></div>
+                                <div id="${this.viewerId}-schema-tree" class="sql-schema-tree sql-tab-content active" data-tab-content="schema"></div>
+                                <div id="${this.viewerId}-er-diagram" class="sql-er-diagram sql-tab-content" data-tab-content="er-diagram" style="display: none;"></div>
                             </div>
+                            <div class="panel-resize-handle" data-panel="left"></div>
                         </div>
 
                         <!-- Middle panel: Query editor + Results -->
@@ -289,6 +294,21 @@ class SQLViewer extends BaseViewer {
             clearHistoryBtn.addEventListener('click', () => this.clearHistory());
         }
 
+        // Tab switching (Schema / ER Diagram)
+        const container = document.getElementById(`${this.viewerId}-container`);
+        if (container) {
+            const tabButtons = container.querySelectorAll('.sql-tab-btn');
+            tabButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const targetTab = btn.dataset.tab;
+                    this.switchTab(targetTab);
+                });
+            });
+        }
+
+        // Panel resizing
+        this.setupPanelResize();
+
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.key === 'Enter') {
@@ -411,6 +431,18 @@ class SQLViewer extends BaseViewer {
 
         html += '</div>';
         schemaTree.innerHTML = html;
+
+        // Clear the loading state in the results panel after schema is loaded
+        const resultsTable = document.getElementById(`${this.viewerId}-results-table`);
+        if (resultsTable) {
+            resultsTable.innerHTML = `
+                <div class="viewer-empty">
+                    <div class="viewer-empty-icon">📊</div>
+                    <div class="viewer-empty-message">Ready to execute queries</div>
+                    <div class="viewer-empty-hint">Enter a SQL query above and click "Run" or press Ctrl+Enter</div>
+                </div>
+            `;
+        }
 
         // Attach click listeners for expand/collapse
         schemaTree.querySelectorAll('.schema-table-name').forEach(element => {
@@ -646,11 +678,85 @@ class SQLViewer extends BaseViewer {
 
     async selectExportFormat() {
         /**
-         * Show format selection dialog
+         * Show format selection dialog with proper modal UI
+         * T052: Enhanced export dialog with CSV/JSON/Excel options
          */
         return new Promise((resolve) => {
-            const format = prompt('Export format:\n1. csv\n2. json\n3. xlsx\n\nEnter format:', 'csv');
-            resolve(format ? format.toLowerCase() : null);
+            const dialogHtml = `
+                <div class="export-dialog-overlay" id="${this.viewerId}-export-overlay">
+                    <div class="export-dialog">
+                        <div class="export-dialog-header">
+                            <h3>Export Query Results</h3>
+                            <button class="export-dialog-close">✕</button>
+                        </div>
+                        <div class="export-dialog-body">
+                            <div class="export-option">
+                                <label>
+                                    <input type="radio" name="export-format" value="csv" checked>
+                                    <span class="export-format-label">
+                                        <strong>CSV</strong>
+                                        <small>Spreadsheet-compatible, lightweight</small>
+                                    </span>
+                                </label>
+                            </div>
+                            <div class="export-option">
+                                <label>
+                                    <input type="radio" name="export-format" value="json">
+                                    <span class="export-format-label">
+                                        <strong>JSON</strong>
+                                        <small>Structured data with type information</small>
+                                    </span>
+                                </label>
+                            </div>
+                            <div class="export-option">
+                                <label>
+                                    <input type="radio" name="export-format" value="xlsx">
+                                    <span class="export-format-label">
+                                        <strong>Excel (XLSX)</strong>
+                                        <small>Full Excel workbook with formatting</small>
+                                    </span>
+                                </label>
+                            </div>
+                            <div class="export-info">
+                                <p><strong>${this.queryResult?.row_count || 0}</strong> rows will be exported</p>
+                            </div>
+                        </div>
+                        <div class="export-dialog-footer">
+                            <button class="viewer-btn" id="${this.viewerId}-export-cancel">Cancel</button>
+                            <button class="viewer-btn viewer-btn-primary" id="${this.viewerId}-export-confirm">Export</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', dialogHtml);
+
+            // Handle export confirmation
+            document.getElementById(`${this.viewerId}-export-confirm`).addEventListener('click', () => {
+                const format = document.querySelector('input[name="export-format"]:checked')?.value;
+                document.getElementById(`${this.viewerId}-export-overlay`).remove();
+                resolve(format);
+            });
+
+            // Handle cancel button
+            document.getElementById(`${this.viewerId}-export-cancel`).addEventListener('click', () => {
+                document.getElementById(`${this.viewerId}-export-overlay`).remove();
+                resolve(null);
+            });
+
+            // Handle close button
+            document.querySelector(`#${this.viewerId}-export-overlay .export-dialog-close`).addEventListener('click', () => {
+                document.getElementById(`${this.viewerId}-export-overlay`).remove();
+                resolve(null);
+            });
+
+            // Handle click outside dialog
+            document.getElementById(`${this.viewerId}-export-overlay`).addEventListener('click', (e) => {
+                if (e.target.classList.contains('export-dialog-overlay')) {
+                    e.target.remove();
+                    resolve(null);
+                }
+            });
         });
     }
 
@@ -857,6 +963,360 @@ class SQLViewer extends BaseViewer {
         this.showLoading('Refreshing schema...');
         await this.loadSchema();
         this.setStatus('Schema refreshed');
+    }
+
+    switchTab(targetTab) {
+        /**
+         * Switch between Schema and ER Diagram tabs
+         */
+        const container = document.getElementById(`${this.viewerId}-container`);
+        if (!container) return;
+
+        // Update tab button states
+        const tabButtons = container.querySelectorAll('.sql-tab-btn');
+        tabButtons.forEach(btn => {
+            if (btn.dataset.tab === targetTab) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        // Update tab content visibility
+        const tabContents = container.querySelectorAll('.sql-tab-content');
+        tabContents.forEach(content => {
+            if (content.dataset.tabContent === targetTab) {
+                content.style.display = 'block';
+                content.classList.add('active');
+            } else {
+                content.style.display = 'none';
+                content.classList.remove('active');
+            }
+        });
+
+        // Render ER diagram if switching to that tab
+        if (targetTab === 'er-diagram') {
+            this.renderERDiagram();
+        }
+    }
+
+    setupPanelResize() {
+        /**
+         * Setup drag-to-resize functionality for left schema panel
+         */
+        const container = document.getElementById(`${this.viewerId}-container`);
+        if (!container) return;
+
+        const resizeHandle = container.querySelector('.panel-resize-handle');
+        const schemaPanel = container.querySelector('.sql-schema-panel');
+
+        if (!resizeHandle || !schemaPanel) return;
+
+        let isResizing = false;
+        let startX = 0;
+        let startWidth = 0;
+
+        // Get computed styles to read min/max width
+        const getMinMaxWidth = () => {
+            const styles = window.getComputedStyle(schemaPanel);
+            return {
+                min: parseInt(styles.minWidth) || 200,
+                max: parseInt(styles.maxWidth) || 600
+            };
+        };
+
+        const onMouseDown = (e) => {
+            isResizing = true;
+            startX = e.clientX;
+            startWidth = schemaPanel.offsetWidth;
+
+            // Add visual feedback
+            resizeHandle.classList.add('resizing');
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+
+            e.preventDefault();
+        };
+
+        const onMouseMove = (e) => {
+            if (!isResizing) return;
+
+            const delta = e.clientX - startX;
+            const newWidth = startWidth + delta;
+
+            // Apply min/max constraints from CSS
+            const { min, max } = getMinMaxWidth();
+            const constrainedWidth = Math.max(min, Math.min(max, newWidth));
+
+            // Set width explicitly to override flexbox
+            schemaPanel.style.width = `${constrainedWidth}px`;
+            schemaPanel.style.minWidth = `${min}px`;
+            schemaPanel.style.maxWidth = `${max}px`;
+
+            e.preventDefault();
+        };
+
+        const onMouseUp = () => {
+            if (!isResizing) return;
+
+            isResizing = false;
+            resizeHandle.classList.remove('resizing');
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        };
+
+        resizeHandle.addEventListener('mousedown', onMouseDown);
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+
+        // Store cleanup function
+        this.cleanupResize = () => {
+            resizeHandle.removeEventListener('mousedown', onMouseDown);
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
+    }
+
+    renderERDiagram() {
+        /**
+         * Render Entity-Relationship diagram for database schema
+         */
+        const erContainer = document.getElementById(`${this.viewerId}-er-diagram`);
+        if (!erContainer || !this.schema) return;
+
+        // Clear previous diagram
+        erContainer.innerHTML = '';
+
+        // Create SVG container
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', '100%');
+        svg.setAttribute('height', '100%');
+        svg.setAttribute('class', 'er-diagram-svg');
+
+        // Create a viewBox for zoom/pan support
+        const viewBoxWidth = 1000;
+        const viewBoxHeight = Math.max(600, this.schema.length * 150);
+        svg.setAttribute('viewBox', `0 0 ${viewBoxWidth} ${viewBoxHeight}`);
+        svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+
+        // Add styles
+        const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+        style.textContent = `
+            .er-table-box {
+                fill: var(--viewer-item-bg, #252526);
+                stroke: var(--viewer-border, #3e3e42);
+                stroke-width: 2;
+            }
+            .er-table-header {
+                fill: var(--viewer-header-bg, #1e1e1e);
+            }
+            .er-table-name {
+                fill: var(--viewer-fg, #d4d4d4);
+                font-size: 14px;
+                font-weight: bold;
+            }
+            .er-column-text {
+                fill: var(--viewer-fg, #d4d4d4);
+                font-size: 11px;
+            }
+            .er-pk-icon {
+                fill: #ffd700;
+                font-size: 10px;
+            }
+            .er-type-text {
+                fill: var(--viewer-subtitle-color, #858585);
+                font-size: 10px;
+            }
+            .er-relationship-line {
+                stroke: var(--viewer-accent, #007acc);
+                stroke-width: 2;
+                fill: none;
+            }
+        `;
+        svg.appendChild(style);
+
+        // Layout tables in a grid
+        const tableWidth = 250;
+        const tableHeaderHeight = 35;
+        const columnHeight = 22;
+        const padding = 20;
+        const columnsPerRow = Math.floor((viewBoxWidth - padding * 2) / (tableWidth + 40));
+
+        // Store table positions for drawing relationships
+        const tablePositions = new Map();
+
+        this.schema.forEach((table, index) => {
+            const row = Math.floor(index / columnsPerRow);
+            const col = index % columnsPerRow;
+            const x = padding + col * (tableWidth + 40);
+            const y = padding + row * 200;
+
+            // Calculate table height based on number of columns
+            const tableHeight = tableHeaderHeight + (table.columns.length * columnHeight);
+
+            // Store position for relationship drawing
+            tablePositions.set(table.name, { x, y, width: tableWidth, height: tableHeight });
+
+            // Create table box group
+            const tableGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            tableGroup.setAttribute('class', 'er-table');
+
+            // Main box
+            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            rect.setAttribute('x', x);
+            rect.setAttribute('y', y);
+            rect.setAttribute('width', tableWidth);
+            rect.setAttribute('height', tableHeight);
+            rect.setAttribute('class', 'er-table-box');
+            rect.setAttribute('rx', '4');
+            tableGroup.appendChild(rect);
+
+            // Header background
+            const headerRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            headerRect.setAttribute('x', x);
+            headerRect.setAttribute('y', y);
+            headerRect.setAttribute('width', tableWidth);
+            headerRect.setAttribute('height', tableHeaderHeight);
+            headerRect.setAttribute('class', 'er-table-header');
+            headerRect.setAttribute('rx', '4');
+            tableGroup.appendChild(headerRect);
+
+            // Table name
+            const tableName = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            tableName.setAttribute('x', x + 10);
+            tableName.setAttribute('y', y + 22);
+            tableName.setAttribute('class', 'er-table-name');
+            tableName.textContent = `📋 ${table.name}`;
+            tableGroup.appendChild(tableName);
+
+            // Row count
+            const rowCount = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            rowCount.setAttribute('x', x + tableWidth - 10);
+            rowCount.setAttribute('y', y + 22);
+            rowCount.setAttribute('class', 'er-type-text');
+            rowCount.setAttribute('text-anchor', 'end');
+            rowCount.textContent = `${table.row_count || 0} rows`;
+            tableGroup.appendChild(rowCount);
+
+            // Columns
+            table.columns.forEach((column, colIndex) => {
+                const colY = y + tableHeaderHeight + (colIndex * columnHeight) + 16;
+
+                // Primary key icon
+                if (column.primary_key) {
+                    const pkIcon = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    pkIcon.setAttribute('x', x + 8);
+                    pkIcon.setAttribute('y', colY);
+                    pkIcon.setAttribute('class', 'er-pk-icon');
+                    pkIcon.textContent = '🔑';
+                    tableGroup.appendChild(pkIcon);
+                }
+
+                // Column name
+                const colName = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                colName.setAttribute('x', x + (column.primary_key ? 25 : 10));
+                colName.setAttribute('y', colY);
+                colName.setAttribute('class', 'er-column-text');
+                colName.textContent = column.name;
+                tableGroup.appendChild(colName);
+
+                // Data type
+                const dataType = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                dataType.setAttribute('x', x + tableWidth - 10);
+                dataType.setAttribute('y', colY);
+                dataType.setAttribute('class', 'er-type-text');
+                dataType.setAttribute('text-anchor', 'end');
+                dataType.textContent = column.data_type;
+                tableGroup.appendChild(dataType);
+            });
+
+            svg.appendChild(tableGroup);
+        });
+
+        // Draw relationships (foreign key connections)
+        // This is a simplified version - in production would parse FK constraints from schema
+        this.drawRelationships(svg, tablePositions);
+
+        // Add zoom/pan controls hint
+        const hint = document.createElement('div');
+        hint.className = 'er-diagram-hint';
+        hint.textContent = 'Scroll to zoom • Drag to pan';
+        erContainer.appendChild(hint);
+
+        erContainer.appendChild(svg);
+
+        // Add zoom/pan functionality
+        this.setupERDiagramInteraction(svg, erContainer);
+    }
+
+    drawRelationships(svg, tablePositions) {
+        /**
+         * Draw relationship lines between tables based on foreign keys
+         * This is a placeholder - real implementation would parse FK constraints
+         */
+        // In a real implementation, we would:
+        // 1. Parse foreign key constraints from table.indexes or schema metadata
+        // 2. Draw lines connecting related tables
+        // 3. Add cardinality indicators (1:1, 1:N, N:M)
+
+        // For now, just add a placeholder comment in the diagram
+        const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        group.setAttribute('class', 'er-relationships');
+        svg.appendChild(group);
+    }
+
+    setupERDiagramInteraction(svg, container) {
+        /**
+         * Setup zoom and pan for ER diagram
+         */
+        let scale = 1;
+        let translateX = 0;
+        let translateY = 0;
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+
+        // Zoom on scroll
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            const newScale = Math.max(0.3, Math.min(3, scale * delta));
+
+            scale = newScale;
+            svg.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+        }, { passive: false });
+
+        // Pan on drag
+        container.addEventListener('mousedown', (e) => {
+            if (e.target === svg || svg.contains(e.target)) {
+                isDragging = true;
+                startX = e.clientX - translateX;
+                startY = e.clientY - translateY;
+                container.style.cursor = 'grabbing';
+            }
+        });
+
+        container.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+
+            translateX = e.clientX - startX;
+            translateY = e.clientY - startY;
+            svg.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+        });
+
+        container.addEventListener('mouseup', () => {
+            isDragging = false;
+            container.style.cursor = 'grab';
+        });
+
+        container.addEventListener('mouseleave', () => {
+            isDragging = false;
+            container.style.cursor = '';
+        });
+
+        // Set initial cursor
+        container.style.cursor = 'grab';
     }
 
     getDisplayName() {

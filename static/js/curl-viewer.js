@@ -75,6 +75,13 @@ class CurlViewer extends BaseViewer {
 
     getViewerContent() {
         return `
+            <div class="viewer-header curl-viewer-header">
+                <h2 class="viewer-title">
+                    <span class="viewer-icon">🌐</span>
+                    HTTP Request
+                </h2>
+                <button class="viewer-btn-close" title="Close (Esc)">✕</button>
+            </div>
             <div class="viewer-layout">
                 ${this.getRequestPanel()}
                 ${this.getResponsePanel()}
@@ -87,7 +94,6 @@ class CurlViewer extends BaseViewer {
             <div class="request-panel">
                 <div class="panel-header">
                     <h3>Request</h3>
-                    <button class="viewer-btn-close" title="Close (Esc)">✕</button>
                 </div>
                 <div class="request-form">
                     ${this.getRequestForm()}
@@ -455,16 +461,68 @@ class CurlViewer extends BaseViewer {
     renderTimingBreakdown(timing) {
         if (timing.total_ms === 0) return '';
 
+        // Format time in milliseconds or seconds
+        const formatTime = (ms) => {
+            if (ms >= 1000) {
+                return `${(ms / 1000).toFixed(3)}s`;
+            }
+            return `${ms.toFixed(0)}ms`;
+        };
+
+        // Calculate cumulative times (curl-style)
+        const dnsLookup = timing.dns_lookup_ms || 0;
+        const tcpConnect = dnsLookup + (timing.tcp_connect_ms || 0);
+        const tlsHandshake = tcpConnect + (timing.tls_handshake_ms || 0);
+        const serverProcessing = tlsHandshake + (timing.server_processing_ms || 0);
+        const total = timing.total_ms;
+
         return `
             <div class="timing-breakdown">
                 <h4>Timing Breakdown</h4>
-                <div class="timing-bars">
-                    ${timing.dns_lookup_ms > 0 ? `<div class="timing-bar" style="width: ${(timing.dns_lookup_ms / timing.total_ms) * 100}%">DNS: ${timing.dns_lookup_ms.toFixed(0)}ms</div>` : ''}
-                    ${timing.tcp_connect_ms > 0 ? `<div class="timing-bar" style="width: ${(timing.tcp_connect_ms / timing.total_ms) * 100}%">TCP: ${timing.tcp_connect_ms.toFixed(0)}ms</div>` : ''}
-                    ${timing.tls_handshake_ms > 0 ? `<div class="timing-bar" style="width: ${(timing.tls_handshake_ms / timing.total_ms) * 100}%">TLS: ${timing.tls_handshake_ms.toFixed(0)}ms</div>` : ''}
-                    ${timing.server_processing_ms > 0 ? `<div class="timing-bar" style="width: ${(timing.server_processing_ms / timing.total_ms) * 100}%">Server: ${timing.server_processing_ms.toFixed(0)}ms</div>` : ''}
-                    ${timing.transfer_ms > 0 ? `<div class="timing-bar" style="width: ${(timing.transfer_ms / timing.total_ms) * 100}%">Transfer: ${timing.transfer_ms.toFixed(0)}ms</div>` : ''}
-                    <div class="timing-total">Total: ${timing.total_ms.toFixed(0)}ms</div>
+                <div class="timing-layout">
+                    <!-- Left: Visual bar chart (30%) -->
+                    <div class="timing-bars-column">
+                        <div class="timing-bars">
+                            ${timing.dns_lookup_ms > 0 ? `<div class="timing-bar timing-bar-dns" style="flex: ${timing.dns_lookup_ms}" title="DNS Lookup: ${formatTime(timing.dns_lookup_ms)}"><span>DNS</span></div>` : ''}
+                            ${timing.tcp_connect_ms > 0 ? `<div class="timing-bar timing-bar-tcp" style="flex: ${timing.tcp_connect_ms}" title="TCP Connect: ${formatTime(timing.tcp_connect_ms)}"><span>TCP</span></div>` : ''}
+                            ${timing.tls_handshake_ms > 0 ? `<div class="timing-bar timing-bar-tls" style="flex: ${timing.tls_handshake_ms}" title="TLS Handshake: ${formatTime(timing.tls_handshake_ms)}"><span>TLS</span></div>` : ''}
+                            ${timing.server_processing_ms > 0 ? `<div class="timing-bar timing-bar-server" style="flex: ${timing.server_processing_ms}" title="Server Processing: ${formatTime(timing.server_processing_ms)}"><span>Wait</span></div>` : ''}
+                            ${timing.transfer_ms > 0 ? `<div class="timing-bar timing-bar-transfer" style="flex: ${timing.transfer_ms}" title="Transfer: ${formatTime(timing.transfer_ms)}"><span>Transfer</span></div>` : ''}
+                        </div>
+                    </div>
+
+                    <!-- Right: Timing details (70%) -->
+                    <div class="timing-details-column">
+                        <div class="timing-details">
+                            <div class="timing-row">
+                                <span class="timing-label">time_namelookup:</span>
+                                <span class="timing-value">${formatTime(dnsLookup)}</span>
+                            </div>
+                            <div class="timing-row">
+                                <span class="timing-label">time_connect:</span>
+                                <span class="timing-value">${formatTime(tcpConnect)}</span>
+                            </div>
+                            ${tlsHandshake > 0 ? `
+                                <div class="timing-row">
+                                    <span class="timing-label">time_appconnect:</span>
+                                    <span class="timing-value">${formatTime(tlsHandshake)}</span>
+                                </div>
+                            ` : ''}
+                            <div class="timing-row">
+                                <span class="timing-label">time_pretransfer:</span>
+                                <span class="timing-value">${formatTime(tlsHandshake || tcpConnect)}</span>
+                            </div>
+                            <div class="timing-row">
+                                <span class="timing-label">time_starttransfer:</span>
+                                <span class="timing-value">${formatTime(serverProcessing)}</span>
+                            </div>
+                            <div class="timing-row timing-separator"></div>
+                            <div class="timing-row timing-total-row">
+                                <span class="timing-label">time_total:</span>
+                                <span class="timing-value timing-total-value">${formatTime(total)}</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;

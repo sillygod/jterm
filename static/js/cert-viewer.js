@@ -142,9 +142,9 @@ class CertViewer extends BaseViewer {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    source: this.source,
-                    include_chain: this.includeChain,
-                    port: this.port
+                    url: this.source,  // Backend expects 'url' not 'source'
+                    port: this.port,
+                    timeout: 10  // Add timeout parameter
                 })
             });
 
@@ -638,12 +638,78 @@ class CertViewer extends BaseViewer {
 
     async showExportDialog() {
         /**
-         * Show export format selection dialog
+         * Show export format selection dialog with proper modal UI
+         * T052: Enhanced export dialog with PEM/DER/Text options
          */
-        const format = prompt('Export format (pem, der, text):', 'pem');
-        if (!format) return;
+        const dialogHtml = `
+            <div class="export-dialog-overlay" id="${this.viewerId}-export-overlay">
+                <div class="export-dialog">
+                    <div class="export-dialog-header">
+                        <h3>Export Certificate</h3>
+                        <button class="export-dialog-close">✕</button>
+                    </div>
+                    <div class="export-dialog-body">
+                        <div class="export-option">
+                            <label>
+                                <input type="radio" name="export-format" value="pem" checked>
+                                <span class="export-format-label">
+                                    <strong>PEM</strong>
+                                    <small>Base64-encoded, common format</small>
+                                </span>
+                            </label>
+                        </div>
+                        <div class="export-option">
+                            <label>
+                                <input type="radio" name="export-format" value="der">
+                                <span class="export-format-label">
+                                    <strong>DER</strong>
+                                    <small>Binary format</small>
+                                </span>
+                            </label>
+                        </div>
+                        <div class="export-option">
+                            <label>
+                                <input type="radio" name="export-format" value="text">
+                                <span class="export-format-label">
+                                    <strong>Text</strong>
+                                    <small>Human-readable certificate details</small>
+                                </span>
+                            </label>
+                        </div>
+                        <div class="export-info">
+                            <p>Certificate: <strong>${this.escapeHtml(this.certificate?.subject || 'Unknown')}</strong></p>
+                        </div>
+                    </div>
+                    <div class="export-dialog-footer">
+                        <button class="viewer-btn" onclick="document.getElementById('${this.viewerId}-export-overlay').remove()">Cancel</button>
+                        <button class="viewer-btn viewer-btn-primary" id="${this.viewerId}-export-confirm">Export</button>
+                    </div>
+                </div>
+            </div>
+        `;
 
-        await this.exportCertificate(format.toLowerCase());
+        document.body.insertAdjacentHTML('beforeend', dialogHtml);
+
+        // Handle export confirmation
+        document.getElementById(`${this.viewerId}-export-confirm`).addEventListener('click', async () => {
+            const format = document.querySelector('input[name="export-format"]:checked')?.value || 'pem';
+            const overlay = document.getElementById(`${this.viewerId}-export-overlay`);
+
+            await this.exportCertificate(format);
+            overlay.remove();
+        });
+
+        // Handle close button
+        document.querySelector(`#${this.viewerId}-export-overlay .export-dialog-close`).addEventListener('click', () => {
+            document.getElementById(`${this.viewerId}-export-overlay`).remove();
+        });
+
+        // Handle click outside dialog
+        document.getElementById(`${this.viewerId}-export-overlay`).addEventListener('click', (e) => {
+            if (e.target.classList.contains('export-dialog-overlay')) {
+                e.target.remove();
+            }
+        });
     }
 
     async exportCertificate(format) {
@@ -740,7 +806,5 @@ class CertViewer extends BaseViewer {
     }
 }
 
-// Export for global use
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = CertViewer;
-}
+// Export for use in terminal.js
+window.CertViewer = CertViewer;

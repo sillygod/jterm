@@ -174,10 +174,11 @@
    ============================================================================ */
 
 .cert-detail {
-    padding: 20px;
+    padding: 24px 28px;
     overflow-y: auto;
     height: 100%;
     font-size: 13px;
+    background-color: var(--viewer-bg, #1e1e1e);
 }
 
 /* Certificate Warnings */
@@ -217,67 +218,81 @@
 
 /* Certificate Sections */
 .cert-section {
-    margin-bottom: 24px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--viewer-border-light, #2d2d30);
+    margin-bottom: 28px;
+    padding: 20px;
+    background-color: var(--viewer-item-bg, #252526);
+    border-radius: 8px;
+    border: 1px solid var(--viewer-border, #3e3e42);
 }
 
 .cert-section:last-child {
-    border-bottom: none;
+    margin-bottom: 0;
 }
 
 .cert-section-header {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--viewer-title-color, #cccccc);
-    margin-bottom: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--viewer-accent, #007acc);
+    margin-bottom: 16px;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.8px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--viewer-accent, #007acc);
 }
 
 /* Certificate Fields */
 .cert-field {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 10px;
-    gap: 16px;
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    margin-bottom: 14px;
+    gap: 20px;
+    align-items: start;
+    line-height: 1.6;
 }
 
 .cert-field-label {
     font-weight: 600;
-    color: var(--viewer-subtitle-color, #858585);
-    flex-shrink: 0;
-    min-width: 140px;
+    color: var(--viewer-subtitle-color, #a0a0a0);
     font-size: 12px;
 }
 
 .cert-field-value {
-    color: var(--viewer-fg, #d4d4d4);
-    flex: 1;
-    text-align: right;
+    color: var(--viewer-fg, #e0e0e0);
     word-break: break-word;
+    font-size: 13px;
 }
 
 .cert-field-mono {
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 12px;
+    font-family: 'SF Mono', 'Monaco', 'Menlo', 'Courier New', monospace;
+    font-size: 11px;
+    background-color: var(--viewer-code-bg, #1e1e1e);
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--viewer-border, #3e3e42);
 }
 
 .cert-fingerprint {
-    font-size: 11px;
+    font-size: 10px;
     word-break: break-all;
-    color: var(--viewer-subtitle-color, #858585);
+    line-height: 1.8;
+    color: var(--viewer-subtitle-color, #999);
+    font-family: 'SF Mono', 'Monaco', 'Menlo', 'Courier New', monospace;
+    background-color: var(--viewer-code-bg, #1e1e1e);
+    padding: 8px 12px;
+    border-radius: 4px;
+    display: block;
+    margin-top: 4px;
 }
 
 /* Certificate Status */
 .cert-status {
     display: inline-block;
-    padding: 4px 8px;
-    border-radius: 4px;
+    padding: 6px 12px;
+    border-radius: 6px;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.8px;
 }
 
 .cert-status-trusted {
@@ -326,33 +341,48 @@
 .cert-san-list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
+    margin-top: 8px;
 }
 
 .cert-san-item {
-    background-color: var(--viewer-code-bg, #2d2d30);
-    padding: 8px 12px;
-    border-radius: 4px;
-    font-family: 'Courier New', Courier, monospace;
+    background-color: var(--viewer-code-bg, #1e1e1e);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-family: 'SF Mono', 'Monaco', 'Menlo', 'Courier New', monospace;
     font-size: 12px;
-    color: var(--viewer-fg, #d4d4d4);
-    border-left: 3px solid #0969da;
+    color: var(--viewer-fg, #e0e0e0);
+    border-left: 4px solid #0969da;
+    transition: all 0.2s;
+}
+
+.cert-san-item:hover {
+    background-color: var(--viewer-hover-bg, #2a2d2e);
+    border-left-color: #1f6feb;
 }
 
 /* Key Usage */
 .cert-usage-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 10px;
+    margin-top: 8px;
 }
 
 .cert-usage-item {
-    background-color: var(--viewer-code-bg, #2d2d30);
-    padding: 6px 12px;
-    border-radius: 4px;
+    background-color: var(--viewer-code-bg, #1e1e1e);
+    padding: 8px 14px;
+    border-radius: 6px;
     font-size: 11px;
-    color: var(--viewer-fg, #d4d4d4);
+    font-weight: 500;
+    color: var(--viewer-fg, #e0e0e0);
     border: 1px solid var(--viewer-border, #3e3e42);
+    transition: all 0.2s;
+}
+
+.cert-usage-item:hover {
+    background-color: var(--viewer-hover-bg, #2a2d2e);
+    border-color: var(--viewer-accent, #007acc);
 }
 
 /* ============================================================================

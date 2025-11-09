@@ -25,6 +25,7 @@ from src.models.database import (
     QueryHistory
 )
 from src.services.sql_service import SQLService
+from src.utils.security import SecurityValidator  # T059: Security validation
 
 # Initialize router
 router = APIRouter(prefix="/api/sql", tags=["SQL"])
@@ -226,11 +227,22 @@ async def execute_query(request: ExecuteQueryRequest):
                 detail=f"Invalid database type: {request.db_type}"
             )
 
-        # Validate query is not empty
-        if not request.query.strip():
+        # T059: Security validation - validate query
+        try:
+            SecurityValidator.validate_sql_query(request.query, allow_writes=False)
+        except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Query cannot be empty"
+                detail=f"Query validation failed: {str(e)}"
+            )
+
+        # T059: Security validation - validate connection string
+        try:
+            SecurityValidator.validate_connection_string(request.connection_string)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Connection string validation failed: {str(e)}"
             )
 
         # Create database connection

@@ -93,6 +93,55 @@ class WebTerminal {
     }
 
     setupEventListeners() {
+        // Add a global document-level keydown listener to intercept shortcuts BEFORE browser handles them
+        // This is necessary for shortcuts like Cmd+K that browsers capture very early
+        const globalKeydownHandler = (event) => {
+            // Only intercept when terminal has focus or event target is within terminal
+            const terminalElement = document.getElementById('terminal');
+            const isTerminalFocused = terminalElement &&
+                (document.activeElement === terminalElement ||
+                 terminalElement.contains(document.activeElement) ||
+                 terminalElement.contains(event.target));
+
+            if (!isTerminalFocused) {
+                return; // Don't intercept when terminal is not focused
+            }
+
+            const shouldIntercept = (
+                // Cmd/Ctrl + L (clear screen / tmux navigate)
+                (event.key === 'l' && (event.metaKey || event.ctrlKey)) ||
+                // Cmd/Ctrl + H (backspace / tmux navigate)
+                (event.key === 'h' && (event.metaKey || event.ctrlKey)) ||
+                // Cmd/Ctrl + J (tmux navigate)
+                (event.key === 'j' && (event.metaKey || event.ctrlKey)) ||
+                // Cmd/Ctrl + K (tmux navigate / clear to top) - IMPORTANT: Capture early!
+                (event.key === 'k' && (event.metaKey || event.ctrlKey)) ||
+                // Cmd/Ctrl + W (close window in browser, but delete word in terminal)
+                (event.key === 'w' && (event.metaKey)) ||
+                // Cmd/Ctrl + T (new tab in browser, but tmux command)
+                (event.key === 't' && (event.metaKey || event.ctrlKey)) ||
+                // Cmd/Ctrl + N (new window in browser, but next in tmux)
+                (event.key === 'n' && (event.metaKey || event.ctrlKey)) ||
+                // Cmd/Ctrl + P (print in browser, but previous in tmux)
+                (event.key === 'p' && (event.metaKey || event.ctrlKey)) ||
+                // Cmd/Ctrl + [ and ] (browser navigation, but tmux escape/navigate)
+                (event.key === '[' && (event.metaKey || event.ctrlKey)) ||
+                (event.key === ']' && (event.metaKey || event.ctrlKey))
+            );
+
+            if (shouldIntercept) {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation(); // Prevent other handlers from running
+            }
+        };
+
+        // Add listener at capture phase (before bubble phase) for earliest interception
+        document.addEventListener('keydown', globalKeydownHandler, { capture: true });
+
+        // Store for cleanup
+        this.globalKeydownHandler = globalKeydownHandler;
+
         // Capture keyboard events before browser handles them
         // This allows terminal shortcuts (like Cmd+L, Cmd+H) to work in tmux/vim
         this.terminal.attachCustomKeyEventHandler((event) => {
@@ -108,7 +157,7 @@ class WebTerminal {
                 // Cmd/Ctrl + K (tmux navigate / clear to top)
                 (event.key === 'k' && (event.metaKey || event.ctrlKey)) ||
                 // Cmd/Ctrl + W (close window in browser, but delete word in terminal)
-                (event.key === 'w' && (event.metaKey || event.ctrlKey)) ||
+                (event.key === 'w' && (event.metaKey)) ||
                 // Cmd/Ctrl + T (new tab in browser, but tmux command)
                 (event.key === 't' && (event.metaKey || event.ctrlKey)) ||
                 // Cmd/Ctrl + N (new window in browser, but next in tmux)

@@ -277,7 +277,8 @@ class LogViewer extends BaseViewer {
 
     renderLogEntries() {
         /**
-         * Render log entries in the list
+         * Render log entries with virtual scrolling for large datasets
+         * T058: Virtual scrolling implementation
          */
         const listContainer = document.getElementById(`${this.viewerId}-log-list`);
         console.log('renderLogEntries - listContainer:', listContainer);
@@ -303,8 +304,97 @@ class LogViewer extends BaseViewer {
             return;
         }
 
-        // Render entries (simple rendering, virtual scrolling can be added later)
-        const html = this.filteredEntries.slice(0, 500).map((entry, index) => {
+        // Use virtual scrolling for large datasets (>1000 entries)
+        if (this.filteredEntries.length > 1000) {
+            this.initVirtualScrolling(listContainer);
+        } else {
+            // Simple rendering for smaller datasets
+            this.renderAllEntries(listContainer);
+        }
+    }
+
+    /**
+     * Initialize virtual scrolling for large datasets
+     * T058: Virtual scrolling implementation
+     */
+    initVirtualScrolling(container) {
+        const totalHeight = this.filteredEntries.length * this.rowHeight;
+
+        // Create virtual scroll structure
+        container.innerHTML = `
+            <div class="virtual-scroll-container" style="height: ${totalHeight}px; position: relative;">
+                <div class="virtual-scroll-content" style="position: absolute; top: 0; left: 0; right: 0;"></div>
+            </div>
+        `;
+
+        const scrollContent = container.querySelector('.virtual-scroll-content');
+        const scrollContainer = container.querySelector('.virtual-scroll-container');
+
+        // Render initial visible items
+        this.updateVirtualScroll(scrollContent, 0);
+
+        // Handle scroll events
+        let scrollTimeout;
+        container.addEventListener('scroll', () => {
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                const scrollTop = container.scrollTop;
+                this.updateVirtualScroll(scrollContent, scrollTop);
+            }, 16); // ~60fps
+        });
+    }
+
+    /**
+     * Update virtual scroll viewport
+     * T058: Virtual scrolling viewport update
+     */
+    updateVirtualScroll(content, scrollTop) {
+        const startIndex = Math.floor(scrollTop / this.rowHeight);
+        const endIndex = Math.min(
+            startIndex + this.visibleRows + 10, // Add buffer
+            this.filteredEntries.length
+        );
+
+        const offsetY = startIndex * this.rowHeight;
+
+        const html = this.filteredEntries.slice(startIndex, endIndex).map((entry, i) => {
+            const actualIndex = startIndex + i;
+            const levelClass = `log-level-${entry.level.toLowerCase()}`;
+            const isError = entry.is_error ? 'log-entry-error' : '';
+
+            return `
+                <div class="log-entry ${levelClass} ${isError}"
+                     data-index="${actualIndex}"
+                     style="height: ${this.rowHeight}px;">
+                    <span class="log-timestamp">${entry.display_time}</span>
+                    <span class="log-level viewer-badge viewer-badge-${this.getLevelBadgeClass(entry.level)}">${entry.level}</span>
+                    <span class="log-message">${this.escapeHtml(entry.message)}</span>
+                </div>
+            `;
+        }).join('');
+
+        content.style.transform = `translateY(${offsetY}px)`;
+        content.innerHTML = html;
+
+        // Add click listeners
+        content.querySelectorAll('.log-entry').forEach(el => {
+            el.addEventListener('click', () => {
+                const index = parseInt(el.dataset.index);
+                this.showEntryDetails(this.filteredEntries[index]);
+
+                // Highlight selected
+                content.querySelectorAll('.log-entry').forEach(e => e.classList.remove('selected'));
+                el.classList.add('selected');
+            });
+        });
+    }
+
+    /**
+     * Render all entries without virtual scrolling (for smaller datasets)
+     * T058: Non-virtual rendering fallback
+     */
+    renderAllEntries(listContainer) {
+        const html = this.filteredEntries.map((entry, index) => {
             const levelClass = `log-level-${entry.level.toLowerCase()}`;
             const isError = entry.is_error ? 'log-entry-error' : '';
 
@@ -380,7 +470,7 @@ class LogViewer extends BaseViewer {
                 ${Object.keys(entry.structured_fields || {}).length > 0 ? `
                 <div class="log-detail-field">
                     <label>Structured Fields:</label>
-                    <pre class="log-structured-fields">${JSON.stringify(entry.structured_fields, null, 2)}</pre>
+                    <pre class="log-structured-fields"><code class="language-json">${this.escapeHtml(JSON.stringify(entry.structured_fields, null, 2))}</code></pre>
                 </div>
                 ` : ''}
 
@@ -392,6 +482,11 @@ class LogViewer extends BaseViewer {
         `;
 
         detailContainer.innerHTML = html;
+
+        // Apply syntax highlighting to code blocks
+        if (window.Prism) {
+            window.Prism.highlightAllUnder(detailContainer);
+        }
     }
 
     updateStatistics() {
@@ -412,48 +507,103 @@ class LogViewer extends BaseViewer {
 
     async showExportDialog() {
         /**
-         * Show export options dialog
+         * Show export options dialog with proper modal UI
+         * T052: Enhanced export dialog with CSV/JSON options
          */
-        const format = prompt('Export format (json or csv):', 'json');
-        if (!format) return;
+        const dialogHtml = `
+            <div class="export-dialog-overlay" id="${this.viewerId}-export-overlay">
+                <div class="export-dialog">
+                    <div class="export-dialog-header">
+                        <h3>Export Logs</h3>
+                        <button class="export-dialog-close">✕</button>
+                    </div>
+                    <div class="export-dialog-body">
+                        <div class="export-option">
+                            <label>
+                                <input type="radio" name="export-format" value="json" checked>
+                                <span class="export-format-label">
+                                    <strong>JSON</strong>
+                                    <small>Structured data with all fields</small>
+                                </span>
+                            </label>
+                        </div>
+                        <div class="export-option">
+                            <label>
+                                <input type="radio" name="export-format" value="csv">
+                                <span class="export-format-label">
+                                    <strong>CSV</strong>
+                                    <small>Spreadsheet-compatible format</small>
+                                </span>
+                            </label>
+                        </div>
+                        <div class="export-info">
+                            <p><strong>${this.filteredEntries.length}</strong> log entries will be exported</p>
+                            ${this.currentFilters.levels.length > 0 || this.currentFilters.searchPattern ?
+                                '<p class="export-warning">Current filters will be applied</p>' : ''}
+                        </div>
+                    </div>
+                    <div class="export-dialog-footer">
+                        <button class="viewer-btn" onclick="document.getElementById('${this.viewerId}-export-overlay').remove()">Cancel</button>
+                        <button class="viewer-btn viewer-btn-primary" id="${this.viewerId}-export-confirm">Export</button>
+                    </div>
+                </div>
+            </div>
+        `;
 
-        if (!['json', 'csv'].includes(format.toLowerCase())) {
-            alert('Invalid format. Please choose json or csv.');
-            return;
-        }
+        document.body.insertAdjacentHTML('beforeend', dialogHtml);
 
-        try {
-            const response = await fetch('/api/logs/export', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    file_path: this.filePath,
-                    format: format.toLowerCase(),
-                    levels: this.currentFilters.levels,
-                    search_pattern: this.currentFilters.searchPattern || null
-                })
-            });
+        // Handle export confirmation
+        document.getElementById(`${this.viewerId}-export-confirm`).addEventListener('click', async () => {
+            const format = document.querySelector('input[name="export-format"]:checked')?.value || 'json';
+            const overlay = document.getElementById(`${this.viewerId}-export-overlay`);
 
-            if (!response.ok) {
-                throw new Error(`Export failed: ${response.statusText}`);
+            try {
+                const response = await fetch('/api/logs/export', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        file_path: this.filePath,
+                        format: format,
+                        levels: this.currentFilters.levels,
+                        search_pattern: this.currentFilters.searchPattern || null
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Export failed: ${response.statusText}`);
+                }
+
+                // Trigger download
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `logs_${new Date().toISOString().slice(0,10)}.${format}`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+
+                overlay.remove();
+            } catch (error) {
+                this.showError(`Export failed: ${error.message}`);
+                overlay.remove();
             }
+        });
 
-            // Trigger download
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `logs.${format.toLowerCase()}`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
+        // Handle close button
+        document.querySelector(`#${this.viewerId}-export-overlay .export-dialog-close`).addEventListener('click', () => {
+            document.getElementById(`${this.viewerId}-export-overlay`).remove();
+        });
 
-        } catch (error) {
-            alert(`Export failed: ${error.message}`);
-        }
+        // Handle click outside dialog
+        document.getElementById(`${this.viewerId}-export-overlay`).addEventListener('click', (e) => {
+            if (e.target.classList.contains('export-dialog-overlay')) {
+                e.target.remove();
+            }
+        });
     }
 
     getLevelBadgeClass(level) {

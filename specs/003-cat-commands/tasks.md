@@ -137,16 +137,16 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T051 [P] Add syntax highlighting with Prism.js for JSON, SQL, and HTTP in all viewers
-- [ ] T052 [P] Implement export functionality across all viewers (CSV, JSON, Excel, PEM, DER formats)
-- [ ] T053 [P] Add error handling and user-friendly error messages across all services
-- [ ] T054 [P] Add loading states and progress indicators for all async operations
-- [ ] T055 [P] Implement keyboard shortcuts for navigation across all viewers
-- [ ] T056 [P] Add dark/light theme support matching terminal theme for all viewers
-- [ ] T057 [P] Add responsive design for all viewer interfaces
-- [ ] T058 Performance optimization: implement virtual scrolling for large datasets in log and SQL viewers
-- [ ] T059 Security hardening: add input validation, SQL injection prevention, credential masking
-- [ ] T060 Add comprehensive logging for debugging and monitoring across all services
+- [x] T051 [P] Add syntax highlighting with Prism.js for JSON, SQL, and HTTP in all viewers
+- [x] T052 [P] Implement export functionality across all viewers (CSV, JSON, Excel, PEM, DER formats)
+- [x] T053 [P] Add error handling and user-friendly error messages across all services
+- [x] T054 [P] Add loading states and progress indicators for all async operations
+- [x] T055 [P] Implement keyboard shortcuts for navigation across all viewers
+- [x] T056 [P] Add dark/light theme support matching terminal theme for all viewers
+- [x] T057 [P] Add responsive design for all viewer interfaces
+- [x] T058 Performance optimization: implement virtual scrolling for large datasets in log and SQL viewers
+- [x] T059 Security hardening: add input validation, SQL injection prevention, credential masking
+- [x] T060 Add comprehensive logging for debugging and monitoring across all services
 
 ---
 

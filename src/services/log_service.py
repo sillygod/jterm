@@ -6,12 +6,16 @@ Implements T014.
 
 import json
 import re
+import logging  # T060: Comprehensive logging
 import aiofiles
 from datetime import datetime
 from typing import List, Optional, AsyncGenerator
 from pathlib import Path
 
 from src.models.log_entry import LogEntry, LogFilter, LogStatistics, LogLevel, LogFormat
+
+# T060: Setup logger
+logger = logging.getLogger(__name__)
 
 
 class LogService:
@@ -23,6 +27,7 @@ class LogService:
     def __init__(self):
         """Initialize log service."""
         self.chunk_size = 8192  # Read buffer size for streaming
+        logger.info("LogService initialized with chunk_size=%d", self.chunk_size)
 
     def detect_format(self, first_line: str) -> LogFormat:
         """Auto-detect log format from first line.
@@ -352,7 +357,11 @@ class LogService:
 
         Yields:
             LogEntry objects that match filter criteria
+
+        T060: Added comprehensive logging
         """
+        logger.info(f"Starting to stream log file: {file_path}, format={log_format}, has_filter={log_filter is not None}")
+
         path = Path(file_path)
         if not path.exists():
             raise FileNotFoundError(f"Log file not found: {file_path}")

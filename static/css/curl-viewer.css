@@ -680,3 +680,209 @@ textarea {
         color: var(--text-color);
     }
 }
+
+/* ============================================================================
+   Dark Mode Overrides
+   ============================================================================ */
+
+[data-theme="dark"] .curl-viewer-container,
+[data-theme="dark"] .request-panel,
+[data-theme="dark"] .response-panel {
+    background-color: var(--viewer-bg, #1e1e1e);
+    color: var(--viewer-fg, #d4d4d4);
+    border-color: var(--viewer-border, #3e3e42);
+}
+
+[data-theme="dark"] .panel-header {
+    background-color: var(--viewer-header-bg, #252526);
+    border-color: var(--viewer-border, #3e3e42);
+    color: var(--viewer-fg, #d4d4d4);
+}
+
+[data-theme="dark"] .response-container {
+    background-color: var(--viewer-bg, #1e1e1e);
+}
+
+[data-theme="dark"] .empty-state {
+    color: var(--viewer-subtitle-color, #858585);
+}
+
+/* ============================================================================
+   New Timing Breakdown Styles (curl-style)
+   ============================================================================ */
+
+/* Two-column layout: 30% graph, 70% details */
+.timing-layout {
+    display: flex;
+    gap: 20px;
+    margin-top: 16px;
+}
+
+.timing-bars-column {
+    flex: 0 0 30%;
+    display: flex;
+    align-items: center;
+}
+
+.timing-details-column {
+    flex: 1;
+}
+
+.timing-details {
+    background-color: var(--viewer-code-bg, #1e1e1e);
+    border: 1px solid var(--viewer-border, #3e3e42);
+    border-radius: 6px;
+    padding: 16px;
+    font-family: 'SF Mono', 'Monaco', 'Menlo', 'Courier New', monospace;
+}
+
+.timing-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    font-size: 13px;
+}
+
+.timing-label {
+    color: var(--viewer-subtitle-color, #858585);
+    font-weight: 500;
+}
+
+.timing-value {
+    color: var(--viewer-fg, #e0e0e0);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.timing-separator {
+    height: 1px;
+    background-color: var(--viewer-border, #3e3e42);
+    margin: 8px 0;
+}
+
+.timing-total-row {
+    border-top: 2px solid var(--viewer-accent, #007acc);
+    padding-top: 12px;
+    margin-top: 8px;
+}
+
+.timing-total-value {
+    color: var(--viewer-accent, #007acc);
+    font-size: 15px;
+    font-weight: 700;
+}
+
+/* Visual timing bars - vertical layout */
+.timing-bars {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    border-radius: 6px;
+    overflow: hidden;
+    gap: 4px;
+}
+
+.timing-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 11px;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s;
+    min-height: 32px;
+    padding: 8px 12px;
+    border-radius: 4px;
+}
+
+.timing-bar:hover {
+    opacity: 0.9;
+}
+
+.timing-bar span {
+    padding: 0 8px;
+}
+
+.timing-bar-dns {
+    background-color: #0969da;
+}
+
+.timing-bar-tcp {
+    background-color: #1f6feb;
+}
+
+.timing-bar-tls {
+    background-color: #388bfd;
+}
+
+.timing-bar-server {
+    background-color: #58a6ff;
+}
+
+.timing-bar-transfer {
+    background-color: #79c0ff;
+}
+
+/* ============================================================================
+   Curl Viewer Header (Close Button Fix)
+   ============================================================================ */
+
+.curl-viewer-header {
+    padding: 16px 20px;
+    background-color: var(--viewer-header-bg, #252526);
+    border-bottom: 1px solid var(--viewer-border, #3e3e42);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.curl-viewer-header .viewer-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--viewer-fg, #d4d4d4);
+}
+
+.curl-viewer-header .viewer-icon {
+    font-size: 24px;
+}
+
+.curl-viewer-header .viewer-btn-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: var(--viewer-subtitle-color, #858585);
+    cursor: pointer;
+    padding: 8px;
+    line-height: 1;
+    transition: all 0.2s;
+}
+
+.curl-viewer-header .viewer-btn-close:hover {
+    color: var(--viewer-fg, #d4d4d4);
+    background-color: var(--viewer-hover-bg, #2a2d2e);
+    border-radius: 4px;
+}
+
+/* ============================================================================
+   Responsive Design for Timing Layout
+   ============================================================================ */
+
+@media (max-width: 768px) {
+    .timing-layout {
+        flex-direction: column;
+    }
+
+    .timing-bars-column {
+        flex: 0 0 auto;
+        width: 100%;
+    }
+
+    .timing-details-column {
+        width: 100%;
+    }
+}

@@ -18,8 +18,7 @@
    ============================================================================ */
 
 .sql-viewer-body {
-    display: grid;
-    grid-template-columns: 250px 1fr 300px;
+    display: flex;
     gap: 0;
     height: 100%;
     overflow: hidden;
@@ -62,6 +61,10 @@
 
 .sql-schema-panel {
     border-right: 1px solid var(--viewer-border, #3e3e42);
+    flex-shrink: 0; /* Don't shrink when resized */
+    width: 300px; /* Initial width */
+    min-width: 200px;
+    max-width: 600px;
 }
 
 .sql-schema-tree {
@@ -154,6 +157,8 @@
     display: flex;
     flex-direction: column;
     border-right: none;
+    flex: 1; /* Take remaining space */
+    min-width: 0; /* Allow shrinking below content size */
 }
 
 .sql-editor-section {
@@ -304,6 +309,8 @@
 
 .sql-history-panel {
     border-left: 1px solid var(--viewer-border, #3e3e42);
+    width: 300px;
+    flex-shrink: 0; /* Don't shrink */
 }
 
 .sql-query-history {
@@ -412,21 +419,129 @@
 }
 
 /* ============================================================================
+   Tab System (Schema / ER Diagram)
+   ============================================================================ */
+
+.sql-panel-tabs {
+    display: flex;
+    gap: 4px;
+}
+
+.sql-tab-btn {
+    background: none;
+    border: none;
+    color: var(--viewer-subtitle-color, #858585);
+    cursor: pointer;
+    padding: 4px 12px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 500;
+    transition: background-color 0.15s, color 0.15s;
+    border-bottom: 2px solid transparent;
+}
+
+.sql-tab-btn:hover {
+    background-color: var(--viewer-hover-bg, #2a2d2e);
+    color: var(--viewer-fg, #d4d4d4);
+}
+
+.sql-tab-btn.active {
+    color: var(--viewer-accent, #007acc);
+    border-bottom-color: var(--viewer-accent, #007acc);
+}
+
+.sql-tab-content {
+    display: none;
+    height: 100%;
+    overflow: auto;
+}
+
+.sql-tab-content.active {
+    display: block;
+}
+
+/* ============================================================================
+   Panel Resize Handle
+   ============================================================================ */
+
+.panel-resize-handle {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    cursor: col-resize;
+    background-color: transparent;
+    transition: background-color 0.15s;
+    z-index: 100;
+}
+
+.panel-resize-handle:hover,
+.panel-resize-handle.resizing {
+    background-color: var(--viewer-accent, #007acc);
+}
+
+.sql-schema-panel {
+    position: relative;
+}
+
+/* ============================================================================
+   ER Diagram Styles
+   ============================================================================ */
+
+.sql-er-diagram {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+    background-color: var(--viewer-bg, #1e1e1e);
+    padding: 0;
+}
+
+.er-diagram-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    transition: transform 0.1s ease-out;
+}
+
+.er-diagram-hint {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: var(--viewer-header-bg, #252526);
+    color: var(--viewer-subtitle-color, #858585);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 11px;
+    border: 1px solid var(--viewer-border, #3e3e42);
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* SVG styles are inline in the JavaScript to use CSS variables */
+
+/* ============================================================================
    Responsive Design
    ============================================================================ */
 
 @media (max-width: 1200px) {
-    .sql-viewer-body {
-        grid-template-columns: 200px 1fr 250px;
+    .sql-history-panel {
+        width: 250px;
     }
 }
 
 @media (max-width: 900px) {
-    .sql-viewer-body {
-        grid-template-columns: 150px 1fr 200px;
+    .sql-history-panel {
+        width: 200px;
     }
 
     .sql-panel-header {
         font-size: 11px;
+    }
+
+    .sql-tab-btn {
+        font-size: 11px;
+        padding: 3px 8px;
     }
 }
