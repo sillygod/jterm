@@ -13,6 +13,8 @@ Web-based terminal emulator with multimedia support, animations, AI assistance, 
 - **Features**: Terminal emulation, media viewing, AI assistant, session recording, themes, extensions
 - Python 3.11+ (backend), JavaScript ES2022 (frontend) (002-enhance-and-implement)
 - SQLite (aiosqlite) + file system for media caching (002-enhance-and-implement)
+- Python 3.11+ (backend), JavaScript ES2022 (frontend) + FastAPI, xterm.js, HTMX, WebSockets, Python PTY module (003-cat-commands)
+- SQLite database (existing) + browser localStorage (history/queries) + file system (exports) (003-cat-commands)
 
 ## Project Structure
 ```
@@ -99,6 +101,7 @@ flake8 src/ tests/
 - **Ebook file limit**: 50MB maximum
 
 ## Recent Changes
+- 003-cat-commands: Added Python 3.11+ (backend), JavaScript ES2022 (frontend) + FastAPI, xterm.js, HTMX, WebSockets, Python PTY module
 - **002-enhance-and-implement** (2025-10-27): ✅ COMPLETE
   - Added ebook viewer (`bookcat` command) with PDF/EPUB support via foliate-js
   - Implemented recording playback responsive width scaling (80-200 columns)

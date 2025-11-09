@@ -1,0 +1,1339 @@
+/**
+ * Shared CSS Styles for Web-Enhanced Cat Command Viewers
+ * Used by: logcat, certcat, sqlcat, curlcat
+ * T008: Common viewer UI patterns
+ */
+
+/* ============================================================================
+   Viewer Overlay & Container
+   ============================================================================ */
+
+.viewer-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.85);
+    z-index: 9999;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(4px);
+}
+
+.viewer-overlay.visible {
+    display: flex;
+}
+
+.viewer-container {
+    width: 90%;
+    max-width: 1400px;
+    height: 90%;
+    background-color: var(--viewer-bg, #1e1e1e);
+    color: var(--viewer-fg, #d4d4d4);
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ============================================================================
+   Viewer Header
+   ============================================================================ */
+
+.viewer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background-color: var(--viewer-header-bg, #252526);
+    border-bottom: 1px solid var(--viewer-border, #3e3e42);
+}
+
+.viewer-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--viewer-title-color, #cccccc);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.viewer-title-icon {
+    font-size: 16px;
+}
+
+.viewer-subtitle {
+    font-size: 12px;
+    color: var(--viewer-subtitle-color, #858585);
+    margin-left: 8px;
+}
+
+.viewer-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.viewer-btn {
+    padding: 6px 12px;
+    background-color: var(--viewer-btn-bg, #3c3c3c);
+    color: var(--viewer-btn-fg, #cccccc);
+    border: 1px solid var(--viewer-border, #3e3e42);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.viewer-btn:hover {
+    background-color: var(--viewer-btn-hover-bg, #505050);
+    border-color: var(--viewer-btn-hover-border, #555555);
+}
+
+.viewer-btn:active {
+    background-color: var(--viewer-btn-active-bg, #2a2a2a);
+}
+
+.viewer-btn-primary {
+    background-color: var(--viewer-btn-primary-bg, #0e639c);
+    border-color: var(--viewer-btn-primary-border, #1177bb);
+}
+
+.viewer-btn-primary:hover {
+    background-color: var(--viewer-btn-primary-hover-bg, #1177bb);
+}
+
+.viewer-btn-close {
+    background-color: transparent;
+    border: none;
+    color: var(--viewer-close-color, #cccccc);
+    font-size: 20px;
+    padding: 4px 8px;
+    cursor: pointer;
+}
+
+.viewer-btn-close:hover {
+    color: var(--viewer-close-hover-color, #ffffff);
+    background-color: var(--viewer-close-hover-bg, rgba(255, 255, 255, 0.1));
+}
+
+/* ============================================================================
+   Viewer Body (Main Content Area)
+   ============================================================================ */
+
+.viewer-body {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+/* Split-view layout (2-panel) */
+.viewer-split {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+
+.viewer-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background-color: var(--viewer-panel-bg, #1e1e1e);
+}
+
+.viewer-panel-left {
+    border-right: 1px solid var(--viewer-border, #3e3e42);
+}
+
+.viewer-panel-header {
+    padding: 8px 12px;
+    background-color: var(--viewer-panel-header-bg, #2d2d30);
+    border-bottom: 1px solid var(--viewer-border, #3e3e42);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--viewer-panel-header-color, #cccccc);
+}
+
+.viewer-panel-content {
+    flex: 1;
+    overflow: auto;
+    padding: 12px;
+}
+
+/* Three-panel layout (sidebar + main + details) */
+.viewer-three-panel {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+
+.viewer-sidebar {
+    width: 250px;
+    min-width: 200px;
+    max-width: 400px;
+    background-color: var(--viewer-sidebar-bg, #252526);
+    border-right: 1px solid var(--viewer-border, #3e3e42);
+    overflow-y: auto;
+    resize: horizontal;
+}
+
+.viewer-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.viewer-details {
+    width: 300px;
+    min-width: 250px;
+    max-width: 500px;
+    background-color: var(--viewer-details-bg, #252526);
+    border-left: 1px solid var(--viewer-border, #3e3e42);
+    overflow-y: auto;
+    resize: horizontal;
+}
+
+/* ============================================================================
+   Viewer Toolbar & Actions
+   ============================================================================ */
+
+.viewer-toolbar {
+    display: flex;
+    gap: 8px;
+    padding: 8px 12px;
+    background-color: var(--viewer-toolbar-bg, #2d2d30);
+    border-bottom: 1px solid var(--viewer-border, #3e3e42);
+    align-items: center;
+}
+
+.viewer-toolbar-group {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.viewer-toolbar-separator {
+    width: 1px;
+    height: 24px;
+    background-color: var(--viewer-border, #3e3e42);
+    margin: 0 4px;
+}
+
+.viewer-search-box {
+    display: flex;
+    align-items: center;
+    background-color: var(--viewer-input-bg, #3c3c3c);
+    border: 1px solid var(--viewer-border, #3e3e42);
+    border-radius: 4px;
+    padding: 4px 8px;
+}
+
+.viewer-search-input {
+    background: transparent;
+    border: none;
+    color: var(--viewer-input-fg, #cccccc);
+    font-size: 12px;
+    outline: none;
+    width: 200px;
+}
+
+.viewer-search-input::placeholder {
+    color: var(--viewer-placeholder-color, #6e6e6e);
+}
+
+/* ============================================================================
+   Data Display Components
+   ============================================================================ */
+
+/* Tables */
+.viewer-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background-color: var(--viewer-table-bg, #1e1e1e);
+}
+
+.viewer-table th {
+    background-color: var(--viewer-table-header-bg, #2d2d30);
+    color: var(--viewer-table-header-color, #cccccc);
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 1px solid var(--viewer-border, #3e3e42);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.viewer-table th:hover {
+    background-color: var(--viewer-table-header-hover-bg, #3c3c3c);
+    cursor: pointer;
+}
+
+.viewer-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--viewer-border-light, #2d2d30);
+    color: var(--viewer-table-cell-color, #d4d4d4);
+}
+
+.viewer-table tr:hover {
+    background-color: var(--viewer-table-row-hover-bg, #2a2a2a);
+}
+
+.viewer-table tr.selected {
+    background-color: var(--viewer-table-row-selected-bg, #094771);
+}
+
+/* Code/Text Display */
+.viewer-code-block {
+    background-color: var(--viewer-code-bg, #1e1e1e);
+    padding: 12px;
+    border-radius: 4px;
+    border: 1px solid var(--viewer-border, #3e3e42);
+    overflow-x: auto;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--viewer-code-color, #d4d4d4);
+}
+
+.viewer-code-block pre {
+    margin: 0;
+}
+
+/* JSON Display */
+.viewer-json {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.viewer-json-key {
+    color: var(--viewer-json-key-color, #9cdcfe);
+}
+
+.viewer-json-string {
+    color: var(--viewer-json-string-color, #ce9178);
+}
+
+.viewer-json-number {
+    color: var(--viewer-json-number-color, #b5cea8);
+}
+
+.viewer-json-boolean {
+    color: var(--viewer-json-boolean-color, #569cd6);
+}
+
+.viewer-json-null {
+    color: var(--viewer-json-null-color, #569cd6);
+}
+
+/* ============================================================================
+   Status Indicators & Badges
+   ============================================================================ */
+
+.viewer-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.viewer-badge-success {
+    background-color: var(--viewer-badge-success-bg, #2ea043);
+    color: var(--viewer-badge-success-fg, #ffffff);
+}
+
+.viewer-badge-error {
+    background-color: var(--viewer-badge-error-bg, #da3633);
+    color: var(--viewer-badge-error-fg, #ffffff);
+}
+
+.viewer-badge-warning {
+    background-color: var(--viewer-badge-warning-bg, #bf8700);
+    color: var(--viewer-badge-warning-fg, #ffffff);
+}
+
+.viewer-badge-info {
+    background-color: var(--viewer-badge-info-bg, #0969da);
+    color: var(--viewer-badge-info-fg, #ffffff);
+}
+
+/* ============================================================================
+   Loading & Empty States
+   ============================================================================ */
+
+.viewer-loading {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: var(--viewer-loading-color, #858585);
+}
+
+.viewer-spinner {
+    border: 3px solid var(--viewer-spinner-border, #3e3e42);
+    border-top: 3px solid var(--viewer-spinner-active, #0e639c);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.viewer-empty {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: var(--viewer-empty-color, #858585);
+    text-align: center;
+    padding: 20px;
+}
+
+.viewer-empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.viewer-empty-message {
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.viewer-empty-hint {
+    font-size: 12px;
+    color: var(--viewer-hint-color, #6e6e6e);
+}
+
+/* ============================================================================
+   Error Display
+   ============================================================================ */
+
+.viewer-error {
+    background-color: var(--viewer-error-bg, #3f1f1f);
+    border: 1px solid var(--viewer-error-border, #be1100);
+    border-radius: 4px;
+    padding: 12px;
+    margin: 12px;
+    color: var(--viewer-error-color, #f85149);
+}
+
+.viewer-error-title {
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.viewer-error-message {
+    font-size: 13px;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+/* ============================================================================
+   Virtual Scrolling Support
+   ============================================================================ */
+
+.viewer-virtual-scroll {
+    position: relative;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.viewer-virtual-scroll-spacer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1px;
+    pointer-events: none;
+}
+
+.viewer-virtual-scroll-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+}
+
+/* ============================================================================
+   Responsive Design
+   ============================================================================ */
+
+@media (max-width: 1024px) {
+    .viewer-container {
+        width: 95%;
+        height: 95%;
+    }
+
+    .viewer-sidebar {
+        width: 200px;
+    }
+
+    .viewer-details {
+        width: 250px;
+    }
+}
+
+@media (max-width: 768px) {
+    .viewer-container {
+        width: 100%;
+        height: 100%;
+        border-radius: 0;
+    }
+
+    .viewer-split {
+        flex-direction: column;
+    }
+
+    .viewer-panel-left {
+        border-right: none;
+        border-bottom: 1px solid var(--viewer-border, #3e3e42);
+        max-height: 40%;
+    }
+
+    .viewer-three-panel {
+        flex-direction: column;
+    }
+
+    .viewer-sidebar,
+    .viewer-details {
+        width: 100%;
+        border: none;
+        border-bottom: 1px solid var(--viewer-border, #3e3e42);
+        max-height: 30%;
+    }
+}
+
+/* ============================================================================
+   Theme Support (Dark/Light)
+   ============================================================================ */
+
+/* Default is dark theme, variables can be overridden for light theme */
+:root {
+    --viewer-bg: #1e1e1e;
+    --viewer-fg: #d4d4d4;
+    --viewer-header-bg: #252526;
+    --viewer-border: #3e3e42;
+    --viewer-title-color: #cccccc;
+    --viewer-subtitle-color: #858585;
+
+    --viewer-btn-bg: #3c3c3c;
+    --viewer-btn-fg: #cccccc;
+    --viewer-btn-hover-bg: #505050;
+    --viewer-btn-primary-bg: #0e639c;
+    --viewer-btn-primary-hover-bg: #1177bb;
+
+    --viewer-panel-bg: #1e1e1e;
+    --viewer-panel-header-bg: #2d2d30;
+    --viewer-sidebar-bg: #252526;
+    --viewer-details-bg: #252526;
+
+    --viewer-table-bg: #1e1e1e;
+    --viewer-table-header-bg: #2d2d30;
+    --viewer-table-row-hover-bg: #2a2a2a;
+    --viewer-table-row-selected-bg: #094771;
+
+    --viewer-code-bg: #1e1e1e;
+    --viewer-code-color: #d4d4d4;
+
+    --viewer-json-key-color: #9cdcfe;
+    --viewer-json-string-color: #ce9178;
+    --viewer-json-number-color: #b5cea8;
+    --viewer-json-boolean-color: #569cd6;
+}
+
+/* Light theme overrides */
+[data-theme="light"] {
+    --viewer-bg: #ffffff;
+    --viewer-fg: #1e1e1e;
+    --viewer-header-bg: #f3f3f3;
+    --viewer-border: #e5e5e5;
+    --viewer-title-color: #1e1e1e;
+    --viewer-subtitle-color: #6e6e6e;
+
+    --viewer-btn-bg: #f3f3f3;
+    --viewer-btn-fg: #1e1e1e;
+    --viewer-btn-hover-bg: #e5e5e5;
+
+    --viewer-panel-bg: #ffffff;
+    --viewer-panel-header-bg: #f3f3f3;
+    --viewer-sidebar-bg: #f9f9f9;
+    --viewer-details-bg: #f9f9f9;
+
+    --viewer-table-bg: #ffffff;
+    --viewer-table-header-bg: #f3f3f3;
+    --viewer-table-row-hover-bg: #f9f9f9;
+    --viewer-table-row-selected-bg: #cfe8fc;
+}
+/* ============================================================================
+   Export Dialog Styles (T052)
+   ============================================================================ */
+
+.export-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 10000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(2px);
+}
+
+.export-dialog {
+    background-color: var(--viewer-bg, #1e1e1e);
+    color: var(--viewer-fg, #d4d4d4);
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    width: 90%;
+    max-width: 500px;
+    overflow: hidden;
+    animation: slideIn 0.3s ease-out;
+}
+
+.export-dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background-color: var(--viewer-header-bg, #252526);
+    border-bottom: 1px solid var(--viewer-border, #3e3e42);
+}
+
+.export-dialog-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--viewer-title-color, #cccccc);
+}
+
+.export-dialog-close {
+    background: none;
+    border: none;
+    color: var(--viewer-fg, #d4d4d4);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.export-dialog-close:hover {
+    background-color: var(--viewer-btn-hover-bg, #2a2a2a);
+}
+
+.export-dialog-body {
+    padding: 20px;
+}
+
+.export-option {
+    margin-bottom: 12px;
+}
+
+.export-option label {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    cursor: pointer;
+    padding: 12px;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+}
+
+.export-option label:hover {
+    background-color: var(--viewer-btn-hover-bg, #2a2a2a);
+}
+
+.export-option input[type="radio"] {
+    margin-top: 3px;
+    cursor: pointer;
+    accent-color: var(--viewer-btn-primary-bg, #0e639c);
+}
+
+.export-format-label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.export-format-label strong {
+    font-size: 14px;
+    color: var(--viewer-fg, #d4d4d4);
+}
+
+.export-format-label small {
+    font-size: 12px;
+    color: var(--viewer-subtitle-color, #858585);
+}
+
+.export-info {
+    margin-top: 20px;
+    padding: 12px;
+    background-color: var(--viewer-panel-header-bg, #2d2d30);
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.export-info p {
+    margin: 4px 0;
+}
+
+.export-warning {
+    color: var(--viewer-warning-color, #f59e0b);
+    font-style: italic;
+}
+
+.export-dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 16px 20px;
+    background-color: var(--viewer-panel-header-bg, #2d2d30);
+    border-top: 1px solid var(--viewer-border, #3e3e42);
+}
+
+/* ============================================================================
+   Enhanced Error Display (T053)
+   ============================================================================ */
+
+.viewer-error-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+.viewer-error-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--viewer-error-color, #f44336);
+}
+
+.viewer-error-message {
+    font-size: 14px;
+    margin-bottom: 16px;
+    line-height: 1.5;
+}
+
+.viewer-error-details {
+    margin-top: 16px;
+    padding: 12px;
+    background-color: var(--viewer-code-bg, #1e1e1e);
+    border-radius: 6px;
+    border: 1px solid var(--viewer-border, #3e3e42);
+}
+
+.viewer-error-details summary {
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    user-select: none;
+}
+
+.viewer-error-details pre {
+    margin: 8px 0 0 0;
+    padding: 12px;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    overflow-x: auto;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.viewer-error-actions {
+    margin-top: 20px;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+/* ============================================================================
+   Enhanced Loading States & Progress Indicators (T054)
+   ============================================================================ */
+
+.viewer-loading-message {
+    margin-top: 12px;
+    font-size: 14px;
+    color: var(--viewer-subtitle-color, #858585);
+}
+
+.viewer-progress-bar {
+    width: 200px;
+    height: 4px;
+    background-color: var(--viewer-border, #3e3e42);
+    border-radius: 2px;
+    margin: 16px auto 8px;
+    overflow: hidden;
+}
+
+.viewer-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, 
+        var(--viewer-btn-primary-bg, #0e639c),
+        var(--viewer-btn-primary-hover-bg, #1177bb));
+    transition: width 0.3s ease;
+    border-radius: 2px;
+}
+
+.viewer-progress-text {
+    font-size: 12px;
+    color: var(--viewer-subtitle-color, #858585);
+    font-weight: 600;
+}
+
+/* Inline loading spinner for buttons */
+.inline-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--viewer-border, #3e3e42);
+    border-top-color: var(--viewer-btn-primary-bg, #0e639c);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.viewer-btn.loading {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* Loading overlay for specific sections */
+.section-loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    backdrop-filter: blur(2px);
+}
+
+.section-loading-overlay .viewer-spinner {
+    width: 32px;
+    height: 32px;
+}
+
+/* ============================================================================
+   Keyboard Shortcuts Dialog (T055)
+   ============================================================================ */
+
+.keyboard-shortcuts-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 10001;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(2px);
+}
+
+.keyboard-shortcuts-dialog {
+    background-color: var(--viewer-bg, #1e1e1e);
+    color: var(--viewer-fg, #d4d4d4);
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.keyboard-shortcuts-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background-color: var(--viewer-header-bg, #252526);
+    border-bottom: 1px solid var(--viewer-border, #3e3e42);
+}
+
+.keyboard-shortcuts-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.shortcuts-close {
+    background: none;
+    border: none;
+    color: var(--viewer-fg, #d4d4d4);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.shortcuts-close:hover {
+    background-color: var(--viewer-btn-hover-bg, #2a2a2a);
+}
+
+.keyboard-shortcuts-body {
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.shortcuts-group {
+    margin-bottom: 24px;
+}
+
+.shortcuts-group:last-child {
+    margin-bottom: 0;
+}
+
+.shortcuts-group h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--viewer-subtitle-color, #858585);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.shortcuts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.shortcut-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background-color: var(--viewer-panel-header-bg, #2d2d30);
+    border-radius: 6px;
+}
+
+.shortcut-keys {
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 12px;
+    padding: 4px 8px;
+    background-color: var(--viewer-code-bg, #1e1e1e);
+    border: 1px solid var(--viewer-border, #3e3e42);
+    border-radius: 4px;
+    min-width: 60px;
+    text-align: center;
+    box-shadow: 0 2px 0 var(--viewer-border, #3e3e42);
+}
+
+.shortcut-description {
+    flex: 1;
+    margin-left: 16px;
+    font-size: 13px;
+}
+
+/* ============================================================================
+   Enhanced Theme Support (T056)
+   ============================================================================ */
+
+/* Additional theme variables for complete coverage */
+:root {
+    --viewer-success-color: #4caf50;
+    --viewer-warning-color: #f59e0b;
+    --viewer-error-color: #f44336;
+    --viewer-info-color: #2196f3;
+
+    --viewer-input-bg: #2d2d30;
+    --viewer-input-border: #3e3e42;
+    --viewer-input-focus-border: #0e639c;
+
+    --viewer-scrollbar-track: #1e1e1e;
+    --viewer-scrollbar-thumb: #424242;
+    --viewer-scrollbar-thumb-hover: #4e4e4e;
+}
+
+/* Light theme additional variables */
+[data-theme="light"] {
+    --viewer-success-color: #2e7d32;
+    --viewer-warning-color: #ed6c02;
+    --viewer-error-color: #d32f2f;
+    --viewer-info-color: #0288d1;
+
+    --viewer-input-bg: #ffffff;
+    --viewer-input-border: #d0d0d0;
+    --viewer-input-focus-border: #0e639c;
+
+    --viewer-scrollbar-track: #f5f5f5;
+    --viewer-scrollbar-thumb: #c0c0c0;
+    --viewer-scrollbar-thumb-hover: #a0a0a0;
+}
+
+/* Apply theme to viewer overlays */
+.viewer-overlay {
+    color-scheme: light dark;
+}
+
+[data-theme="dark"] .viewer-overlay,
+[data-theme="dark"] .viewer-container {
+    color-scheme: dark;
+}
+
+[data-theme="light"] .viewer-overlay,
+[data-theme="light"] .viewer-container {
+    color-scheme: light;
+}
+
+/* Custom scrollbar theming */
+.viewer-body::-webkit-scrollbar,
+.viewer-panel-content::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+.viewer-body::-webkit-scrollbar-track,
+.viewer-panel-content::-webkit-scrollbar-track {
+    background: var(--viewer-scrollbar-track);
+}
+
+.viewer-body::-webkit-scrollbar-thumb,
+.viewer-panel-content::-webkit-scrollbar-thumb {
+    background: var(--viewer-scrollbar-thumb);
+    border-radius: 6px;
+}
+
+.viewer-body::-webkit-scrollbar-thumb:hover,
+.viewer-panel-content::-webkit-scrollbar-thumb:hover {
+    background: var(--viewer-scrollbar-thumb-hover);
+}
+
+/* Input field theming */
+.viewer-search-input,
+.viewer-container input[type="text"],
+.viewer-container input[type="search"],
+.viewer-container textarea {
+    background-color: var(--viewer-input-bg);
+    border: 1px solid var(--viewer-input-border);
+    color: var(--viewer-fg);
+}
+
+.viewer-search-input:focus,
+.viewer-container input[type="text"]:focus,
+.viewer-container input[type="search"]:focus,
+.viewer-container textarea:focus {
+    border-color: var(--viewer-input-focus-border);
+    outline: none;
+}
+
+/* Badge colors using theme variables */
+.viewer-badge-success { background-color: var(--viewer-success-color); }
+.viewer-badge-warning { background-color: var(--viewer-warning-color); }
+.viewer-badge-error { background-color: var(--viewer-error-color); }
+.viewer-badge-info { background-color: var(--viewer-info-color); }
+
+/* ============================================================================
+   Enhanced Responsive Design (T057)
+   ============================================================================ */
+
+/* Small tablets and large phones (landscape) */
+@media (max-width: 900px) {
+    .viewer-header {
+        padding: 10px 12px;
+    }
+
+    .viewer-title {
+        font-size: 13px;
+    }
+
+    .viewer-subtitle {
+        display: none; /* Hide subtitle on smaller screens */
+    }
+
+    .viewer-btn {
+        padding: 5px 10px;
+        font-size: 11px;
+    }
+
+    .viewer-toolbar {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+}
+
+/* Mobile phones (portrait) */
+@media (max-width: 600px) {
+    .viewer-container {
+        width: 100%;
+        height: 100%;
+        max-width: 100%;
+        max-height: 100%;
+        border-radius: 0;
+    }
+
+    .viewer-header {
+        padding: 8px 10px;
+    }
+
+    .viewer-title {
+        font-size: 12px;
+    }
+
+    .viewer-controls {
+        gap: 6px;
+    }
+
+    .viewer-btn {
+        padding: 4px 8px;
+        font-size: 10px;
+    }
+
+    .viewer-btn-close {
+        width: 28px;
+        height: 28px;
+        font-size: 18px;
+    }
+
+    /* Stack toolbar items vertically on very small screens */
+    .viewer-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .viewer-toolbar-group {
+        flex-wrap: wrap;
+    }
+
+    .viewer-search-box {
+        width: 100%;
+    }
+
+    /* Make tables scrollable horizontally */
+    .viewer-table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Adjust table font sizes */
+    .viewer-table th,
+    .viewer-table td {
+        font-size: 12px;
+        padding: 6px 8px;
+    }
+
+    /* Export dialog adjustments */
+    .export-dialog {
+        width: 95%;
+        max-width: 95%;
+    }
+
+    .export-dialog-header,
+    .export-dialog-footer {
+        padding: 12px 16px;
+    }
+
+    .export-dialog-body {
+        padding: 16px;
+    }
+
+    /* Keyboard shortcuts dialog adjustments */
+    .keyboard-shortcuts-dialog {
+        width: 95%;
+        max-width: 95%;
+    }
+
+    .shortcut-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .shortcut-description {
+        margin-left: 0;
+    }
+
+    /* SQL viewer specific */
+    .sql-viewer-body {
+        flex-direction: column;
+    }
+
+    .sql-panel {
+        width: 100% !important;
+        height: auto;
+        min-height: 200px;
+    }
+
+    .sql-schema-panel {
+        max-height: 30vh;
+        border-right: none;
+        border-bottom: 1px solid var(--viewer-border);
+    }
+
+    /* Cert viewer specific */
+    .cert-viewer-split {
+        flex-direction: column;
+    }
+
+    .cert-chain-panel,
+    .cert-detail-panel {
+        width: 100% !important;
+        border-right: none;
+        border-bottom: 1px solid var(--viewer-border);
+    }
+
+    /* Log viewer specific */
+    .log-entry {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+
+    /* HTTP/Curl viewer specific */
+    .curl-viewer-container .viewer-layout {
+        flex-direction: column;
+    }
+
+    .request-panel,
+    .response-panel {
+        width: 100% !important;
+        border-right: none;
+        border-bottom: 1px solid var(--viewer-border);
+    }
+}
+
+/* Very small devices (portrait phones) */
+@media (max-width: 400px) {
+    .viewer-title-icon {
+        display: none; /* Hide icons on very small screens */
+    }
+
+    .viewer-btn {
+        padding: 4px 6px;
+        font-size: 9px;
+    }
+
+    .export-option label {
+        padding: 8px;
+    }
+
+    .export-format-label strong {
+        font-size: 12px;
+    }
+
+    .export-format-label small {
+        font-size: 10px;
+    }
+}
+
+/* Landscape mode adjustments for mobile */
+@media (max-height: 500px) and (orientation: landscape) {
+    .viewer-container {
+        height: 100%;
+        max-height: 100vh;
+    }
+
+    .viewer-body {
+        max-height: calc(100vh - 100px);
+    }
+
+    .export-dialog,
+    .keyboard-shortcuts-dialog {
+        max-height: 90vh;
+    }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+    /* Increase touch targets */
+    .viewer-btn,
+    .viewer-btn-close {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    .shortcut-item,
+    .export-option label {
+        min-height: 48px;
+    }
+
+    /* Larger checkbox/radio buttons */
+    input[type="checkbox"],
+    input[type="radio"] {
+        width: 20px;
+        height: 20px;
+    }
+
+    /* Better spacing for touch */
+    .viewer-controls {
+        gap: 12px;
+    }
+
+    .shortcuts-list {
+        gap: 12px;
+    }
+}
+
+/* Print styles */
+@media print {
+    .viewer-overlay {
+        background-color: white;
+    }
+
+    .viewer-container {
+        width: 100%;
+        height: auto;
+        max-width: 100%;
+        box-shadow: none;
+    }
+
+    .viewer-header,
+    .viewer-controls,
+    .viewer-btn,
+    .viewer-btn-close {
+        display: none;
+    }
+
+    .viewer-body {
+        overflow: visible;
+    }
+}

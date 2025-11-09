@@ -20,6 +20,12 @@ from src.api.recording_endpoints import router as recording_router, playback_rou
 from src.api.ebook_endpoints import router as ebook_router
 from src.api.performance_endpoints import router as performance_router
 
+# T010: Import cat command routers
+from src.api.log_endpoints import router as log_router
+from src.api.cert_endpoints import router as cert_router
+from src.api.sql_endpoints import router as sql_router
+from src.api.http_endpoints import router as http_router
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -416,6 +422,12 @@ app.include_router(recording_router)
 app.include_router(playback_router)
 app.include_router(ebook_router)
 app.include_router(performance_router)
+
+# T010: Include cat command routers
+app.include_router(log_router)
+app.include_router(cert_router)
+app.include_router(sql_router)
+app.include_router(http_router)
 
 
 # WebSocket endpoints

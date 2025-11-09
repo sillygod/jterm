@@ -35,6 +35,13 @@ markdown==3.5.1
 httpx==0.25.2
 aiohttp==3.9.1
 
+# Cat Commands Dependencies (003-cat-commands feature)
+asyncpg==0.28.0
+cryptography>=41.0.0
+python-dateutil>=2.8.0
+openpyxl>=3.1.0
+certifi>=2023.0.0
+
 # Development and Testing
 pytest==7.4.3
 pytest-asyncio==0.21.1

@@ -1,0 +1,227 @@
+#!/bin/bash
+# curlcat - Web-enhanced HTTP client for jterm
+# Usage: curlcat <url> [options]
+
+# Default values
+URL=""
+METHOD="GET"
+HEADERS=()
+BODY=""
+AUTH_TYPE="none"
+AUTH_CREDS=""
+FOLLOW_REDIRECTS=true
+TIMEOUT=30
+VERIFY_SSL=true
+ENV_VARS=()
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -X|--request)
+            METHOD="$2"
+            shift 2
+            ;;
+        -H|--header)
+            HEADERS+=("$2")
+            shift 2
+            ;;
+        -d|--data)
+            BODY="$2"
+            METHOD="POST"  # Auto-set POST for data
+            shift 2
+            ;;
+        --json)
+            BODY="$2"
+            METHOD="POST"
+            HEADERS+=("Content-Type: application/json")
+            shift 2
+            ;;
+        -u|--user)
+            AUTH_TYPE="basic"
+            AUTH_CREDS="$2"
+            shift 2
+            ;;
+        --bearer)
+            AUTH_TYPE="bearer"
+            AUTH_CREDS="$2"
+            shift 2
+            ;;
+        --api-key)
+            AUTH_TYPE="api_key"
+            AUTH_CREDS="$2"
+            shift 2
+            ;;
+        --no-follow)
+            FOLLOW_REDIRECTS=false
+            shift
+            ;;
+        --timeout)
+            TIMEOUT="$2"
+            shift 2
+            ;;
+        -k|--insecure)
+            VERIFY_SSL=false
+            shift
+            ;;
+        --env)
+            ENV_VARS+=("$2")
+            shift 2
+            ;;
+        --history)
+            # Special case: show history instead of making request
+            printf '\033]1337;HTTPRequest=action=history\007'
+            exit 0
+            ;;
+        --help|-h)
+            echo "Usage: curlcat <url> [options]"
+            echo ""
+            echo "HTTP Methods:"
+            echo "  -X, --request METHOD      HTTP method (GET, POST, PUT, DELETE, etc.)"
+            echo ""
+            echo "Data:"
+            echo "  -d, --data DATA           Request body (sets POST method)"
+            echo "  --json DATA               Send JSON data (sets Content-Type header)"
+            echo ""
+            echo "Headers:"
+            echo "  -H, --header HEADER       Add custom header (can be used multiple times)"
+            echo ""
+            echo "Authentication:"
+            echo "  -u, --user USER:PASS      Basic authentication"
+            echo "  --bearer TOKEN            Bearer token authentication"
+            echo "  --api-key KEY             API key authentication"
+            echo ""
+            echo "Options:"
+            echo "  --no-follow               Don't follow redirects"
+            echo "  --timeout SECONDS         Request timeout (default: 30)"
+            echo "  -k, --insecure            Don't verify SSL certificates"
+            echo "  --env VAR=VALUE           Environment variable for substitution"
+            echo "  --history                 Show request history"
+            echo "  --help, -h                Show this help message"
+            echo ""
+            echo "Examples:"
+            echo "  curlcat https://api.github.com/users/octocat"
+            echo "  curlcat https://httpbin.org/post -d '{\"name\":\"test\"}'"
+            echo "  curlcat https://api.example.com -H \"Authorization: Bearer \$TOKEN\""
+            echo "  curlcat https://api.example.com --bearer \$API_TOKEN"
+            echo "  curlcat '{{BASE_URL}}/users' --env BASE_URL=https://api.example.com"
+            exit 0
+            ;;
+        -*)
+            echo "Unknown option: $1" >&2
+            exit 1
+            ;;
+        *)
+            if [[ -z "$URL" ]]; then
+                URL="$1"
+            else
+                echo "Too many arguments" >&2
+                exit 1
+            fi
+            shift
+            ;;
+    esac
+done
+
+# Validate required arguments
+if [[ -z "$URL" ]]; then
+    echo "Error: No URL specified" >&2
+    echo "Usage: curlcat <url> [options]" >&2
+    exit 1
+fi
+
+# Validate URL format
+if [[ "$URL" != http://* && "$URL" != https://* && "$URL" != "{{*}}"* ]]; then
+    echo "Error: URL must start with http:// or https:// (or be a template variable)" >&2
+    exit 1
+fi
+
+# Validate timeout
+if ! [[ "$TIMEOUT" =~ ^[0-9]+$ ]] || [[ "$TIMEOUT" -lt 1 ]] || [[ "$TIMEOUT" -gt 300 ]]; then
+    echo "Error: Timeout must be between 1 and 300 seconds" >&2
+    exit 1
+fi
+
+# Build headers parameter
+HEADERS_PARAM=""
+if [[ ${#HEADERS[@]} -gt 0 ]]; then
+    for header in "${HEADERS[@]}"; do
+        HEADERS_PARAM="$HEADERS_PARAM$header|"
+    done
+    HEADERS_PARAM=${HEADERS_PARAM%|}  # Remove trailing |
+fi
+
+# Build environment variables parameter
+ENV_PARAM=""
+if [[ ${#ENV_VARS[@]} -gt 0 ]]; then
+    for env_var in "${ENV_VARS[@]}"; do
+        ENV_PARAM="$ENV_PARAM$env_var|"
+    done
+    ENV_PARAM=${ENV_PARAM%|}  # Remove trailing |
+fi
+
+# Build JSON payload for OSC sequence
+# Escape special characters for JSON
+escape_json() {
+    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\n/\\n/g; s/\r/\\r/g; s/\t/\\t/g'
+}
+
+JSON_PAYLOAD="{"
+JSON_PAYLOAD="${JSON_PAYLOAD}\"url\":\"$(escape_json "$URL")\","
+JSON_PAYLOAD="${JSON_PAYLOAD}\"method\":\"$METHOD\","
+JSON_PAYLOAD="${JSON_PAYLOAD}\"follow_redirects\":$FOLLOW_REDIRECTS,"
+JSON_PAYLOAD="${JSON_PAYLOAD}\"timeout\":$TIMEOUT,"
+JSON_PAYLOAD="${JSON_PAYLOAD}\"verify_ssl\":$VERIFY_SSL,"
+JSON_PAYLOAD="${JSON_PAYLOAD}\"auth_type\":\"$AUTH_TYPE\""
+
+# Add headers (convert pipe-separated headers to JSON object)
+JSON_PAYLOAD="${JSON_PAYLOAD},\"headers\":{"
+if [[ -n "$HEADERS_PARAM" ]]; then
+    FIRST=true
+    IFS='|' read -ra HEADER_ARRAY <<< "$HEADERS_PARAM"
+    for header in "${HEADER_ARRAY[@]}"; do
+        if [[ "$header" =~ ^([^:]+):(.+)$ ]]; then
+            key="${BASH_REMATCH[1]}"
+            value="${BASH_REMATCH[2]}"
+            if [[ "$FIRST" == true ]]; then
+                FIRST=false
+            else
+                JSON_PAYLOAD="${JSON_PAYLOAD},"
+            fi
+            JSON_PAYLOAD="${JSON_PAYLOAD}\"$(escape_json "$key")\":\"$(escape_json "$value")\""
+        fi
+    done
+fi
+JSON_PAYLOAD="${JSON_PAYLOAD}}"
+
+if [[ -n "$BODY" ]]; then
+    JSON_PAYLOAD="${JSON_PAYLOAD},\"body\":\"$(escape_json "$BODY")\""
+fi
+
+if [[ -n "$AUTH_CREDS" ]]; then
+    JSON_PAYLOAD="${JSON_PAYLOAD},\"auth_credentials\":\"$(escape_json "$AUTH_CREDS")\""
+fi
+
+# Add environment variables (convert pipe-separated env vars to JSON object)
+JSON_PAYLOAD="${JSON_PAYLOAD},\"environment\":{"
+if [[ -n "$ENV_PARAM" ]]; then
+    FIRST=true
+    IFS='|' read -ra ENV_ARRAY <<< "$ENV_PARAM"
+    for env_var in "${ENV_ARRAY[@]}"; do
+        if [[ "$env_var" =~ ^([^=]+)=(.+)$ ]]; then
+            key="${BASH_REMATCH[1]}"
+            value="${BASH_REMATCH[2]}"
+            if [[ "$FIRST" == true ]]; then
+                FIRST=false
+            else
+                JSON_PAYLOAD="${JSON_PAYLOAD},"
+            fi
+            JSON_PAYLOAD="${JSON_PAYLOAD}\"$(escape_json "$key")\":\"$(escape_json "$value")\""
+        fi
+    done
+fi
+JSON_PAYLOAD="${JSON_PAYLOAD}}"
+
+JSON_PAYLOAD="${JSON_PAYLOAD}}"
+
+# Send OSC 1337 sequence to trigger HTTP client
+printf '\033]1337;HTTPRequest=%s\007' "$JSON_PAYLOAD"

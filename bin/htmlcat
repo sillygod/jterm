@@ -1,0 +1,30 @@
+#!/bin/bash
+# Web Terminal HTML Viewer
+# Usage: htmlcat <html_file>
+
+if [ -z "$1" ]; then
+    echo "Usage: htmlcat <html_file>"
+    exit 1
+fi
+
+FILE_PATH="$1"
+
+if [ ! -f "$FILE_PATH" ]; then
+    echo "Error: File not found: $FILE_PATH"
+    exit 1
+fi
+
+ABS_PATH=$(realpath "$FILE_PATH" 2>/dev/null || readlink -f "$FILE_PATH" 2>/dev/null || echo "$FILE_PATH")
+EXT="${FILE_PATH##*.}"
+EXT_LOWER=$(echo "$EXT" | tr '[:upper:]' '[:lower:]')
+
+case "$EXT_LOWER" in
+    html|htm)
+        printf '\033]1337;ViewHTML=%s\007' "$ABS_PATH"
+        ;;
+    *)
+        echo "Error: Not an HTML file: $EXT_LOWER"
+        echo "Supported: html, htm"
+        exit 1
+        ;;
+esac

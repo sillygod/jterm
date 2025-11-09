@@ -1,0 +1,547 @@
+/**
+ * SQL Viewer Specific Styles
+ * T037: SQL viewer three-panel layout
+ */
+
+/* ============================================================================
+   SQL Viewer Container
+   ============================================================================ */
+
+.sql-viewer-container {
+    max-width: 95%;
+    width: 1600px;
+    height: 95%;
+}
+
+/* ============================================================================
+   Three-Panel Layout
+   ============================================================================ */
+
+.sql-viewer-body {
+    display: flex;
+    gap: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
+.sql-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background-color: var(--viewer-bg, #1e1e1e);
+    border-right: 1px solid var(--viewer-border, #3e3e42);
+}
+
+.sql-panel:last-child {
+    border-right: none;
+}
+
+.sql-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background-color: var(--viewer-header-bg, #252526);
+    border-bottom: 1px solid var(--viewer-border, #3e3e42);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--viewer-title-color, #cccccc);
+}
+
+.sql-panel-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 8px;
+}
+
+/* ============================================================================
+   Schema Panel (Left)
+   ============================================================================ */
+
+.sql-schema-panel {
+    border-right: 1px solid var(--viewer-border, #3e3e42);
+    flex-shrink: 0; /* Don't shrink when resized */
+    width: 300px; /* Initial width */
+    min-width: 200px;
+    max-width: 600px;
+}
+
+.sql-schema-tree {
+    font-size: 13px;
+}
+
+.schema-table {
+    margin-bottom: 4px;
+}
+
+.schema-table-name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.15s;
+}
+
+.schema-table-name:hover {
+    background-color: var(--viewer-hover-bg, #2a2d2e);
+}
+
+.schema-expand {
+    font-size: 10px;
+    color: var(--viewer-subtitle-color, #858585);
+    width: 12px;
+}
+
+.schema-icon {
+    font-size: 14px;
+}
+
+.schema-row-count {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--viewer-subtitle-color, #858585);
+}
+
+.schema-columns {
+    margin-left: 24px;
+    padding: 4px 0;
+}
+
+.schema-column {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    font-size: 12px;
+    color: var(--viewer-subtitle-color, #cccccc);
+    border-radius: 3px;
+}
+
+.schema-column:hover {
+    background-color: var(--viewer-hover-bg, #2a2d2e);
+}
+
+.schema-type {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--viewer-subtitle-color, #858585);
+    font-family: monospace;
+}
+
+.sql-refresh-btn,
+.sql-clear-btn {
+    background: none;
+    border: none;
+    color: var(--viewer-subtitle-color, #858585);
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 14px;
+    transition: background-color 0.15s, color 0.15s;
+}
+
+.sql-refresh-btn:hover,
+.sql-clear-btn:hover {
+    background-color: var(--viewer-hover-bg, #2a2d2e);
+    color: var(--viewer-fg, #d4d4d4);
+}
+
+/* ============================================================================
+   Main Panel (Middle) - Query Editor + Results
+   ============================================================================ */
+
+.sql-main-panel {
+    display: flex;
+    flex-direction: column;
+    border-right: none;
+    flex: 1; /* Take remaining space */
+    min-width: 0; /* Allow shrinking below content size */
+}
+
+.sql-editor-section {
+    display: flex;
+    flex-direction: column;
+    border-bottom: 1px solid var(--viewer-border, #3e3e42);
+    min-height: 150px;
+    max-height: 300px;
+}
+
+.sql-editor-controls {
+    display: flex;
+    gap: 6px;
+}
+
+.sql-editor-container {
+    flex: 1;
+    overflow: hidden;
+    background-color: var(--viewer-code-bg, #1e1e1e);
+}
+
+.sql-query-editor {
+    width: 100%;
+    height: 100%;
+    background-color: var(--viewer-code-bg, #1e1e1e);
+    color: var(--viewer-code-fg, #d4d4d4);
+    border: none;
+    outline: none;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 12px;
+    resize: none;
+    tab-size: 4;
+}
+
+.sql-query-editor:focus {
+    outline: 1px solid var(--viewer-focus-border, #007acc);
+}
+
+.sql-results-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.sql-results-info {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--viewer-subtitle-color, #858585);
+    font-weight: normal;
+}
+
+.sql-results-container {
+    flex: 1;
+    overflow: auto;
+    background-color: var(--viewer-bg, #1e1e1e);
+    position: relative;
+}
+
+/* ============================================================================
+   Results Table
+   ============================================================================ */
+
+.sql-results-table {
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+}
+
+.sql-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.sql-table thead {
+    position: sticky;
+    top: 0;
+    background-color: var(--viewer-header-bg, #252526);
+    z-index: 10;
+}
+
+.sql-table th {
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid var(--viewer-border, #3e3e42);
+    color: var(--viewer-title-color, #cccccc);
+    white-space: nowrap;
+}
+
+.sql-table td {
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--viewer-border, #3e3e42);
+    color: var(--viewer-fg, #d4d4d4);
+    max-width: 400px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sql-table tbody tr:hover {
+    background-color: var(--viewer-hover-bg, #2a2d2e);
+}
+
+.sql-table td em {
+    color: var(--viewer-subtitle-color, #858585);
+    font-style: italic;
+}
+
+.sql-no-results,
+.sql-more-results {
+    padding: 20px;
+    text-align: center;
+    color: var(--viewer-subtitle-color, #858585);
+    font-size: 13px;
+}
+
+.sql-more-results {
+    padding: 12px;
+    background-color: var(--viewer-info-bg, #1a3a52);
+    border-top: 1px solid var(--viewer-info-border, #2b5a7a);
+}
+
+/* ============================================================================
+   Chart Container
+   ============================================================================ */
+
+.sql-chart-container {
+    width: 100%;
+    height: 100%;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sql-chart-container canvas {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+/* ============================================================================
+   History Panel (Right)
+   ============================================================================ */
+
+.sql-history-panel {
+    border-left: 1px solid var(--viewer-border, #3e3e42);
+    width: 300px;
+    flex-shrink: 0; /* Don't shrink */
+}
+
+.sql-query-history {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sql-history-item {
+    padding: 8px;
+    background-color: var(--viewer-item-bg, #252526);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.15s;
+    border: 1px solid transparent;
+}
+
+.sql-history-item:hover {
+    background-color: var(--viewer-hover-bg, #2a2d2e);
+    border-color: var(--viewer-border, #3e3e42);
+}
+
+.sql-history-time {
+    font-size: 11px;
+    color: var(--viewer-subtitle-color, #858585);
+    margin-bottom: 4px;
+}
+
+.sql-history-query {
+    font-size: 12px;
+    font-family: monospace;
+    color: var(--viewer-fg, #d4d4d4);
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sql-history-meta {
+    font-size: 11px;
+    color: var(--viewer-subtitle-color, #858585);
+}
+
+.sql-no-history {
+    padding: 20px;
+    text-align: center;
+    color: var(--viewer-subtitle-color, #858585);
+    font-size: 12px;
+}
+
+/* ============================================================================
+   Status Bar
+   ============================================================================ */
+
+.viewer-statusbar {
+    padding: 6px 12px;
+    background-color: var(--viewer-header-bg, #252526);
+    border-top: 1px solid var(--viewer-border, #3e3e42);
+    font-size: 11px;
+    color: var(--viewer-subtitle-color, #858585);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* ============================================================================
+   Loading States
+   ============================================================================ */
+
+.viewer-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    color: var(--viewer-subtitle-color, #858585);
+}
+
+.viewer-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--viewer-border, #3e3e42);
+    border-top-color: var(--viewer-accent, #007acc);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.viewer-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    color: var(--viewer-error-color, #f48771);
+    text-align: center;
+}
+
+.viewer-error-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+/* ============================================================================
+   Tab System (Schema / ER Diagram)
+   ============================================================================ */
+
+.sql-panel-tabs {
+    display: flex;
+    gap: 4px;
+}
+
+.sql-tab-btn {
+    background: none;
+    border: none;
+    color: var(--viewer-subtitle-color, #858585);
+    cursor: pointer;
+    padding: 4px 12px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 500;
+    transition: background-color 0.15s, color 0.15s;
+    border-bottom: 2px solid transparent;
+}
+
+.sql-tab-btn:hover {
+    background-color: var(--viewer-hover-bg, #2a2d2e);
+    color: var(--viewer-fg, #d4d4d4);
+}
+
+.sql-tab-btn.active {
+    color: var(--viewer-accent, #007acc);
+    border-bottom-color: var(--viewer-accent, #007acc);
+}
+
+.sql-tab-content {
+    display: none;
+    height: 100%;
+    overflow: auto;
+}
+
+.sql-tab-content.active {
+    display: block;
+}
+
+/* ============================================================================
+   Panel Resize Handle
+   ============================================================================ */
+
+.panel-resize-handle {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    cursor: col-resize;
+    background-color: transparent;
+    transition: background-color 0.15s;
+    z-index: 100;
+}
+
+.panel-resize-handle:hover,
+.panel-resize-handle.resizing {
+    background-color: var(--viewer-accent, #007acc);
+}
+
+.sql-schema-panel {
+    position: relative;
+}
+
+/* ============================================================================
+   ER Diagram Styles
+   ============================================================================ */
+
+.sql-er-diagram {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+    background-color: var(--viewer-bg, #1e1e1e);
+    padding: 0;
+}
+
+.er-diagram-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    transition: transform 0.1s ease-out;
+}
+
+.er-diagram-hint {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: var(--viewer-header-bg, #252526);
+    color: var(--viewer-subtitle-color, #858585);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 11px;
+    border: 1px solid var(--viewer-border, #3e3e42);
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* SVG styles are inline in the JavaScript to use CSS variables */
+
+/* ============================================================================
+   Responsive Design
+   ============================================================================ */
+
+@media (max-width: 1200px) {
+    .sql-history-panel {
+        width: 250px;
+    }
+}
+
+@media (max-width: 900px) {
+    .sql-history-panel {
+        width: 200px;
+    }
+
+    .sql-panel-header {
+        font-size: 11px;
+    }
+
+    .sql-tab-btn {
+        font-size: 11px;
+        padding: 3px 8px;
+    }
+}

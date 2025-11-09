@@ -1,0 +1,505 @@
+/**
+ * Certificate Viewer Specific Styles
+ * T027: CSS styles for certcat viewer
+ *
+ * Extends shared-viewers.css with certificate-specific styling
+ */
+
+/* Import shared viewer base styles */
+@import url('/static/css/shared-viewers.css');
+
+/* ============================================================================
+   Certificate Viewer Layout
+   ============================================================================ */
+
+.cert-viewer-container {
+    /* Certificate viewer uses wider panels for detailed information */
+}
+
+.cert-viewer-split {
+    /* Split layout: 40% chain visualization, 60% details */
+}
+
+.cert-chain-panel {
+    flex: 0 0 40%;
+    min-width: 350px;
+    max-width: 500px;
+}
+
+.cert-detail-panel {
+    flex: 1;
+    min-width: 400px;
+}
+
+/* ============================================================================
+   Certificate Chain Visualization (Simple)
+   ============================================================================ */
+
+.cert-chain-visualization {
+    padding: 16px;
+    overflow-y: auto;
+    height: 100%;
+}
+
+.cert-chain-simple {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+}
+
+.cert-chain-item {
+    background-color: var(--viewer-code-bg, #2d2d30);
+    border: 1px solid var(--viewer-border, #3e3e42);
+    border-radius: 6px;
+    padding: 16px;
+    width: 100%;
+    max-width: 350px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.cert-chain-item:hover {
+    background-color: var(--viewer-table-row-hover-bg, #2a2a2a);
+    border-color: var(--viewer-btn-primary-bg, #0e639c);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.cert-chain-item-selected {
+    background-color: var(--viewer-table-row-selected-bg, #094771);
+    border: 2px solid var(--viewer-btn-primary-bg, #0e639c);
+    font-weight: 600;
+}
+
+.cert-chain-item-leaf {
+    border-left: 4px solid #0969da; /* Blue for leaf */
+}
+
+.cert-chain-item-intermediate {
+    border-left: 4px solid #bf8700; /* Orange for intermediate */
+}
+
+.cert-chain-item-root {
+    border-left: 4px solid #1a7f37; /* Green for root */
+}
+
+.cert-chain-item-single {
+    border-left: 4px solid #8250df; /* Purple for standalone */
+}
+
+.cert-chain-icon {
+    font-size: 32px;
+    margin-bottom: 8px;
+}
+
+.cert-chain-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--viewer-fg, #d4d4d4);
+    margin-bottom: 4px;
+    word-break: break-word;
+}
+
+.cert-chain-type {
+    font-size: 11px;
+    color: var(--viewer-subtitle-color, #858585);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.cert-chain-warning {
+    margin-top: 8px;
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background-color: var(--viewer-error-bg, #3f1f1f);
+    color: var(--viewer-badge-error-fg, #f85149);
+}
+
+.cert-chain-arrow {
+    font-size: 24px;
+    color: var(--viewer-subtitle-color, #858585);
+    margin: 8px 0;
+}
+
+/* ============================================================================
+   Certificate Chain Summary
+   ============================================================================ */
+
+.cert-chain-summary {
+    margin-top: 24px;
+    padding: 16px;
+    background-color: var(--viewer-code-bg, #2d2d30);
+    border: 1px solid var(--viewer-border, #3e3e42);
+    border-radius: 6px;
+}
+
+.cert-chain-summary-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 12px;
+}
+
+.cert-chain-summary-item:last-child {
+    margin-bottom: 0;
+}
+
+.cert-chain-summary-label {
+    color: var(--viewer-subtitle-color, #858585);
+    font-weight: 600;
+}
+
+.cert-chain-summary-value {
+    color: var(--viewer-fg, #d4d4d4);
+}
+
+.cert-trusted {
+    color: #1a7f37;
+    font-weight: 600;
+}
+
+.cert-untrusted {
+    color: #da3633;
+    font-weight: 600;
+}
+
+/* ============================================================================
+   Certificate Details Panel
+   ============================================================================ */
+
+.cert-detail {
+    padding: 24px 28px;
+    overflow-y: auto;
+    height: 100%;
+    font-size: 13px;
+    background-color: var(--viewer-bg, #1e1e1e);
+}
+
+/* Certificate Warnings */
+.cert-warnings {
+    margin-bottom: 20px;
+}
+
+.cert-warning {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    border-left: 4px solid;
+}
+
+.cert-warning-error {
+    background-color: var(--viewer-error-bg, #3f1f1f);
+    border-left-color: var(--viewer-badge-error-bg, #da3633);
+}
+
+.cert-warning-warning {
+    background-color: rgba(191, 135, 0, 0.15);
+    border-left-color: #bf8700;
+}
+
+.cert-warning-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.cert-warning-message {
+    color: var(--viewer-fg, #d4d4d4);
+    font-size: 13px;
+}
+
+/* Certificate Sections */
+.cert-section {
+    margin-bottom: 28px;
+    padding: 20px;
+    background-color: var(--viewer-item-bg, #252526);
+    border-radius: 8px;
+    border: 1px solid var(--viewer-border, #3e3e42);
+}
+
+.cert-section:last-child {
+    margin-bottom: 0;
+}
+
+.cert-section-header {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--viewer-accent, #007acc);
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--viewer-accent, #007acc);
+}
+
+/* Certificate Fields */
+.cert-field {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    margin-bottom: 14px;
+    gap: 20px;
+    align-items: start;
+    line-height: 1.6;
+}
+
+.cert-field-label {
+    font-weight: 600;
+    color: var(--viewer-subtitle-color, #a0a0a0);
+    font-size: 12px;
+}
+
+.cert-field-value {
+    color: var(--viewer-fg, #e0e0e0);
+    word-break: break-word;
+    font-size: 13px;
+}
+
+.cert-field-mono {
+    font-family: 'SF Mono', 'Monaco', 'Menlo', 'Courier New', monospace;
+    font-size: 11px;
+    background-color: var(--viewer-code-bg, #1e1e1e);
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--viewer-border, #3e3e42);
+}
+
+.cert-fingerprint {
+    font-size: 10px;
+    word-break: break-all;
+    line-height: 1.8;
+    color: var(--viewer-subtitle-color, #999);
+    font-family: 'SF Mono', 'Monaco', 'Menlo', 'Courier New', monospace;
+    background-color: var(--viewer-code-bg, #1e1e1e);
+    padding: 8px 12px;
+    border-radius: 4px;
+    display: block;
+    margin-top: 4px;
+}
+
+/* Certificate Status */
+.cert-status {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+}
+
+.cert-status-trusted {
+    background-color: rgba(26, 127, 55, 0.2);
+    color: #1a7f37;
+    border: 1px solid #1a7f37;
+}
+
+.cert-status-untrusted {
+    background-color: rgba(218, 54, 51, 0.2);
+    color: #da3633;
+    border: 1px solid #da3633;
+}
+
+.cert-status-expired {
+    background-color: rgba(218, 54, 51, 0.2);
+    color: #da3633;
+    border: 1px solid #da3633;
+}
+
+.cert-status-not_yet_valid {
+    background-color: rgba(191, 135, 0, 0.2);
+    color: #bf8700;
+    border: 1px solid #bf8700;
+}
+
+.cert-status-revoked {
+    background-color: rgba(196, 30, 58, 0.2);
+    color: #c41e3a;
+    border: 1px solid #c41e3a;
+}
+
+.cert-status-unknown {
+    background-color: rgba(136, 136, 136, 0.2);
+    color: #888888;
+    border: 1px solid #888888;
+}
+
+.cert-expired,
+.cert-warning-text {
+    color: #da3633;
+    font-weight: 600;
+}
+
+/* Subject Alternative Names */
+.cert-san-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.cert-san-item {
+    background-color: var(--viewer-code-bg, #1e1e1e);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-family: 'SF Mono', 'Monaco', 'Menlo', 'Courier New', monospace;
+    font-size: 12px;
+    color: var(--viewer-fg, #e0e0e0);
+    border-left: 4px solid #0969da;
+    transition: all 0.2s;
+}
+
+.cert-san-item:hover {
+    background-color: var(--viewer-hover-bg, #2a2d2e);
+    border-left-color: #1f6feb;
+}
+
+/* Key Usage */
+.cert-usage-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.cert-usage-item {
+    background-color: var(--viewer-code-bg, #1e1e1e);
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--viewer-fg, #e0e0e0);
+    border: 1px solid var(--viewer-border, #3e3e42);
+    transition: all 0.2s;
+}
+
+.cert-usage-item:hover {
+    background-color: var(--viewer-hover-bg, #2a2d2e);
+    border-color: var(--viewer-accent, #007acc);
+}
+
+/* ============================================================================
+   D3.js Tree Visualization Container (for T029)
+   ============================================================================ */
+
+.cert-chain-tree {
+    width: 100%;
+    height: 100%;
+    min-height: 400px;
+}
+
+.cert-chain-tree svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* Tree node styles (will be used by D3.js) */
+.cert-tree-node {
+    cursor: pointer;
+}
+
+.cert-tree-node circle {
+    fill: var(--viewer-code-bg, #2d2d30);
+    stroke: var(--viewer-border, #3e3e42);
+    stroke-width: 2px;
+}
+
+.cert-tree-node circle:hover {
+    stroke: var(--viewer-btn-primary-bg, #0e639c);
+    stroke-width: 3px;
+}
+
+.cert-tree-node text {
+    font: 12px 'Segoe UI', sans-serif;
+    fill: var(--viewer-fg, #d4d4d4);
+}
+
+.cert-tree-link {
+    fill: none;
+    stroke: var(--viewer-border, #3e3e42);
+    stroke-width: 2px;
+}
+
+/* ============================================================================
+   Responsive Design
+   ============================================================================ */
+
+@media (max-width: 1024px) {
+    .cert-viewer-split {
+        flex-direction: column;
+    }
+
+    .cert-chain-panel {
+        flex: 0 0 300px;
+        max-width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--viewer-border, #3e3e42);
+    }
+
+    .cert-detail-panel {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .cert-field {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .cert-field-value {
+        text-align: left;
+    }
+}
+
+@media (max-width: 768px) {
+    .cert-chain-item {
+        max-width: 100%;
+    }
+
+    .cert-detail {
+        padding: 12px;
+    }
+
+    .cert-field-label {
+        min-width: 0;
+    }
+}
+
+/* ============================================================================
+   Print Styles
+   ============================================================================ */
+
+@media print {
+    .viewer-overlay {
+        position: static;
+        background: none;
+    }
+
+    .viewer-container {
+        width: 100%;
+        height: auto;
+        max-width: none;
+        box-shadow: none;
+    }
+
+    .viewer-header,
+    .viewer-controls,
+    .viewer-btn {
+        display: none;
+    }
+
+    .cert-chain-item {
+        page-break-inside: avoid;
+    }
+
+    .cert-section {
+        page-break-inside: avoid;
+    }
+}

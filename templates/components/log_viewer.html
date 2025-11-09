@@ -1,0 +1,122 @@
+<!--
+    Log Viewer Component - HTMX Template
+    T017: Log viewer template structure
+
+    Note: The LogViewer JavaScript class (log-viewer.js) creates most of the UI dynamically.
+    This template is a minimal fallback/reference structure.
+-->
+
+<!-- Log Viewer Container (created dynamically by log-viewer.js) -->
+<div class="log-viewer-placeholder" style="display: none;">
+    <!-- The JavaScript LogViewer class creates the full structure dynamically -->
+    <!-- This template serves as a reference for the structure -->
+
+    <div class="viewer-overlay" id="log-viewer-overlay">
+        <div class="viewer-container">
+            <!-- Header -->
+            <div class="viewer-header">
+                <div class="viewer-title">
+                    <span class="viewer-title-icon">📋</span>
+                    <span>Log Viewer</span>
+                    <span class="viewer-subtitle">{{ file_name }}</span>
+                </div>
+                <div class="viewer-controls">
+                    <button class="viewer-btn" id="log-export-btn" title="Export logs">
+                        Export
+                    </button>
+                    <button class="viewer-btn-close" title="Close (Esc)">✕</button>
+                </div>
+            </div>
+
+            <!-- Toolbar with filters -->
+            <div class="viewer-toolbar">
+                <!-- Search -->
+                <div class="viewer-search-box">
+                    <input type="text"
+                           class="viewer-search-input"
+                           id="log-search"
+                           placeholder="Search logs (regex)...">
+                </div>
+
+                <div class="viewer-toolbar-separator"></div>
+
+                <!-- Level filters -->
+                <div class="viewer-toolbar-group">
+                    <label class="viewer-filter-label">
+                        <input type="checkbox" value="ERROR" checked> ERROR
+                    </label>
+                    <label class="viewer-filter-label">
+                        <input type="checkbox" value="WARN" checked> WARN
+                    </label>
+                    <label class="viewer-filter-label">
+                        <input type="checkbox" value="INFO" checked> INFO
+                    </label>
+                    <label class="viewer-filter-label">
+                        <input type="checkbox" value="DEBUG"> DEBUG
+                    </label>
+                </div>
+
+                <div class="viewer-toolbar-separator"></div>
+
+                <!-- Statistics -->
+                <div id="log-stats" class="viewer-stats">
+                    {{ total_entries }} entries
+                    {% if error_rate > 0 %}
+                    <span class="stats-error-rate">{{ error_rate }}% errors</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Body with split view -->
+            <div class="viewer-body">
+                <div class="viewer-split">
+                    <!-- Left panel: Log entries list -->
+                    <div class="viewer-panel viewer-panel-left log-entries-panel">
+                        <div class="viewer-panel-header">
+                            Log Entries (<span id="log-entry-count">{{ entry_count }}</span>)
+                        </div>
+                        <div class="viewer-panel-content">
+                            <div id="log-list" class="log-list">
+                                {% for entry in entries %}
+                                <div class="log-entry log-level-{{ entry.level|lower }}{% if entry.is_error %} log-entry-error{% endif %}"
+                                     data-index="{{ loop.index0 }}">
+                                    <span class="log-timestamp">{{ entry.display_time }}</span>
+                                    <span class="log-level viewer-badge viewer-badge-{{ 'error' if entry.level in ['ERROR', 'FATAL'] else 'warning' if entry.level == 'WARN' else 'info' }}">
+                                        {{ entry.level }}
+                                    </span>
+                                    <span class="log-message">{{ entry.message }}</span>
+                                </div>
+                                {% endfor %}
+
+                                {% if not entries %}
+                                <div class="viewer-empty">
+                                    <div class="viewer-empty-message">No log entries to display</div>
+                                    <div class="viewer-empty-hint">Check your filters or try a different log file</div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right panel: Selected entry details -->
+                    <div class="viewer-panel log-detail-panel">
+                        <div class="viewer-panel-header">Entry Details</div>
+                        <div class="viewer-panel-content">
+                            <div id="log-detail" class="log-detail">
+                                <div class="viewer-empty">
+                                    <div class="viewer-empty-message">Select a log entry to view details</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Include log viewer JavaScript -->
+<script src="/static/js/log-viewer.js"></script>
+
+<!-- Include log viewer CSS -->
+<link rel="stylesheet" href="/static/css/log-viewer.css">

@@ -1,0 +1,210 @@
+{% extends "components/base_viewer.html" %}
+
+{% block viewer_title %}HTTP Request Viewer - curlcat{% endblock %}
+
+{% block viewer_styles %}
+<link rel="stylesheet" href="/static/css/curl-viewer.css">
+<link rel="stylesheet" href="/static/css/shared-viewers.css">
+<!-- Prism.js for syntax highlighting -->
+<link href="/static/vendor/prism/themes/prism-tomorrow.min.css" rel="stylesheet" />
+{% endblock %}
+
+{% block viewer_content %}
+<div id="curl-viewer-container" class="curl-viewer">
+    <!-- Split view: Request form + Response/History -->
+    <div class="viewer-layout">
+        <!-- Left Panel: Request Builder -->
+        <div class="request-panel">
+            <div class="panel-header">
+                <h3>Request</h3>
+            </div>
+
+            <div class="request-form">
+                <!-- HTTP Method and URL -->
+                <div class="form-row">
+                    <select id="http-method" class="http-method-select">
+                        <option value="GET">GET</option>
+                        <option value="POST">POST</option>
+                        <option value="PUT">PUT</option>
+                        <option value="DELETE">DELETE</option>
+                        <option value="PATCH">PATCH</option>
+                        <option value="HEAD">HEAD</option>
+                        <option value="OPTIONS">OPTIONS</option>
+                    </select>
+                    <input type="text" id="http-url" class="http-url-input" placeholder="https://api.example.com/endpoint" value="{{ url or '' }}">
+                    <button id="execute-request" class="btn-primary">Send</button>
+                </div>
+
+                <!-- Tabs for different sections -->
+                <div class="request-tabs">
+                    <button class="tab-btn active" data-tab="headers">Headers</button>
+                    <button class="tab-btn" data-tab="body">Body</button>
+                    <button class="tab-btn" data-tab="auth">Auth</button>
+                    <button class="tab-btn" data-tab="options">Options</button>
+                </div>
+
+                <!-- Headers Tab -->
+                <div class="tab-content active" data-tab-content="headers">
+                    <label for="http-headers">Headers (one per line: Key: Value)</label>
+                    <textarea id="http-headers" rows="6" placeholder="Content-Type: application/json&#10;Accept: application/json"></textarea>
+                </div>
+
+                <!-- Body Tab -->
+                <div class="tab-content" data-tab-content="body">
+                    <label for="http-body">Request Body</label>
+                    <textarea id="http-body" rows="10" placeholder='{"key": "value"}'></textarea>
+                </div>
+
+                <!-- Auth Tab -->
+                <div class="tab-content" data-tab-content="auth">
+                    <div class="form-group">
+                        <label for="auth-type">Authentication Type</label>
+                        <select id="auth-type">
+                            <option value="none">None</option>
+                            <option value="basic">Basic Auth</option>
+                            <option value="bearer">Bearer Token</option>
+                            <option value="api_key">API Key</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="auth-credentials">Credentials</label>
+                        <input type="text" id="auth-credentials" placeholder="username:password or token">
+                    </div>
+                </div>
+
+                <!-- Options Tab -->
+                <div class="tab-content" data-tab-content="options">
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="follow-redirects" checked>
+                            Follow Redirects
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="verify-ssl" checked>
+                            Verify SSL Certificates
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label for="timeout">Timeout (seconds)</label>
+                        <input type="number" id="timeout" value="30" min="1" max="300">
+                    </div>
+                </div>
+
+                <!-- Export Buttons -->
+                <div class="export-actions">
+                    <button id="export-curl" class="btn-secondary">Export as curl</button>
+                    <button id="export-python" class="btn-secondary">Export as Python</button>
+                    <button id="export-javascript" class="btn-secondary">Export as JavaScript</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Response + History -->
+        <div class="response-panel">
+            <!-- Tabs for Response and History -->
+            <div class="response-tabs">
+                <button class="tab-btn active" data-tab="response">Response</button>
+                <button class="tab-btn" data-tab="history">History</button>
+                <button class="tab-btn" data-tab="environment">Environment</button>
+            </div>
+
+            <!-- Response Tab -->
+            <div class="tab-content active" data-tab-content="response">
+                <div id="response-container" class="response-container">
+                    <p class="empty-state">Execute a request to see the response</p>
+                </div>
+            </div>
+
+            <!-- History Tab -->
+            <div class="tab-content" data-tab-content="history">
+                <div class="history-header">
+                    <h4>Request History</h4>
+                    <button id="clear-history" class="btn-danger-small">Clear All</button>
+                </div>
+                <div id="request-history" class="request-history">
+                    <p class="empty-state">No request history</p>
+                </div>
+            </div>
+
+            <!-- Environment Variables Tab -->
+            <div class="tab-content" data-tab-content="environment">
+                <div class="environment-section">
+                    <h4>Environment Variables</h4>
+                    <p class="help-text">Use {{VARIABLE_NAME}} in URL, headers, or body to substitute values</p>
+
+                    <div class="add-env-var">
+                        <input type="text" id="env-var-name" placeholder="VARIABLE_NAME" pattern="[A-Z_][A-Z0-9_]*">
+                        <input type="text" id="env-var-value" placeholder="value">
+                        <button id="add-env-var" class="btn-primary">Add</button>
+                    </div>
+
+                    <div id="environment-variables" class="environment-variables">
+                        <p class="empty-state">No environment variables</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block viewer_scripts %}
+<!-- Prism.js for syntax highlighting -->
+<script src="/static/vendor/prism/prism.js"></script>
+<script src="/static/vendor/prism/components/prism-json.min.js"></script>
+<script src="/static/vendor/prism/components/prism-http.min.js"></script>
+
+<!-- CurlViewer JavaScript -->
+<script src="/static/js/curl-viewer.js"></script>
+
+<!-- Tab switching logic -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Tab switching for request form
+    const requestTabs = document.querySelectorAll('.request-tabs .tab-btn');
+    requestTabs.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabName = btn.dataset.tab;
+
+            // Update active button
+            requestTabs.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Update active content
+            const contents = document.querySelectorAll('.request-form .tab-content');
+            contents.forEach(content => {
+                if (content.dataset.tabContent === tabName) {
+                    content.classList.add('active');
+                } else {
+                    content.classList.remove('active');
+                }
+            });
+        });
+    });
+
+    // Tab switching for response panel
+    const responseTabs = document.querySelectorAll('.response-tabs .tab-btn');
+    responseTabs.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabName = btn.dataset.tab;
+
+            // Update active button
+            responseTabs.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Update active content
+            const contents = document.querySelectorAll('.response-panel > .tab-content');
+            contents.forEach(content => {
+                if (content.dataset.tabContent === tabName) {
+                    content.classList.add('active');
+                } else {
+                    content.classList.remove('active');
+                }
+            });
+        });
+    });
+});
+</script>
+{% endblock %}
