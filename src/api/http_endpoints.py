@@ -32,6 +32,7 @@ class ExecuteHTTPRequestModel(BaseModel):
     follow_redirects: bool = Field(default=True, description="Follow redirects")
     timeout_seconds: int = Field(default=30, description="Request timeout")
     verify_ssl: bool = Field(default=True, description="Verify SSL certificates")
+    proxy: Optional[str] = Field(None, description="Proxy URL (e.g., http://proxy.example.com:8080)")
     environment: Dict[str, str] = Field(default_factory=dict, description="Environment variables")
 
 
@@ -94,6 +95,7 @@ async def execute_http_request(request_data: ExecuteHTTPRequestModel):
             follow_redirects=request_data.follow_redirects,
             timeout_seconds=request_data.timeout_seconds,
             verify_ssl=request_data.verify_ssl,
+            proxy=request_data.proxy,
             environment=request_data.environment
         )
 
@@ -148,6 +150,7 @@ async def export_as_code(export_data: ExportCodeRequestModel):
             follow_redirects=export_data.request.follow_redirects,
             timeout_seconds=export_data.request.timeout_seconds,
             verify_ssl=export_data.request.verify_ssl,
+            proxy=export_data.request.proxy,
             environment=export_data.request.environment
         )
 

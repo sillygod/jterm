@@ -168,6 +168,11 @@ class CurlViewer extends BaseViewer {
                     <label for="${this.viewerId}-timeout">Timeout (seconds)</label>
                     <input type="number" id="${this.viewerId}-timeout" value="30" min="1" max="300">
                 </div>
+                <div class="form-group">
+                    <label for="${this.viewerId}-proxy">Proxy (optional)</label>
+                    <input type="text" id="${this.viewerId}-proxy" placeholder="http://proxy.example.com:8080">
+                    <small class="help-text">Enter proxy URL (e.g., http://proxy.example.com:8080 or socks5://proxy:1080)</small>
+                </div>
             </div>
 
             <div class="export-actions">
@@ -359,6 +364,7 @@ class CurlViewer extends BaseViewer {
             const followRedirects = document.getElementById(`${this.viewerId}-follow-redirects`)?.checked ?? true;
             const verifySsl = document.getElementById(`${this.viewerId}-verify-ssl`)?.checked ?? true;
             const timeout = parseInt(document.getElementById(`${this.viewerId}-timeout`)?.value || '30');
+            const proxy = document.getElementById(`${this.viewerId}-proxy`)?.value || null;
 
             if (!url) {
                 this.showError('URL is required');
@@ -383,6 +389,7 @@ class CurlViewer extends BaseViewer {
                 follow_redirects: followRedirects,
                 timeout_seconds: timeout,
                 verify_ssl: verifySsl,
+                proxy: proxy,
                 environment: this.environment
             };
 
@@ -469,60 +476,92 @@ class CurlViewer extends BaseViewer {
             return `${ms.toFixed(0)}ms`;
         };
 
-        // Calculate cumulative times (curl-style)
-        const dnsLookup = timing.dns_lookup_ms || 0;
-        const tcpConnect = dnsLookup + (timing.tcp_connect_ms || 0);
-        const tlsHandshake = tcpConnect + (timing.tls_handshake_ms || 0);
-        const serverProcessing = tlsHandshake + (timing.server_processing_ms || 0);
+        // Individual phase durations - include all phases even if small
+        const phases = [
+            { name: 'DNS Lookup', key: 'dns_lookup_ms', value: timing.dns_lookup_ms || 0, color: '#0969da', class: 'dns' },
+            { name: 'TCP Connect', key: 'tcp_connect_ms', value: timing.tcp_connect_ms || 0, color: '#1f6feb', class: 'tcp' },
+            { name: 'TLS Handshake', key: 'tls_handshake_ms', value: timing.tls_handshake_ms || 0, color: '#388bfd', class: 'tls' },
+            { name: 'Server Wait', key: 'server_processing_ms', value: timing.server_processing_ms || 0, color: '#58a6ff', class: 'wait' },
+            { name: 'Content Transfer', key: 'transfer_ms', value: timing.transfer_ms || 0, color: '#79c0ff', class: 'transfer' }
+        ].filter(phase => phase.value >= 0.1); // Show phases with at least 0.1ms
+
         const total = timing.total_ms;
+
+        // Calculate percentages for waterfall visualization
+        const phaseDetails = phases.map((phase, index) => {
+            const percentage = (phase.value / total * 100).toFixed(1);
+            let startOffset = 0;
+            for (let i = 0; i < index; i++) {
+                startOffset += phases[i].value;
+            }
+            const startPercentage = (startOffset / total * 100).toFixed(1);
+
+            return {
+                ...phase,
+                percentage,
+                startPercentage
+            };
+        });
 
         return `
             <div class="timing-breakdown">
-                <h4>Timing Breakdown</h4>
-                <div class="timing-layout">
-                    <!-- Left: Visual bar chart (30%) -->
-                    <div class="timing-bars-column">
-                        <div class="timing-bars">
-                            ${timing.dns_lookup_ms > 0 ? `<div class="timing-bar timing-bar-dns" style="flex: ${timing.dns_lookup_ms}" title="DNS Lookup: ${formatTime(timing.dns_lookup_ms)}"><span>DNS</span></div>` : ''}
-                            ${timing.tcp_connect_ms > 0 ? `<div class="timing-bar timing-bar-tcp" style="flex: ${timing.tcp_connect_ms}" title="TCP Connect: ${formatTime(timing.tcp_connect_ms)}"><span>TCP</span></div>` : ''}
-                            ${timing.tls_handshake_ms > 0 ? `<div class="timing-bar timing-bar-tls" style="flex: ${timing.tls_handshake_ms}" title="TLS Handshake: ${formatTime(timing.tls_handshake_ms)}"><span>TLS</span></div>` : ''}
-                            ${timing.server_processing_ms > 0 ? `<div class="timing-bar timing-bar-server" style="flex: ${timing.server_processing_ms}" title="Server Processing: ${formatTime(timing.server_processing_ms)}"><span>Wait</span></div>` : ''}
-                            ${timing.transfer_ms > 0 ? `<div class="timing-bar timing-bar-transfer" style="flex: ${timing.transfer_ms}" title="Transfer: ${formatTime(timing.transfer_ms)}"><span>Transfer</span></div>` : ''}
-                        </div>
+                <h4>Request Timing Waterfall</h4>
+
+                <!-- Waterfall visualization -->
+                <div class="timing-waterfall">
+                    <div class="waterfall-chart">
+                        ${phaseDetails.map(phase => `
+                            <div class="waterfall-bar-container">
+                                <div class="waterfall-bar waterfall-bar-${phase.class}"
+                                     style="left: ${phase.startPercentage}%; width: ${phase.percentage}%;"
+                                     data-phase="${phase.name}"
+                                     data-duration="${formatTime(phase.value)}"
+                                     data-percentage="${phase.percentage}%">
+                                    <span class="waterfall-time">${formatTime(phase.value)}</span>
+                                    <span class="waterfall-label-hover">${phase.name}</span>
+                                </div>
+                            </div>
+                        `).join('')}
                     </div>
 
-                    <!-- Right: Timing details (70%) -->
-                    <div class="timing-details-column">
-                        <div class="timing-details">
-                            <div class="timing-row">
-                                <span class="timing-label">time_namelookup:</span>
-                                <span class="timing-value">${formatTime(dnsLookup)}</span>
-                            </div>
-                            <div class="timing-row">
-                                <span class="timing-label">time_connect:</span>
-                                <span class="timing-value">${formatTime(tcpConnect)}</span>
-                            </div>
-                            ${tlsHandshake > 0 ? `
-                                <div class="timing-row">
-                                    <span class="timing-label">time_appconnect:</span>
-                                    <span class="timing-value">${formatTime(tlsHandshake)}</span>
-                                </div>
-                            ` : ''}
-                            <div class="timing-row">
-                                <span class="timing-label">time_pretransfer:</span>
-                                <span class="timing-value">${formatTime(tlsHandshake || tcpConnect)}</span>
-                            </div>
-                            <div class="timing-row">
-                                <span class="timing-label">time_starttransfer:</span>
-                                <span class="timing-value">${formatTime(serverProcessing)}</span>
-                            </div>
-                            <div class="timing-row timing-separator"></div>
-                            <div class="timing-row timing-total-row">
-                                <span class="timing-label">time_total:</span>
-                                <span class="timing-value timing-total-value">${formatTime(total)}</span>
-                            </div>
-                        </div>
+                    <!-- Timeline ruler -->
+                    <div class="waterfall-ruler">
+                        <span class="ruler-marker" style="left: 0%;">0ms</span>
+                        <span class="ruler-marker" style="left: 25%;">${formatTime(total * 0.25)}</span>
+                        <span class="ruler-marker" style="left: 50%;">${formatTime(total * 0.5)}</span>
+                        <span class="ruler-marker" style="left: 75%;">${formatTime(total * 0.75)}</span>
+                        <span class="ruler-marker" style="left: 100%;">${formatTime(total)}</span>
                     </div>
+                </div>
+
+                <!-- Detailed breakdown table -->
+                <div class="timing-details-table">
+                    <table class="timing-table">
+                        <thead>
+                            <tr>
+                                <th>Phase</th>
+                                <th>Duration</th>
+                                <th>Percentage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${phaseDetails.map(phase => `
+                                <tr>
+                                    <td>
+                                        <span class="phase-indicator phase-indicator-${phase.class}"></span>
+                                        ${phase.name}
+                                    </td>
+                                    <td class="timing-duration">${formatTime(phase.value)}</td>
+                                    <td class="timing-percent">${phase.percentage}%</td>
+                                </tr>
+                            `).join('')}
+                            <tr class="timing-total-row">
+                                <td><strong>Total</strong></td>
+                                <td class="timing-duration"><strong>${formatTime(total)}</strong></td>
+                                <td class="timing-percent"><strong>100%</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         `;

@@ -40,6 +40,7 @@ class HTTPRequest:
     follow_redirects: bool = True
     timeout_seconds: int = 30
     verify_ssl: bool = True
+    proxy: Optional[str] = None  # Proxy URL (e.g., "http://proxy.example.com:8080")
 
     # Environment variables (for substitution)
     environment: Dict[str, str] = field(default_factory=dict)
@@ -92,6 +93,7 @@ class HTTPRequest:
             follow_redirects=self.follow_redirects,
             timeout_seconds=self.timeout_seconds,
             verify_ssl=self.verify_ssl,
+            proxy=self.proxy,
             environment=self.environment
         )
 
@@ -122,6 +124,8 @@ class HTTPRequest:
             parts.append("-L")
         if not self.verify_ssl:
             parts.append("-k")
+        if self.proxy:
+            parts.append(f"-x '{self.proxy}'")
 
         parts.append(f"'{self.url}'")
 

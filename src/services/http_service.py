@@ -95,6 +95,10 @@ class HTTPService:
             # Timeout
             curl_cmd.extend(['--max-time', str(request.timeout_seconds)])
 
+            # Proxy
+            if request.proxy:
+                curl_cmd.extend(['-x', request.proxy])
+
             # Write response headers to temp file
             headers_file = tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.txt')
             headers_file.close()
@@ -102,7 +106,7 @@ class HTTPService:
 
             # Add timing output format
             timing_format = (
-                'time_namelookup:%{time_namelookup}\\n'
+                'time_dnslookup:%{time_namelookup}\\n'
                 'time_connect:%{time_connect}\\n'
                 'time_appconnect:%{time_appconnect}\\n'
                 'time_pretransfer:%{time_pretransfer}\\n'
@@ -116,6 +120,9 @@ class HTTPService:
             # Add URL
             curl_cmd.append(request.url)
 
+            # Debug: Log the curl command
+            print(f"[DEBUG] Executing curl command: {' '.join(curl_cmd)}")
+
             # Execute curl
             process = await asyncio.create_subprocess_exec(
                 *curl_cmd,
@@ -127,29 +134,33 @@ class HTTPService:
 
             # Parse output
             output = stdout.decode('utf-8')
-            lines = output.split('\n')
 
             # Extract timing data and response body
             timing_data = {}
-            body_lines = []
             status_code = 200
 
-            for line in lines:
-                if ':' in line and line.startswith('time_'):
-                    key, value = line.split(':', 1)
-                    try:
-                        timing_data[key] = float(value) * 1000  # Convert to ms
-                    except ValueError:
-                        pass
-                elif line.startswith('http_code:'):
-                    try:
-                        status_code = int(line.split(':', 1)[1])
-                    except ValueError:
-                        pass
-                else:
-                    body_lines.append(line)
+            # Split by timing markers - timing data might be appended to last line of body
+            import re
+            timing_pattern = re.compile(r'(time_\w+:[\d.]+|http_code:\d+)')
+            timing_matches = timing_pattern.findall(output)
 
-            response_body = '\n'.join(body_lines).strip()
+            # Parse timing data from matches
+            for match in timing_matches:
+                if ':' in match:
+                    key, value = match.split(':', 1)
+                    if key.startswith('time_'):
+                        try:
+                            timing_data[key] = float(value) * 1000  # Convert to ms
+                        except ValueError:
+                            pass
+                    elif key == 'http_code':
+                        try:
+                            status_code = int(value)
+                        except ValueError:
+                            pass
+
+            # Remove timing data from output to get clean response body
+            response_body = timing_pattern.sub('', output).strip()
 
             # Parse response headers
             response_headers = {}
@@ -170,7 +181,7 @@ class HTTPService:
                     pass
 
             # Build timing breakdown
-            timing.dns_lookup_ms = timing_data.get('time_namelookup', 0)
+            timing.dns_lookup_ms = timing_data.get('time_dnslookup', 0)
             timing.tcp_connect_ms = timing_data.get('time_connect', 0) - timing.dns_lookup_ms
             timing.tls_handshake_ms = timing_data.get('time_appconnect', 0) - timing_data.get('time_connect', 0)
             timing.server_processing_ms = timing_data.get('time_starttransfer', 0) - timing_data.get('time_pretransfer', 0)
@@ -251,10 +262,16 @@ class HTTPService:
                 if 'Authorization' not in request_kwargs['headers']:
                     request_kwargs['headers']['Authorization'] = f"Bearer {request.auth_credentials}"
 
+            # Configure proxy
+            proxy = None
+            if request.proxy:
+                # httpx expects proxies in dict format
+                proxy = {"http://": request.proxy, "https://": request.proxy}
+
             # Execute request
             redirect_chain = []
 
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(proxies=proxy) as client:
                 # Track redirect chain manually if follow_redirects is True
                 response = await client.request(**request_kwargs)
 

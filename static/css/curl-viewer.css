@@ -564,31 +564,75 @@ textarea {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.7);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: 10002;
 }
 
 .export-modal-content {
-    background: white;
+    background: var(--bg-primary, white);
+    color: var(--text-color, #333);
     padding: 2rem;
     border-radius: 8px;
-    max-width: 600px;
+    max-width: 700px;
     width: 90%;
     max-height: 80vh;
     overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
 .export-modal-content h3 {
     margin-top: 0;
+    margin-bottom: 1rem;
+    color: var(--text-color, #333);
+}
+
+.export-modal-content textarea {
+    width: 100%;
+    min-height: 200px;
+    padding: 1rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 4px;
+    background: var(--code-bg, #f8f9fa);
+    color: var(--text-color, #333);
+    resize: vertical;
 }
 
 .export-modal-actions {
     display: flex;
     gap: 0.5rem;
     margin-top: 1rem;
+}
+
+.export-modal-actions button {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.export-modal-actions button:first-child {
+    background: var(--primary-color, #007bff);
+    color: white;
+}
+
+.export-modal-actions button:first-child:hover {
+    background: var(--primary-hover, #0056b3);
+}
+
+.export-modal-actions button:last-child {
+    background: var(--secondary-color, #6c757d);
+    color: white;
+}
+
+.export-modal-actions button:last-child:hover {
+    background: var(--secondary-hover, #5a6268);
 }
 
 /* Responsive Design */
@@ -679,6 +723,12 @@ textarea {
         background: var(--bg-primary);
         color: var(--text-color);
     }
+
+    .export-modal-content textarea {
+        background: var(--code-bg);
+        color: var(--text-color);
+        border-color: var(--border-color);
+    }
 }
 
 /* ============================================================================
@@ -707,121 +757,210 @@ textarea {
     color: var(--viewer-subtitle-color, #858585);
 }
 
+[data-theme="dark"] .export-modal-content {
+    background-color: var(--viewer-bg, #1e1e1e);
+    color: var(--viewer-fg, #d4d4d4);
+}
+
+[data-theme="dark"] .export-modal-content h3 {
+    color: var(--viewer-fg, #d4d4d4);
+}
+
+[data-theme="dark"] .export-modal-content textarea {
+    background-color: var(--viewer-code-bg, #252526);
+    color: var(--viewer-fg, #d4d4d4);
+    border-color: var(--viewer-border, #3e3e42);
+}
+
 /* ============================================================================
-   New Timing Breakdown Styles (curl-style)
+   New Timing Breakdown Styles (Horizontal Waterfall)
    ============================================================================ */
 
-/* Two-column layout: 30% graph, 70% details */
-.timing-layout {
-    display: flex;
-    gap: 20px;
-    margin-top: 16px;
-}
-
-.timing-bars-column {
-    flex: 0 0 30%;
-    display: flex;
-    align-items: center;
-}
-
-.timing-details-column {
-    flex: 1;
-}
-
-.timing-details {
-    background-color: var(--viewer-code-bg, #1e1e1e);
-    border: 1px solid var(--viewer-border, #3e3e42);
-    border-radius: 6px;
-    padding: 16px;
-    font-family: 'SF Mono', 'Monaco', 'Menlo', 'Courier New', monospace;
-}
-
-.timing-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 6px 0;
-    font-size: 13px;
-}
-
-.timing-label {
-    color: var(--viewer-subtitle-color, #858585);
-    font-weight: 500;
-}
-
-.timing-value {
-    color: var(--viewer-fg, #e0e0e0);
+.timing-breakdown h4 {
+    margin-bottom: 1.5rem;
+    font-size: 1rem;
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
 }
 
-.timing-separator {
-    height: 1px;
-    background-color: var(--viewer-border, #3e3e42);
-    margin: 8px 0;
+/* Waterfall Chart */
+.timing-waterfall {
+    margin-bottom: 2rem;
 }
 
-.timing-total-row {
-    border-top: 2px solid var(--viewer-accent, #007acc);
-    padding-top: 12px;
-    margin-top: 8px;
-}
-
-.timing-total-value {
-    color: var(--viewer-accent, #007acc);
-    font-size: 15px;
-    font-weight: 700;
-}
-
-/* Visual timing bars - vertical layout */
-.timing-bars {
-    display: flex;
-    flex-direction: column;
+.waterfall-chart {
+    position: relative;
     width: 100%;
-    border-radius: 6px;
-    overflow: hidden;
-    gap: 4px;
+    margin-bottom: 0.5rem;
 }
 
-.timing-bar {
+.waterfall-bar-container {
+    position: relative;
+    height: 48px;
+    margin-bottom: 8px;
+    background: var(--bg-secondary, #f8f9fa);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.waterfall-bar {
+    position: absolute;
+    height: 100%;
+    border-radius: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
-    font-size: 11px;
-    font-weight: 600;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-    transition: all 0.2s;
-    min-height: 32px;
-    padding: 8px 12px;
-    border-radius: 4px;
-}
-
-.timing-bar:hover {
-    opacity: 0.9;
-}
-
-.timing-bar span {
     padding: 0 8px;
+    color: white;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    white-space: nowrap;
+    box-sizing: border-box;
+    cursor: pointer;
 }
 
-.timing-bar-dns {
+.waterfall-bar:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    z-index: 10;
+}
+
+/* Show only time by default */
+.waterfall-time {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    display: block;
+}
+
+/* Hide label by default */
+.waterfall-label-hover {
+    display: none;
+    font-weight: 600;
+}
+
+/* Show label on hover, hide time */
+.waterfall-bar:hover .waterfall-time {
+    display: none;
+}
+
+.waterfall-bar:hover .waterfall-label-hover {
+    display: block;
+}
+
+.waterfall-bar-dns {
+    background: linear-gradient(135deg, #0969da 0%, #1f6feb 100%);
+}
+
+.waterfall-bar-tcp {
+    background: linear-gradient(135deg, #1f6feb 0%, #388bfd 100%);
+}
+
+.waterfall-bar-tls {
+    background: linear-gradient(135deg, #388bfd 0%, #58a6ff 100%);
+}
+
+.waterfall-bar-wait {
+    background: linear-gradient(135deg, #58a6ff 0%, #79c0ff 100%);
+}
+
+.waterfall-bar-transfer {
+    background: linear-gradient(135deg, #79c0ff 0%, #9ecfff 100%);
+}
+
+/* Timeline Ruler */
+.waterfall-ruler {
+    position: relative;
+    height: 24px;
+    border-top: 1px solid var(--border-color, #ddd);
+    margin-top: 1rem;
+}
+
+.ruler-marker {
+    position: absolute;
+    transform: translateX(-50%);
+    font-size: 0.75rem;
+    color: var(--text-muted, #6c757d);
+    top: 4px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Timing Details Table */
+.timing-details-table {
+    margin-top: 1.5rem;
+}
+
+.timing-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.timing-table thead {
+    background: var(--bg-secondary, #f5f5f5);
+}
+
+.timing-table th {
+    text-align: left;
+    padding: 0.75rem 1rem;
+    font-weight: 600;
+    border-bottom: 2px solid var(--border-color, #ddd);
+    color: var(--text-color, #333);
+}
+
+.timing-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color, #e9ecef);
+    color: var(--text-color, #333);
+}
+
+.timing-table tbody tr:hover {
+    background: var(--hover-bg, #f8f9fa);
+}
+
+.phase-indicator {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+.phase-indicator-dns {
     background-color: #0969da;
 }
 
-.timing-bar-tcp {
+.phase-indicator-tcp {
     background-color: #1f6feb;
 }
 
-.timing-bar-tls {
+.phase-indicator-tls {
     background-color: #388bfd;
 }
 
-.timing-bar-server {
+.phase-indicator-wait {
     background-color: #58a6ff;
 }
 
-.timing-bar-transfer {
+.phase-indicator-transfer {
     background-color: #79c0ff;
+}
+
+.timing-duration,
+.timing-percent {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.timing-total-row {
+    background: var(--bg-secondary, #f5f5f5);
+    font-weight: 600;
+    border-top: 2px solid var(--border-color, #ddd);
+}
+
+.timing-total-row td {
+    padding: 1rem;
 }
 
 /* ============================================================================
@@ -869,20 +1008,68 @@ textarea {
 }
 
 /* ============================================================================
+   Dark Mode Support for Waterfall
+   ============================================================================ */
+
+[data-theme="dark"] .waterfall-bar-container {
+    background-color: var(--viewer-code-bg, #252526);
+}
+
+[data-theme="dark"] .waterfall-ruler {
+    border-color: var(--viewer-border, #3e3e42);
+}
+
+[data-theme="dark"] .ruler-marker {
+    color: var(--viewer-subtitle-color, #858585);
+}
+
+[data-theme="dark"] .timing-table thead {
+    background-color: var(--viewer-header-bg, #252526);
+}
+
+[data-theme="dark"] .timing-table th {
+    color: var(--viewer-fg, #d4d4d4);
+    border-color: var(--viewer-border, #3e3e42);
+}
+
+[data-theme="dark"] .timing-table td {
+    color: var(--viewer-fg, #d4d4d4);
+    border-color: var(--viewer-border, #3e3e42);
+}
+
+[data-theme="dark"] .timing-table tbody tr:hover {
+    background-color: var(--viewer-hover-bg, #2a2d2e);
+}
+
+[data-theme="dark"] .timing-total-row {
+    background-color: var(--viewer-header-bg, #252526);
+    border-color: var(--viewer-border, #3e3e42);
+}
+
+/* ============================================================================
    Responsive Design for Timing Layout
    ============================================================================ */
 
 @media (max-width: 768px) {
-    .timing-layout {
-        flex-direction: column;
+    .waterfall-bar {
+        font-size: 0.75rem;
+        padding: 0 8px;
     }
 
-    .timing-bars-column {
-        flex: 0 0 auto;
-        width: 100%;
+    .waterfall-label {
+        display: none;
     }
 
-    .timing-details-column {
-        width: 100%;
+    .ruler-marker {
+        font-size: 0.7rem;
+    }
+
+    .timing-table {
+        font-size: 0.85rem;
+    }
+
+    .timing-table th,
+    .timing-table td {
+        padding: 0.5rem;
     }
 }
