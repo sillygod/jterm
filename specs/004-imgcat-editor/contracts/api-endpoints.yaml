@@ -1,0 +1,665 @@
+openapi: 3.0.3
+info:
+  title: jterm Image Editor API
+  version: 1.0.0
+  description: |
+    REST API for imgcat image editing functionality.
+    Supports loading images from files, URLs, clipboard, and applying edits.
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+tags:
+  - name: Image Loading
+    description: Load images from various sources
+  - name: Image Editing
+    description: Edit and transform images
+  - name: Session Management
+    description: Manage editing sessions and history
+
+paths:
+  /api/image-editor/load:
+    post:
+      summary: Load image for editing
+      description: |
+        Load an image from file path, URL, or clipboard (stdin).
+        Creates a new editing session and returns session ID.
+        Maps to User Stories 1, 2, 6 (load from file/clipboard/URL).
+      tags:
+        - Image Loading
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - source_type
+                - terminal_session_id
+              properties:
+                source_type:
+                  type: string
+                  enum: [file, url, clipboard]
+                  description: Source of the image
+                source_path:
+                  type: string
+                  maxLength: 1024
+                  description: File path or URL (required for file/url, omit for clipboard)
+                clipboard_data:
+                  type: string
+                  format: byte
+                  description: Base64-encoded image data from clipboard (required for clipboard)
+                terminal_session_id:
+                  type: string
+                  maxLength: 255
+                  description: Terminal session identifier
+            examples:
+              loadFromFile:
+                summary: Load from file path
+                value:
+                  source_type: file
+                  source_path: /path/to/screenshot.png
+                  terminal_session_id: abc123
+              loadFromURL:
+                summary: Load from URL
+                value:
+                  source_type: url
+                  source_path: https://example.com/image.png
+                  terminal_session_id: abc123
+              loadFromClipboard:
+                summary: Load from clipboard
+                value:
+                  source_type: clipboard
+                  clipboard_data: iVBORw0KGgoAAAANS...
+                  terminal_session_id: abc123
+      responses:
+        '200':
+          description: Image loaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session_id:
+                    type: string
+                    format: uuid
+                    description: Unique session identifier
+                  image_info:
+                    $ref: '#/components/schemas/ImageInfo'
+                  editor_url:
+                    type: string
+                    description: URL to open the editor UI
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '413':
+          description: Image too large (>50MB)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/image-editor/session/{session_id}:
+    get:
+      summary: Get session details
+      description: Retrieve current state of an editing session
+      tags:
+        - Session Management
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Session details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionDetails'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Close editing session
+      description: Close session and cleanup temporary files
+      tags:
+        - Session Management
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '204':
+          description: Session closed successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/image-editor/annotation-layer:
+    put:
+      summary: Update annotation layer
+      description: |
+        Save current canvas state (Fabric.js JSON).
+        Called after user edits to persist annotations.
+        Supports undo/redo by storing canvas snapshots.
+      tags:
+        - Image Editing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - session_id
+                - canvas_json
+                - operation_type
+              properties:
+                session_id:
+                  type: string
+                  format: uuid
+                canvas_json:
+                  type: object
+                  description: Fabric.js canvas serialization
+                operation_type:
+                  type: string
+                  enum: [draw, text, shape, filter, crop, resize]
+                version:
+                  type: integer
+                  description: Current version for optimistic locking
+      responses:
+        '200':
+          description: Annotation layer updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: integer
+                    description: New version number
+                  operation_id:
+                    type: string
+                    format: uuid
+                    description: ID of stored edit operation (for undo/redo)
+        '409':
+          description: Version conflict (optimistic lock failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/image-editor/process:
+    post:
+      summary: Apply server-side image processing
+      description: |
+        Apply filters/transformations that require server-side processing.
+        Used for blur, sharpen, and complex filters (User Story 4).
+      tags:
+        - Image Editing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - session_id
+                - operation
+              properties:
+                session_id:
+                  type: string
+                  format: uuid
+                operation:
+                  type: string
+                  enum: [blur, sharpen, grayscale, sepia]
+                parameters:
+                  type: object
+                  description: Operation-specific parameters
+                  properties:
+                    radius:
+                      type: number
+                      minimum: 0
+                      maximum: 100
+                      description: Blur/sharpen radius
+                    intensity:
+                      type: number
+                      minimum: 0
+                      maximum: 1
+                      description: Effect intensity (0-1)
+            examples:
+              applyBlur:
+                summary: Apply blur filter
+                value:
+                  session_id: 123e4567-e89b-12d3-a456-426614174000
+                  operation: blur
+                  parameters:
+                    radius: 5
+              applySharpen:
+                summary: Apply sharpen filter
+                value:
+                  session_id: 123e4567-e89b-12d3-a456-426614174000
+                  operation: sharpen
+                  parameters:
+                    intensity: 0.7
+      responses:
+        '200':
+          description: Processing complete
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  processed_image_url:
+                    type: string
+                    description: URL to download processed image
+                  processing_time_ms:
+                    type: integer
+                    description: Time taken for processing
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/image-editor/save:
+    post:
+      summary: Save edited image
+      description: |
+        Export canvas to image file. Prompts for filename if source was clipboard/URL.
+        Maps to User Story 1, 2 acceptance criteria (save functionality).
+      tags:
+        - Image Editing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - session_id
+                - canvas_data
+              properties:
+                session_id:
+                  type: string
+                  format: uuid
+                canvas_data:
+                  type: string
+                  format: byte
+                  description: Base64-encoded PNG image from canvas
+                output_path:
+                  type: string
+                  maxLength: 1024
+                  description: Destination file path (required for clipboard/URL sources)
+                output_format:
+                  type: string
+                  enum: [png, jpeg, webp]
+                  default: png
+                  description: Output image format
+                quality:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  default: 95
+                  description: JPEG/WebP quality (1-100)
+      responses:
+        '200':
+          description: Image saved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  saved_path:
+                    type: string
+                    description: Absolute path where image was saved
+                  file_size_bytes:
+                    type: integer
+                    description: Size of saved file
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          description: Permission denied (write access)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/image-editor/export-clipboard:
+    post:
+      summary: Copy edited image to clipboard
+      description: |
+        Prepare image data for clipboard copy operation.
+        Frontend will use Clipboard API to write to system clipboard.
+        Maps to User Story 1 acceptance criterion (copy to clipboard).
+      tags:
+        - Image Editing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - session_id
+                - canvas_data
+              properties:
+                session_id:
+                  type: string
+                  format: uuid
+                canvas_data:
+                  type: string
+                  format: byte
+                  description: Base64-encoded PNG from canvas
+      responses:
+        '200':
+          description: Image prepared for clipboard
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  clipboard_url:
+                    type: string
+                    description: Temporary URL for clipboard write operation
+                  expires_at:
+                    type: string
+                    format: date-time
+                    description: URL expiration time (30 seconds)
+
+  /api/image-editor/history:
+    get:
+      summary: Get session history
+      description: |
+        Retrieve list of recently viewed/edited images in this terminal session.
+        Maps to User Story 5 (edit previously displayed images).
+      tags:
+        - Session Management
+      parameters:
+        - name: terminal_session_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Terminal session identifier
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 20
+          description: Maximum number of entries to return
+      responses:
+        '200':
+          description: History retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  history:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/HistoryEntry'
+                  total_count:
+                    type: integer
+                    description: Total history entries for this session
+
+  /api/image-editor/history/{entry_id}/reopen:
+    post:
+      summary: Reopen image from history
+      description: |
+        Load an image from session history for editing.
+        Used by `imgcat -e N` command.
+      tags:
+        - Session Management
+      parameters:
+        - name: entry_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: History entry identifier
+      responses:
+        '200':
+          description: Image reopened
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session_id:
+                    type: string
+                    format: uuid
+                  editor_url:
+                    type: string
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/image-editor/undo:
+    post:
+      summary: Undo last operation
+      description: |
+        Retrieve previous canvas state from edit history.
+        Maps to User Story 1 acceptance criterion (undo/redo).
+      tags:
+        - Image Editing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - session_id
+                - current_position
+              properties:
+                session_id:
+                  type: string
+                  format: uuid
+                current_position:
+                  type: integer
+                  minimum: 0
+                  maximum: 49
+                  description: Current position in undo stack
+      responses:
+        '200':
+          description: Previous state retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  canvas_snapshot:
+                    type: object
+                    description: Fabric.js canvas JSON to restore
+                  new_position:
+                    type: integer
+                    description: New position after undo
+        '400':
+          description: Cannot undo (at beginning of history)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/image-editor/redo:
+    post:
+      summary: Redo last undone operation
+      description: Retrieve next canvas state from edit history
+      tags:
+        - Image Editing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - session_id
+                - current_position
+              properties:
+                session_id:
+                  type: string
+                  format: uuid
+                current_position:
+                  type: integer
+                  minimum: 0
+                  maximum: 49
+      responses:
+        '200':
+          description: Next state retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  canvas_snapshot:
+                    type: object
+                  new_position:
+                    type: integer
+        '400':
+          description: Cannot redo (at end of history)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  parameters:
+    SessionId:
+      name: session_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Editing session identifier
+
+  schemas:
+    ImageInfo:
+      type: object
+      properties:
+        format:
+          type: string
+          enum: [png, jpeg, gif, webp, bmp]
+        width:
+          type: integer
+          minimum: 1
+          maximum: 32767
+        height:
+          type: integer
+          minimum: 1
+          maximum: 32767
+        size_bytes:
+          type: integer
+          minimum: 1
+          maximum: 52428800
+        source_type:
+          type: string
+          enum: [file, url, clipboard]
+        source_path:
+          type: string
+          nullable: true
+
+    SessionDetails:
+      type: object
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        image_info:
+          $ref: '#/components/schemas/ImageInfo'
+        is_modified:
+          type: boolean
+          description: Whether image has unsaved edits
+        created_at:
+          type: string
+          format: date-time
+        last_modified_at:
+          type: string
+          format: date-time
+        canvas_json:
+          type: object
+          description: Current Fabric.js canvas state
+        undo_stack_size:
+          type: integer
+          description: Number of operations in undo history
+
+    HistoryEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        image_path:
+          type: string
+        source_type:
+          type: string
+          enum: [file, url, clipboard]
+        thumbnail_url:
+          type: string
+          nullable: true
+        last_viewed_at:
+          type: string
+          format: date-time
+        view_count:
+          type: integer
+        is_edited:
+          type: boolean
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          description: Additional error context
+          additionalProperties: true
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: bad_request
+            message: Invalid image format
+            details:
+              format: Must be one of [png, jpeg, gif, webp, bmp]
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: not_found
+            message: Session not found
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: internal_error
+            message: An unexpected error occurred
+
+  securitySchemes:
+    SessionAuth:
+      type: apiKey
+      in: cookie
+      name: session_id
+      description: jterm session cookie
+
+security:
+  - SessionAuth: []

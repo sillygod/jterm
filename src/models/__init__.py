@@ -9,6 +9,15 @@ from .ai_context import AIContext
 from .user_profile import UserProfile
 from .ebook_metadata import EbookMetadata, EbookFileType
 from .performance_snapshot import PerformanceSnapshot
+from .image_editor import (
+    ImageSession,
+    AnnotationLayer,
+    EditOperation,
+    SessionHistory,
+    ImageSourceType,
+    ImageFormat,
+    OperationType,
+)
 
 __all__ = [
     "TerminalSession",
@@ -21,4 +30,11 @@ __all__ = [
     "EbookMetadata",
     "EbookFileType",
     "PerformanceSnapshot",
+    "ImageSession",
+    "AnnotationLayer",
+    "EditOperation",
+    "SessionHistory",
+    "ImageSourceType",
+    "ImageFormat",
+    "OperationType",
 ]

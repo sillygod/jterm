@@ -1,0 +1,409 @@
+# WebSocket Protocol: Image Editor Real-Time Sync
+
+## Connection
+
+**Endpoint**: `ws://localhost:8000/ws/image-editor/{session_id}`
+
+**Authentication**: Session cookie (same as HTTP API)
+
+**Purpose**: Real-time synchronization of canvas state for features like:
+- Live cursor tracking (future enhancement)
+- Collaborative editing notifications (future enhancement)
+- Real-time operation feedback
+
+**Note**: For MVP (P1 stories), WebSocket is optional. All core operations work via REST API.
+This protocol is defined for future enhancements and real-time features.
+
+---
+
+## Message Format
+
+All messages follow JSON structure:
+
+```json
+{
+  "type": "message_type",
+  "session_id": "uuid",
+  "timestamp": "ISO8601",
+  "data": { ... }
+}
+```
+
+---
+
+## Client → Server Messages
+
+### 1. canvas_update
+
+**Purpose**: Notify server of canvas changes (for potential multi-user sync)
+
+```json
+{
+  "type": "canvas_update",
+  "session_id": "123e4567-e89b-12d3-a456-426614174000",
+  "timestamp": "2025-11-12T22:30:00Z",
+  "data": {
+    "operation_type": "draw",
+    "canvas_json": { /* Fabric.js JSON */ },
+    "version": 5
+  }
+}
+```
+
+**Response**: `canvas_update_ack` or `error`
+
+---
+
+### 2. cursor_position
+
+**Purpose**: Share cursor position for collaborative editing (future)
+
+```json
+{
+  "type": "cursor_position",
+  "session_id": "123e4567-e89b-12d3-a456-426614174000",
+  "timestamp": "2025-11-12T22:30:05Z",
+  "data": {
+    "x": 150,
+    "y": 200,
+    "user_id": "user_abc"
+  }
+}
+```
+
+**Response**: None (broadcast to other clients)
+
+---
+
+### 3. request_sync
+
+**Purpose**: Request full canvas state from server
+
+```json
+{
+  "type": "request_sync",
+  "session_id": "123e4567-e89b-12d3-a456-426614174000",
+  "timestamp": "2025-11-12T22:30:10Z",
+  "data": {}
+}
+```
+
+**Response**: `canvas_state`
+
+---
+
+### 4. ping
+
+**Purpose**: Keep connection alive
+
+```json
+{
+  "type": "ping",
+  "session_id": "123e4567-e89b-12d3-a456-426614174000",
+  "timestamp": "2025-11-12T22:31:00Z",
+  "data": {}
+}
+```
+
+**Response**: `pong`
+
+---
+
+## Server → Client Messages
+
+### 1. canvas_update_ack
+
+**Purpose**: Acknowledge canvas update received
+
+```json
+{
+  "type": "canvas_update_ack",
+  "session_id": "123e4567-e89b-12d3-a456-426614174000",
+  "timestamp": "2025-11-12T22:30:01Z",
+  "data": {
+    "version": 6,
+    "operation_id": "456e7890-e89b-12d3-a456-426614174001"
+  }
+}
+```
+
+---
+
+### 2. canvas_state
+
+**Purpose**: Send full canvas state (in response to request_sync)
+
+```json
+{
+  "type": "canvas_state",
+  "session_id": "123e4567-e89b-12d3-a456-426614174000",
+  "timestamp": "2025-11-12T22:30:11Z",
+  "data": {
+    "canvas_json": { /* Fabric.js JSON */ },
+    "version": 6,
+    "is_modified": true
+  }
+}
+```
+
+---
+
+### 3. operation_broadcast
+
+**Purpose**: Broadcast operation to other clients (future collaborative editing)
+
+```json
+{
+  "type": "operation_broadcast",
+  "session_id": "123e4567-e89b-12d3-a456-426614174000",
+  "timestamp": "2025-11-12T22:30:15Z",
+  "data": {
+    "operation_type": "text",
+    "user_id": "user_xyz",
+    "canvas_json": { /* Incremental Fabric.js JSON */ }
+  }
+}
+```
+
+---
+
+### 4. error
+
+**Purpose**: Notify client of error
+
+```json
+{
+  "type": "error",
+  "session_id": "123e4567-e89b-12d3-a456-426614174000",
+  "timestamp": "2025-11-12T22:30:20Z",
+  "data": {
+    "error_code": "invalid_session",
+    "message": "Session not found or expired",
+    "recoverable": false
+  }
+}
+```
+
+**Error Codes**:
+- `invalid_session`: Session ID not found
+- `version_conflict`: Canvas version mismatch
+- `rate_limit`: Too many messages
+- `internal_error`: Server error
+
+---
+
+### 5. pong
+
+**Purpose**: Respond to ping
+
+```json
+{
+  "type": "pong",
+  "session_id": "123e4567-e89b-12d3-a456-426614174000",
+  "timestamp": "2025-11-12T22:31:00Z",
+  "data": {}
+}
+```
+
+---
+
+### 6. session_closed
+
+**Purpose**: Notify client that session has been closed
+
+```json
+{
+  "type": "session_closed",
+  "session_id": "123e4567-e89b-12d3-a456-426614174000",
+  "timestamp": "2025-11-12T22:35:00Z",
+  "data": {
+    "reason": "timeout",
+    "message": "Session expired after 1 hour of inactivity"
+  }
+}
+```
+
+---
+
+## Connection Lifecycle
+
+### Establish Connection
+
+```
+Client: WS handshake to ws://localhost:8000/ws/image-editor/{session_id}
+Server: Upgrade to WebSocket
+Server → Client: {"type": "connected", "data": {"session_id": "..."}}
+```
+
+### Heartbeat
+
+```
+Every 30 seconds:
+  Client → Server: {"type": "ping"}
+  Server → Client: {"type": "pong"}
+```
+
+### Normal Close
+
+```
+Client: Close frame with code 1000 (normal closure)
+Server: Acknowledge close
+Connection terminated
+```
+
+### Error Close
+
+```
+Server → Client: {"type": "session_closed", "data": {"reason": "..."}}
+Server: Close frame with code 1001 (going away)
+Connection terminated
+```
+
+---
+
+## Rate Limiting
+
+**canvas_update Messages**:
+- Maximum: 10 per second per session
+- Exceeding: `error` message with `rate_limit` code
+
+**cursor_position Messages**:
+- Maximum: 30 per second per session
+- Exceeding: Messages silently dropped (no error)
+
+**ping Messages**:
+- Maximum: 1 per 10 seconds
+- Exceeding: No action (idempotent)
+
+---
+
+## Reconnection Strategy
+
+**Client Behavior on Disconnect**:
+
+1. Attempt reconnect with exponential backoff
+   - First retry: Immediate
+   - Second retry: 1 second
+   - Third retry: 2 seconds
+   - Max retry: 10 seconds
+
+2. On successful reconnect:
+   - Send `request_sync` to get latest canvas state
+   - Resume normal operations
+
+3. After 5 failed retries:
+   - Show error message to user
+   - Fallback to REST API only (no real-time sync)
+
+---
+
+## Security Considerations
+
+**Authentication**:
+- Session ID validated against jterm session cookie
+- Invalid session → close connection with error
+
+**Authorization**:
+- Only owner of terminal session can access WebSocket
+- No multi-user access in MVP (single-user sessions)
+
+**Input Validation**:
+- All message fields validated against schema
+- Invalid messages → `error` response, connection stays open
+- Malformed JSON → close connection with code 1003 (unsupported data)
+
+**Resource Limits**:
+- Maximum message size: 10MB (large canvas JSON)
+- Maximum connections per session: 1 (reconnect closes previous)
+- Idle timeout: 1 hour (no messages)
+
+---
+
+## Example Workflows
+
+### Simple Edit Operation (No WebSocket)
+
+```
+1. User draws on canvas
+2. Frontend: Debounce 500ms
+3. Frontend → Backend: PUT /api/image-editor/annotation-layer
+4. Backend: Save to database
+5. Backend → Frontend: 200 OK with new version
+```
+
+**Note**: This works without WebSocket. WebSocket adds real-time features.
+
+---
+
+### Future: Collaborative Edit (With WebSocket)
+
+```
+User A draws:
+1. Client A: Draw operation
+2. Client A → Server: canvas_update message
+3. Server: Store operation
+4. Server → Client B: operation_broadcast
+5. Client B: Apply operation to canvas
+```
+
+**Status**: Out of scope for MVP. Protocol defined for future enhancement.
+
+---
+
+## Testing
+
+**Unit Tests**:
+- Message serialization/deserialization
+- Rate limiting logic
+- Error handling
+
+**Integration Tests**:
+- Connect/disconnect lifecycle
+- Ping/pong heartbeat
+- Reconnection with state sync
+
+**Load Tests**:
+- 100 concurrent connections
+- 1000 messages per second (distributed)
+- Memory usage under sustained load
+
+---
+
+## Implementation Notes
+
+**Python (Backend)**:
+- Use FastAPI WebSocket support
+- Store active connections in memory (dict keyed by session_id)
+- Background task for heartbeat monitoring
+
+**JavaScript (Frontend)**:
+- Native WebSocket API
+- Automatic reconnection logic
+- Queue messages during disconnect
+
+**Fallback**:
+- If WebSocket fails to connect, degrade to REST API only
+- Show warning message: "Real-time sync unavailable"
+- All core functionality still works via REST API
+
+---
+
+## Performance Targets
+
+- **Connection establishment**: <100ms
+- **Message latency**: <50ms (local network)
+- **Reconnection time**: <2 seconds
+- **Heartbeat interval**: 30 seconds
+- **Idle timeout**: 1 hour
+
+---
+
+## Future Enhancements
+
+1. **Operational Transformation** (OT) for true collaborative editing
+2. **Cursor awareness** - show other users' cursors
+3. **Presence system** - list of active users
+4. **Conflict resolution** - handle simultaneous edits
+5. **Binary protocol** - use MessagePack for efficiency
+
+These features are not included in MVP but protocol is designed to support them.

@@ -1,0 +1,316 @@
+<!-- Image Editor Component - HTMX template for editing images with annotations -->
+
+<div class="image-editor" id="image-editor-{{ session_id }}" data-session-id="{{ session_id }}">
+    <div class="editor-header">
+        <div class="editor-info">
+            <span class="editor-icon">✏️</span>
+            <span class="editor-title">{{ file_name }}</span>
+            <span class="editor-meta">{{ image_width }}×{{ image_height }} • {{ image_format }}</span>
+            <span class="editor-status" id="save-status-{{ session_id }}">
+                <span class="status-indicator">●</span>
+                <span class="status-text">Saved</span>
+            </span>
+        </div>
+        <div class="editor-controls">
+            <button class="btn btn-icon"
+                    id="undo-btn-{{ session_id }}"
+                    _="on click trigger undoEdit on #image-editor-{{ session_id }}"
+                    title="Undo (Cmd+Z)"
+                    disabled>
+                <span class="icon">↶</span>
+            </button>
+            <button class="btn btn-icon"
+                    id="redo-btn-{{ session_id }}"
+                    _="on click trigger redoEdit on #image-editor-{{ session_id }}"
+                    title="Redo (Cmd+Shift+Z)"
+                    disabled>
+                <span class="icon">↷</span>
+            </button>
+            <button class="btn btn-icon"
+                    _="on click toggle .fullscreen on #image-editor-{{ session_id }}"
+                    title="Fullscreen">
+                <span class="icon">⛶</span>
+            </button>
+            <button class="btn btn-primary"
+                    id="copy-clipboard-btn-{{ session_id }}"
+                    _="on click trigger copyToClipboard on #image-editor-{{ session_id }}"
+                    title="Copy to Clipboard">
+                <span class="icon">📋</span>
+                Copy
+            </button>
+            <button class="btn btn-secondary"
+                    hx-post="/api/v1/image-editor/save/{{ session_id }}"
+                    hx-vals='{"output_path": "{{ source_path }}"}'
+                    hx-target="#save-status-{{ session_id }}"
+                    hx-swap="innerHTML"
+                    title="Save">
+                <span class="icon">💾</span>
+                Save
+            </button>
+            <button class="btn btn-icon close-btn"
+                    _="on click remove #image-editor-{{ session_id }}"
+                    title="Close">
+                <span class="icon">✕</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Toolbar Component -->
+    <div class="editor-toolbar" id="toolbar-{{ session_id }}">
+        {% include 'components/toolbar.html' %}
+    </div>
+
+    <!-- Canvas Container -->
+    <div class="editor-canvas-container" id="canvas-container-{{ session_id }}">
+        <canvas id="canvas-{{ session_id }}"
+                data-image-url="/api/v1/image-editor/image/{{ session_id }}"
+                data-session-id="{{ session_id }}"
+                data-version="1">
+        </canvas>
+
+        <!-- Loading Overlay -->
+        <div class="canvas-loading" id="loading-{{ session_id }}" style="display: none;">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading image...</div>
+        </div>
+
+        <!-- Error Overlay -->
+        <div class="canvas-error" id="error-{{ session_id }}" style="display: none;">
+            <div class="error-icon">⚠️</div>
+            <div class="error-message"></div>
+            <button class="btn btn-primary"
+                    _="on click hide #error-{{ session_id }}">
+                Dismiss
+            </button>
+        </div>
+    </div>
+
+    <div class="editor-footer">
+        <div class="canvas-info">
+            <span class="canvas-zoom" id="zoom-level-{{ session_id }}">100%</span>
+            <span class="canvas-position" id="mouse-position-{{ session_id }}">—</span>
+        </div>
+        <div class="editor-actions">
+            <button class="btn btn-sm"
+                    _="on click trigger resetZoom on #canvas-{{ session_id }}"
+                    title="Reset Zoom">
+                Reset View
+            </button>
+            <button class="btn btn-sm"
+                    _="on click trigger clearCanvas on #canvas-{{ session_id }}"
+                    hx-confirm="Clear all annotations?"
+                    title="Clear All Annotations">
+                Clear All
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Image Editor Styles */
+.image-editor {
+    display: flex;
+    flex-direction: column;
+    background: var(--secondary-bg);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 4px 12px var(--shadow);
+    max-width: 98%;
+    max-height: 98%;
+    margin: 1rem auto;
+}
+
+.image-editor.fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    z-index: 1000;
+    margin: 0;
+}
+
+.editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: var(--accent-bg);
+    border-bottom: 1px solid var(--border-color);
+    min-height: 3.5rem;
+}
+
+.editor-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.editor-icon {
+    font-size: 1.5rem;
+}
+
+.editor-title {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.editor-meta {
+    font-size: 0.875rem;
+    color: var(--secondary-text);
+}
+
+.editor-status {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    margin-left: auto;
+}
+
+.status-indicator {
+    color: var(--success-color, #10b981);
+    font-size: 0.75rem;
+}
+
+.status-indicator.unsaved {
+    color: var(--warning-color, #f59e0b);
+}
+
+.status-text {
+    color: var(--secondary-text);
+}
+
+.editor-controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.editor-toolbar {
+    padding: 0.75rem 1rem;
+    background: var(--accent-bg);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.editor-canvas-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: var(--terminal-bg);
+    position: relative;
+    min-height: 400px;
+}
+
+.editor-canvas-container canvas {
+    max-width: 100%;
+    max-height: 100%;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.canvas-loading,
+.canvas-error {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 10;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-top-color: var(--primary-color, #3b82f6);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.loading-text {
+    margin-top: 1rem;
+    color: var(--primary-text);
+}
+
+.error-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.error-message {
+    color: var(--primary-text);
+    text-align: center;
+    max-width: 400px;
+    margin-bottom: 1rem;
+}
+
+.editor-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    background: var(--accent-bg);
+    border-top: 1px solid var(--border-color);
+    font-size: 0.875rem;
+}
+
+.canvas-info {
+    display: flex;
+    gap: 1rem;
+    color: var(--secondary-text);
+}
+
+.editor-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Button States */
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background: var(--primary-color, #3b82f6);
+    color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: var(--primary-hover, #2563eb);
+}
+
+.btn-secondary {
+    background: var(--secondary-color, #6b7280);
+    color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: var(--secondary-hover, #4b5563);
+}
+</style>
+
+<!-- Initialize Fabric.js Canvas -->
+<script>
+    // Canvas initialization will be handled by static/js/image-editor.js
+    // This script tag ensures the editor is initialized after DOM load
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof ImageEditor !== 'undefined') {
+            ImageEditor.init('{{ session_id }}');
+        }
+    });
+</script>

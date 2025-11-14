@@ -1,0 +1,368 @@
+<!-- Image Editor Toolbar Component -->
+
+<div class="toolbar-container">
+    <!-- Drawing Tools -->
+    <div class="toolbar-section">
+        <label class="toolbar-label">Tools</label>
+        <div class="toolbar-buttons">
+            <button class="tool-btn"
+                    id="tool-select"
+                    data-tool="select"
+                    _="on click add .active to me
+                              remove .active from .tool-btn in closest .toolbar-container except me
+                              trigger toolChange(tool: 'select') on #image-editor-{{ session_id }}"
+                    title="Select (V)">
+                <span class="icon">↖️</span>
+            </button>
+            <button class="tool-btn active"
+                    id="tool-pen"
+                    data-tool="pen"
+                    _="on click add .active to me
+                              remove .active from .tool-btn in closest .toolbar-container except me
+                              trigger toolChange(tool: 'pen') on #image-editor-{{ session_id }}"
+                    title="Pen (P)">
+                <span class="icon">✏️</span>
+            </button>
+            <button class="tool-btn"
+                    id="tool-arrow"
+                    data-tool="arrow"
+                    _="on click add .active to me
+                              remove .active from .tool-btn in closest .toolbar-container except me
+                              trigger toolChange(tool: 'arrow') on #image-editor-{{ session_id }}"
+                    title="Arrow (A)">
+                <span class="icon">➡️</span>
+            </button>
+            <button class="tool-btn"
+                    id="tool-text"
+                    data-tool="text"
+                    _="on click add .active to me
+                              remove .active from .tool-btn in closest .toolbar-container except me
+                              trigger toolChange(tool: 'text') on #image-editor-{{ session_id }}"
+                    title="Text (T)">
+                <span class="icon">📝</span>
+            </button>
+            <button class="tool-btn"
+                    id="tool-rectangle"
+                    data-tool="rectangle"
+                    _="on click add .active to me
+                              remove .active from .tool-btn in closest .toolbar-container except me
+                              trigger toolChange(tool: 'rectangle') on #image-editor-{{ session_id }}"
+                    title="Rectangle (R)">
+                <span class="icon">▭</span>
+            </button>
+            <button class="tool-btn"
+                    id="tool-circle"
+                    data-tool="circle"
+                    _="on click add .active to me
+                              remove .active from .tool-btn in closest .toolbar-container except me
+                              trigger toolChange(tool: 'circle') on #image-editor-{{ session_id }}"
+                    title="Circle (C)">
+                <span class="icon">○</span>
+            </button>
+            <button class="tool-btn"
+                    id="tool-line"
+                    data-tool="line"
+                    _="on click add .active to me
+                              remove .active from .tool-btn in closest .toolbar-container except me
+                              trigger toolChange(tool: 'line') on #image-editor-{{ session_id }}"
+                    title="Line (L)">
+                <span class="icon">─</span>
+            </button>
+            <button class="tool-btn"
+                    id="tool-eraser"
+                    data-tool="eraser"
+                    _="on click add .active to me
+                              remove .active from .tool-btn in closest .toolbar-container except me
+                              trigger toolChange(tool: 'eraser') on #image-editor-{{ session_id }}"
+                    title="Eraser (E)">
+                <span class="icon">🧹</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="toolbar-divider"></div>
+
+    <!-- Color Picker -->
+    <div class="toolbar-section">
+        <label class="toolbar-label">Color</label>
+        <div class="color-picker-container">
+            <input type="color"
+                   id="stroke-color-{{ session_id }}"
+                   class="color-picker"
+                   value="#ff0000"
+                   _="on input trigger colorChange(color: my value) on #image-editor-{{ session_id }}"
+                   title="Stroke Color">
+            <div class="color-presets">
+                <button class="color-preset" style="background: #ff0000" data-color="#ff0000"
+                        _="on click set #stroke-color-{{ session_id }}'s value to @data-color
+                                  trigger colorChange(color: @data-color) on #image-editor-{{ session_id }}"></button>
+                <button class="color-preset" style="background: #00ff00" data-color="#00ff00"
+                        _="on click set #stroke-color-{{ session_id }}'s value to @data-color
+                                  trigger colorChange(color: @data-color) on #image-editor-{{ session_id }}"></button>
+                <button class="color-preset" style="background: #0000ff" data-color="#0000ff"
+                        _="on click set #stroke-color-{{ session_id }}'s value to @data-color
+                                  trigger colorChange(color: @data-color) on #image-editor-{{ session_id }}"></button>
+                <button class="color-preset" style="background: #ffff00" data-color="#ffff00"
+                        _="on click set #stroke-color-{{ session_id }}'s value to @data-color
+                                  trigger colorChange(color: @data-color) on #image-editor-{{ session_id }}"></button>
+                <button class="color-preset" style="background: #ff00ff" data-color="#ff00ff"
+                        _="on click set #stroke-color-{{ session_id }}'s value to @data-color
+                                  trigger colorChange(color: @data-color) on #image-editor-{{ session_id }}"></button>
+                <button class="color-preset" style="background: #00ffff" data-color="#00ffff"
+                        _="on click set #stroke-color-{{ session_id }}'s value to @data-color
+                                  trigger colorChange(color: @data-color) on #image-editor-{{ session_id }}"></button>
+                <button class="color-preset" style="background: #ffffff" data-color="#ffffff"
+                        _="on click set #stroke-color-{{ session_id }}'s value to @data-color
+                                  trigger colorChange(color: @data-color) on #image-editor-{{ session_id }}"></button>
+                <button class="color-preset" style="background: #000000" data-color="#000000"
+                        _="on click set #stroke-color-{{ session_id }}'s value to @data-color
+                                  trigger colorChange(color: @data-color) on #image-editor-{{ session_id }}"></button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toolbar-divider"></div>
+
+    <!-- Stroke Width -->
+    <div class="toolbar-section">
+        <label class="toolbar-label">
+            Stroke Width: <span id="stroke-width-value-{{ session_id }}">3</span>px
+        </label>
+        <input type="range"
+               id="stroke-width-{{ session_id }}"
+               class="stroke-width-slider"
+               min="1"
+               max="20"
+               value="3"
+               _="on input set #stroke-width-value-{{ session_id }}'s textContent to my value
+                         trigger strokeWidthChange(width: my value as a Number) on #image-editor-{{ session_id }}"
+               title="Stroke Width">
+    </div>
+
+    <div class="toolbar-divider"></div>
+
+    <!-- Shape Fill Toggle -->
+    <div class="toolbar-section">
+        <label class="toolbar-label">Shape Options</label>
+        <div class="toolbar-checkbox">
+            <input type="checkbox"
+                   id="fill-shape-{{ session_id }}"
+                   class="fill-checkbox"
+                   _="on change trigger fillToggle(fill: my checked) on #image-editor-{{ session_id }}">
+            <label for="fill-shape-{{ session_id }}">Fill Shape</label>
+        </div>
+        <div class="color-picker-container" style="margin-top: 0.5rem;">
+            <input type="color"
+                   id="fill-color-{{ session_id }}"
+                   class="color-picker"
+                   value="#ff000080"
+                   _="on input trigger fillColorChange(color: my value) on #image-editor-{{ session_id }}"
+                   title="Fill Color">
+        </div>
+    </div>
+
+    <div class="toolbar-divider"></div>
+
+    <!-- Text Options -->
+    <div class="toolbar-section">
+        <label class="toolbar-label">Text Options</label>
+        <select id="font-size-{{ session_id }}"
+                class="font-size-select"
+                _="on change trigger fontSizeChange(size: my value as a Number) on #image-editor-{{ session_id }}">
+            <option value="12">12pt</option>
+            <option value="14">14pt</option>
+            <option value="16">16pt</option>
+            <option value="18" selected>18pt</option>
+            <option value="20">20pt</option>
+            <option value="24">24pt</option>
+            <option value="28">28pt</option>
+            <option value="32">32pt</option>
+            <option value="48">48pt</option>
+            <option value="64">64pt</option>
+            <option value="72">72pt</option>
+        </select>
+        <div class="text-format-buttons" style="margin-top: 0.5rem;">
+            <button class="format-btn"
+                    id="text-bold-{{ session_id }}"
+                    _="on click toggle .active on me
+                              trigger textBoldToggle(bold: my.classList.contains('active')) on #image-editor-{{ session_id }}"
+                    title="Bold">
+                <strong>B</strong>
+            </button>
+            <button class="format-btn"
+                    id="text-italic-{{ session_id }}"
+                    _="on click toggle .active on me
+                              trigger textItalicToggle(italic: my.classList.contains('active')) on #image-editor-{{ session_id }}"
+                    title="Italic">
+                <em>I</em>
+            </button>
+        </div>
+        <div class="toolbar-checkbox" style="margin-top: 0.5rem;">
+            <input type="checkbox"
+                   id="text-background-{{ session_id }}"
+                   class="text-bg-checkbox"
+                   _="on change trigger textBackgroundToggle(background: my checked) on #image-editor-{{ session_id }}">
+            <label for="text-background-{{ session_id }}">Background</label>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Toolbar Styles */
+.toolbar-container {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.toolbar-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.toolbar-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--secondary-text);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.toolbar-buttons {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.tool-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 1px solid var(--border-color);
+    background: var(--secondary-bg);
+    border-radius: 0.25rem;
+    cursor: pointer;
+    transition: all var(--animation-fast, 0.15s);
+    font-size: 1.25rem;
+}
+
+.tool-btn:hover {
+    background: var(--accent-bg);
+    border-color: var(--primary-color, #3b82f6);
+}
+
+.tool-btn.active {
+    background: var(--primary-color, #3b82f6);
+    border-color: var(--primary-color, #3b82f6);
+    color: white;
+}
+
+.toolbar-divider {
+    width: 1px;
+    height: 3rem;
+    background: var(--border-color);
+}
+
+.color-picker-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.color-picker {
+    width: 50px;
+    height: 35px;
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    cursor: pointer;
+}
+
+.color-presets {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+    max-width: 200px;
+}
+
+.color-preset {
+    width: 20px;
+    height: 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    cursor: pointer;
+    transition: transform var(--animation-fast, 0.15s);
+}
+
+.color-preset:hover {
+    transform: scale(1.2);
+}
+
+.stroke-width-slider {
+    width: 150px;
+}
+
+.toolbar-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.toolbar-checkbox label {
+    font-size: 0.875rem;
+    cursor: pointer;
+}
+
+.font-size-select {
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--border-color);
+    background: var(--secondary-bg);
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    cursor: pointer;
+}
+
+.text-format-buttons {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.format-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid var(--border-color);
+    background: var(--secondary-bg);
+    border-radius: 0.25rem;
+    cursor: pointer;
+    transition: all var(--animation-fast, 0.15s);
+    font-size: 1rem;
+}
+
+.format-btn:hover {
+    background: var(--accent-bg);
+}
+
+.format-btn.active {
+    background: var(--primary-color, #3b82f6);
+    border-color: var(--primary-color, #3b82f6);
+    color: white;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .toolbar-container {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .toolbar-divider {
+        width: 100%;
+        height: 1px;
+    }
+}
+</style>

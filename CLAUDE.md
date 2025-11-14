@@ -15,6 +15,7 @@ Web-based terminal emulator with multimedia support, animations, AI assistance, 
 - SQLite (aiosqlite) + file system for media caching (002-enhance-and-implement)
 - Python 3.11+ (backend), JavaScript ES2022 (frontend) + FastAPI, xterm.js, HTMX, WebSockets, Python PTY module (003-cat-commands)
 - SQLite database (existing) + browser localStorage (history/queries) + file system (exports) (003-cat-commands)
+- SQLite (session history persistence), File system (image files, temp storage) (004-imgcat-editor)
 
 ## Project Structure
 ```
@@ -101,6 +102,7 @@ flake8 src/ tests/
 - **Ebook file limit**: 50MB maximum
 
 ## Recent Changes
+- 004-imgcat-editor: Added Python 3.11+ (backend), JavaScript ES2022 (frontend)
 - 003-cat-commands: Added Python 3.11+ (backend), JavaScript ES2022 (frontend) + FastAPI, xterm.js, HTMX, WebSockets, Python PTY module
 - **002-enhance-and-implement** (2025-10-27): ✅ COMPLETE
   - Added ebook viewer (`bookcat` command) with PDF/EPUB support via foliate-js
@@ -112,7 +114,6 @@ flake8 src/ tests/
     - Lazy-load xterm.js addons (deferred loading)
   - Added performance monitoring with real-time metrics display
   - Libraries: PyPDF2 (PDF), ebooklib (EPUB), psutil (performance), foliate-js (frontend)
-- **001-web-based-terminal**: Initial feature specification and implementation plan
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->
