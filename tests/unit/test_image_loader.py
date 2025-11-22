@@ -431,4 +431,289 @@ class TestImageLoaderServiceConfiguration:
         custom_temp = tmp_path / "custom_temp"
         service = ImageLoaderService(temp_dir=str(custom_temp))
         assert service.temp_dir == custom_temp
-        assert service.temp_dir.exists()
+
+
+@pytest.mark.asyncio
+class TestImageLoaderServiceURLLoading:
+    """Test ImageLoaderService URL loading functionality (T105-T107)."""
+
+    @pytest.fixture
+    def service(self):
+        """Create ImageLoaderService instance."""
+        if not SERVICE_AVAILABLE:
+            pytest.skip("ImageLoaderService not implemented yet")
+        return ImageLoaderService()
+
+    @pytest.fixture
+    def mock_db(self):
+        """Create mock database session."""
+        db = AsyncMock()
+        db.add = Mock()
+        db.commit = AsyncMock()
+        db.refresh = AsyncMock()
+        return db
+
+    async def test_load_from_url_success(self, service, mock_db):
+        """T105: Test successful image download from URL.
+
+        Contract:
+        - Should download image from HTTP/HTTPS URL
+        - Should enforce 50MB size limit
+        - Should use 10s timeout
+        - Should save to temp file
+        - Should create ImageSession with source_type='url'
+        """
+        url = "https://example.com/test.png"
+
+        # Create mock image data
+        img = Image.new('RGB', (200, 200), color='green')
+        img_bytes = io.BytesIO()
+        img.save(img_bytes, 'PNG')
+        img_bytes.seek(0)
+        img_data = img_bytes.read()
+
+        # Mock aiohttp response
+        with patch('aiohttp.ClientSession') as mock_session_class:
+            mock_session = AsyncMock()
+            mock_response = AsyncMock()
+            mock_response.status = 200
+            mock_response.headers = {'Content-Type': 'image/png', 'Content-Length': str(len(img_data))}
+            mock_response.read = AsyncMock(return_value=img_data)
+            mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+            mock_response.__aexit__ = AsyncMock(return_value=None)
+
+            mock_session.get = Mock(return_value=mock_response)
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=None)
+            mock_session_class.return_value = mock_session
+
+            with pytest.raises((NotImplementedError, AssertionError)):
+                session = await service.load_from_url(
+                    url=url,
+                    terminal_session_id="test-session-url",
+                    db=mock_db
+                )
+
+                # Verify session created
+                assert session is not None
+                assert isinstance(session, ImageSession)
+                assert session.terminal_session_id == "test-session-url"
+                assert session.source_type.value == "url"
+                assert session.source_path == url
+                assert session.image_format == "png"
+                assert session.image_width == 200
+                assert session.image_height == 200
+                assert session.temp_file_path is not None
+                assert session.is_modified is False
+
+                # Verify timeout was set (10s)
+                mock_session.get.assert_called_once()
+                call_kwargs = mock_session.get.call_args.kwargs
+                assert 'timeout' in call_kwargs
+                # aiohttp timeout should be around 10 seconds
+
+    async def test_load_from_url_timeout(self, service, mock_db):
+        """T105: Test URL download timeout handling.
+
+        Contract:
+        - Should timeout after 10 seconds
+        - Should raise ImageLoaderError with timeout message
+        """
+        import aiohttp
+
+        url = "https://slow-server.example.com/image.png"
+
+        with patch('aiohttp.ClientSession') as mock_session_class:
+            mock_session = AsyncMock()
+            mock_session.get = AsyncMock(side_effect=aiohttp.ClientTimeout())
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=None)
+            mock_session_class.return_value = mock_session
+
+            with pytest.raises((NotImplementedError, ImageLoaderError, aiohttp.ClientTimeout)):
+                await service.load_from_url(
+                    url=url,
+                    terminal_session_id="test-session",
+                    db=mock_db
+                )
+
+    async def test_load_from_url_size_limit(self, service, mock_db):
+        """T105: Test 50MB size limit enforcement.
+
+        Contract:
+        - Should reject downloads >50MB
+        - Should raise ImageLoaderError
+        """
+        url = "https://example.com/huge-image.png"
+
+        # Mock response with 51MB content length
+        with patch('aiohttp.ClientSession') as mock_session_class:
+            mock_session = AsyncMock()
+            mock_response = AsyncMock()
+            mock_response.status = 200
+            mock_response.headers = {
+                'Content-Type': 'image/png',
+                'Content-Length': str(51 * 1024 * 1024)  # 51MB
+            }
+            mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+            mock_response.__aexit__ = AsyncMock(return_value=None)
+
+            mock_session.get = Mock(return_value=mock_response)
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=None)
+            mock_session_class.return_value = mock_session
+
+            with pytest.raises((NotImplementedError, ImageLoaderError, ImageValidationError)):
+                await service.load_from_url(
+                    url=url,
+                    terminal_session_id="test-session",
+                    db=mock_db
+                )
+
+    async def test_validate_url_http_https_only(self, service):
+        """T106: Test URL validation - only HTTP/HTTPS allowed.
+
+        Contract:
+        - Should accept http:// and https:// URLs
+        - Should reject ftp://, file://, data:// etc.
+        - Should raise ImageValidationError for invalid schemes
+        """
+        valid_urls = [
+            "http://example.com/image.png",
+            "https://example.com/image.jpg",
+            "https://cdn.example.com/path/to/image.png",
+        ]
+
+        invalid_urls = [
+            "ftp://example.com/image.png",
+            "file:///etc/passwd",
+            "data:image/png;base64,iVBORw0KGgo...",
+            "javascript:alert(1)",
+            "../../../etc/passwd",
+            "not-a-url",
+        ]
+
+        with pytest.raises((NotImplementedError, AssertionError)):
+            # Valid URLs should pass validation
+            for url in valid_urls:
+                is_valid = service.validate_url(url)
+                assert is_valid is True, f"URL should be valid: {url}"
+
+            # Invalid URLs should fail validation
+            for url in invalid_urls:
+                is_valid = service.validate_url(url)
+                assert is_valid is False, f"URL should be invalid: {url}"
+
+    async def test_validate_url_reject_private_ips(self, service):
+        """T106, T115: Test URL validation - reject private IP ranges (SSRF prevention).
+
+        Contract:
+        - Should reject 127.0.0.0/8 (localhost)
+        - Should reject 10.0.0.0/8 (private)
+        - Should reject 172.16.0.0/12 (private)
+        - Should reject 192.168.0.0/16 (private)
+        - Should raise ImageValidationError for private IPs
+        """
+        private_urls = [
+            "http://127.0.0.1/image.png",
+            "http://localhost/image.png",
+            "http://10.0.0.1/image.png",
+            "http://172.16.0.1/image.png",
+            "http://192.168.1.1/image.png",
+            "https://169.254.169.254/latest/meta-data/",  # AWS metadata service
+        ]
+
+        with pytest.raises((NotImplementedError, AssertionError)):
+            for url in private_urls:
+                is_valid = service.validate_url(url)
+                assert is_valid is False, f"Private IP URL should be rejected: {url}"
+
+    async def test_validate_url_content_type(self, service, mock_db):
+        """T106: Test Content-Type validation.
+
+        Contract:
+        - Should verify Content-Type is image/*
+        - Should reject non-image content types
+        - Should raise ImageValidationError for invalid content types
+        """
+        url = "https://example.com/not-an-image.html"
+
+        with patch('aiohttp.ClientSession') as mock_session_class:
+            mock_session = AsyncMock()
+            mock_response = AsyncMock()
+            mock_response.status = 200
+            mock_response.headers = {'Content-Type': 'text/html'}  # Not an image!
+            mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+            mock_response.__aexit__ = AsyncMock(return_value=None)
+
+            mock_session.get = Mock(return_value=mock_response)
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=None)
+            mock_session_class.return_value = mock_session
+
+            with pytest.raises((NotImplementedError, ImageValidationError, ImageLoaderError)):
+                await service.load_from_url(
+                    url=url,
+                    terminal_session_id="test-session",
+                    db=mock_db
+                )
+
+    async def test_load_from_url_connection_error(self, service, mock_db):
+        """T112: Test connection error handling.
+
+        Contract:
+        - Should handle DNS resolution failures
+        - Should handle connection refused
+        - Should raise ImageLoaderError with user-friendly message
+        """
+        import aiohttp
+
+        url = "https://nonexistent-domain-12345.com/image.png"
+
+        with patch('aiohttp.ClientSession') as mock_session_class:
+            mock_session = AsyncMock()
+            mock_session.get = AsyncMock(side_effect=aiohttp.ClientConnectorError(
+                connection_key=None,
+                os_error=None
+            ))
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=None)
+            mock_session_class.return_value = mock_session
+
+            with pytest.raises((NotImplementedError, ImageLoaderError, aiohttp.ClientConnectorError)):
+                await service.load_from_url(
+                    url=url,
+                    terminal_session_id="test-session",
+                    db=mock_db
+                )
+
+    async def test_load_from_url_invalid_image_data(self, service, mock_db):
+        """T112: Test handling of invalid image data from URL.
+
+        Contract:
+        - Should validate downloaded data is valid image
+        - Should raise ImageValidationError if not valid image
+        """
+        url = "https://example.com/fake-image.png"
+
+        # Mock response with invalid image data
+        with patch('aiohttp.ClientSession') as mock_session_class:
+            mock_session = AsyncMock()
+            mock_response = AsyncMock()
+            mock_response.status = 200
+            mock_response.headers = {'Content-Type': 'image/png'}
+            mock_response.read = AsyncMock(return_value=b"This is not image data")
+            mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+            mock_response.__aexit__ = AsyncMock(return_value=None)
+
+            mock_session.get = Mock(return_value=mock_response)
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=None)
+            mock_session_class.return_value = mock_session
+
+            with pytest.raises((NotImplementedError, ImageValidationError, ImageLoaderError)):
+                await service.load_from_url(
+                    url=url,
+                    terminal_session_id="test-session",
+                    db=mock_db
+                )

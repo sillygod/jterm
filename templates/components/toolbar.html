@@ -77,6 +77,30 @@
                     title="Eraser (E)">
                 <span class="icon">🧹</span>
             </button>
+            <button class="tool-btn"
+                    id="tool-crop"
+                    data-tool="crop"
+                    _="on click add .active to me
+                              remove .active from .tool-btn in closest .toolbar-container except me
+                              trigger toolChange(tool: 'crop') on #image-editor-{{ session_id }}"
+                    title="Crop">
+                <span class="icon">✂️</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="toolbar-divider"></div>
+
+    <!-- Image Adjustments -->
+    <div class="toolbar-section">
+        <label class="toolbar-label">Adjustments</label>
+        <div class="toolbar-buttons">
+            <button class="btn btn-sm"
+                    _="on click trigger showResizeDialog on #image-editor-{{ session_id }}"
+                    title="Resize Image">
+                <span class="icon">↔️</span>
+                Resize
+            </button>
         </div>
     </div>
 
@@ -155,7 +179,7 @@
             <input type="color"
                    id="fill-color-{{ session_id }}"
                    class="color-picker"
-                   value="#ff000080"
+                   value="#ff0000"
                    _="on input trigger fillColorChange(color: my value) on #image-editor-{{ session_id }}"
                    title="Fill Color">
         </div>

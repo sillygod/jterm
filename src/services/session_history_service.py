@@ -27,6 +27,48 @@ class SessionHistoryError(Exception):
     pass
 
 
+def validate_uuid(uuid_string: str, param_name: str = "ID") -> str:
+    """
+    Validate UUID format for SQL injection prevention (T140).
+
+    Args:
+        uuid_string: UUID string to validate
+        param_name: Parameter name for error messages
+
+    Returns:
+        str: Validated UUID string
+
+    Raises:
+        ValueError: If UUID format is invalid
+    """
+    import uuid as uuid_lib
+    import re
+
+    if not uuid_string or not isinstance(uuid_string, str):
+        raise ValueError(f"Invalid {param_name}: must be a non-empty string")
+
+    # Remove whitespace and convert to lowercase
+    uuid_string = uuid_string.strip().lower()
+
+    # Validate UUID format with regex (8-4-4-4-12 pattern)
+    uuid_pattern = re.compile(
+        r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    )
+    if not uuid_pattern.match(uuid_string):
+        raise ValueError(
+            f"Invalid {param_name} format: must be a valid UUID "
+            f"(e.g., '550e8400-e29b-41d4-a716-446655440000')"
+        )
+
+    # Additional validation: try to parse as UUID
+    try:
+        uuid_lib.UUID(uuid_string)
+    except ValueError as e:
+        raise ValueError(f"Invalid {param_name}: {str(e)}")
+
+    return uuid_string
+
+
 class SessionHistoryService:
     """
     Service for managing session history of viewed/edited images.
@@ -43,17 +85,19 @@ class SessionHistoryService:
 
     def __init__(self):
         """Initialize the session history service."""
-        # In-memory cache: {terminal_session_id: OrderedDict({image_path: SessionHistory})}
-        self._cache: Dict[str, OrderedDict] = {}
+        # In-memory cache: key = "terminal_id:image_path", value = SessionHistory
+        self._cache: OrderedDict[str, SessionHistory] = OrderedDict()
+
+    def _get_cache_key(self, terminal_session_id: str, image_path: str) -> str:
+        """Generate cache key from terminal session ID and image path."""
+        return f"{terminal_session_id}:{image_path}"
 
     async def add_to_history(
         self,
         terminal_session_id: str,
         image_path: str,
-        source_type: ImageSourceType,
-        is_edited: bool,
-        thumbnail_path: Optional[str],
-        db: AsyncSession
+        db: AsyncSession,
+        image_source_type: str = "file"
     ) -> SessionHistory:
         """
         Add or update image in session history.
@@ -63,9 +107,6 @@ class SessionHistoryService:
         Args:
             terminal_session_id: Terminal session ID
             image_path: Image file path or URL
-            source_type: Source type (file, clipboard, url)
-            is_edited: Whether image was edited
-            thumbnail_path: Optional thumbnail path
             db: Database session
 
         Returns:
@@ -73,21 +114,79 @@ class SessionHistoryService:
         """
         logger.info(f"Adding to history: {image_path} for session {terminal_session_id}")
 
-        # TODO: Implement add_to_history logic
-        # - Check if entry exists in database (terminal_session_id + image_path)
-        # - If exists: update last_viewed_at, increment view_count, update is_edited
-        # - If new: create new SessionHistory record
-        # - Update in-memory cache (move to end for LRU)
-        # - If cache exceeds MAX_HISTORY_SIZE, evict oldest entry
-        # - Return history entry
+        # Check if entry already exists
+        stmt = select(SessionHistory).where(
+            SessionHistory.terminal_session_id == terminal_session_id,
+            SessionHistory.image_path == image_path
+        )
+        result = await db.execute(stmt)
+        existing_entry = result.scalar_one_or_none()
 
-        raise NotImplementedError("add_to_history not yet implemented")
+        if existing_entry:
+            # Update existing entry (upsert behavior)
+            existing_entry.view_count += 1
+            existing_entry.last_viewed_at = datetime.now(timezone.utc)
+            await db.commit()
+
+            # Update in-memory cache (move to end = most recently used)
+            cache_key = self._get_cache_key(terminal_session_id, image_path)
+            if cache_key in self._cache:
+                self._cache.move_to_end(cache_key)
+            self._cache[cache_key] = existing_entry
+
+            logger.info(f"Updated existing history entry: {existing_entry.id}")
+            return existing_entry
+
+        # Check if we need to evict oldest entry (LRU)
+        count_stmt = select(func.count()).select_from(SessionHistory).where(
+            SessionHistory.terminal_session_id == terminal_session_id
+        )
+        count_result = await db.execute(count_stmt)
+        current_count = count_result.scalar()
+
+        if current_count >= self.MAX_HISTORY_SIZE:
+            # Evict oldest entry
+            oldest_stmt = select(SessionHistory).where(
+                SessionHistory.terminal_session_id == terminal_session_id
+            ).order_by(SessionHistory.last_viewed_at.asc()).limit(1)
+            oldest_result = await db.execute(oldest_stmt)
+            oldest_entry = oldest_result.scalar_one_or_none()
+
+            if oldest_entry:
+                logger.info(f"Evicting oldest entry: {oldest_entry.id}")
+                await db.delete(oldest_entry)
+
+                # Remove from cache
+                oldest_cache_key = self._get_cache_key(
+                    oldest_entry.terminal_session_id,
+                    oldest_entry.image_path
+                )
+                self._cache.pop(oldest_cache_key, None)
+
+        # Create new entry
+        new_entry = SessionHistory(
+            terminal_session_id=terminal_session_id,
+            image_path=image_path,
+            image_source_type=image_source_type,
+            last_viewed_at=datetime.now(timezone.utc),
+            view_count=1
+        )
+        db.add(new_entry)
+        await db.commit()
+        await db.refresh(new_entry)
+
+        # Add to cache (most recently used)
+        cache_key = self._get_cache_key(terminal_session_id, image_path)
+        self._cache[cache_key] = new_entry
+
+        logger.info(f"Created new history entry: {new_entry.id}")
+        return new_entry
 
     async def get_history(
         self,
         terminal_session_id: str,
-        db: AsyncSession,
-        limit: int = 20
+        limit: int,
+        db: AsyncSession
     ) -> List[SessionHistory]:
         """
         Retrieve session history for a terminal session.
@@ -96,25 +195,26 @@ class SessionHistoryService:
 
         Args:
             terminal_session_id: Terminal session ID
-            db: Database session
             limit: Maximum number of entries to return
+            db: Database session
 
         Returns:
             List[SessionHistory]: History entries, most recent first
         """
         logger.info(f"Retrieving history for session: {terminal_session_id}")
 
-        # TODO: Implement get_history logic
-        # - Check in-memory cache first
-        # - If cache miss, query database
-        # - Order by last_viewed_at DESC
-        # - Limit to specified count (default 20)
-        # - Populate cache for future access
-        # - Return list of SessionHistory entries
+        # Query database for history entries
+        stmt = select(SessionHistory).where(
+            SessionHistory.terminal_session_id == terminal_session_id
+        ).order_by(SessionHistory.last_viewed_at.desc()).limit(limit)
 
-        raise NotImplementedError("get_history not yet implemented")
+        result = await db.execute(stmt)
+        entries = result.scalars().all()
 
-    async def get_history_entry(
+        logger.info(f"Retrieved {len(entries)} history entries")
+        return list(entries)
+
+    async def get_entry_by_id(
         self,
         entry_id: str,
         db: AsyncSession
@@ -131,88 +231,80 @@ class SessionHistoryService:
         """
         logger.info(f"Retrieving history entry: {entry_id}")
 
-        # TODO: Implement get_history_entry logic
-        # - Query SessionHistory by id
-        # - Return entry or None
+        # T140: Validate UUID to prevent SQL injection
+        entry_id = validate_uuid(entry_id, "entry_id")
 
-        raise NotImplementedError("get_history_entry not yet implemented")
+        stmt = select(SessionHistory).where(SessionHistory.id == entry_id)
+        result = await db.execute(stmt)
+        entry = result.scalar_one_or_none()
 
-    async def cleanup_expired(
+        if entry:
+            logger.info(f"Found history entry: {entry_id}")
+        else:
+            logger.warning(f"History entry not found: {entry_id}")
+
+        return entry
+
+    async def cleanup_old_entries(
         self,
-        db: AsyncSession,
-        days: int = RETENTION_DAYS
+        db: AsyncSession
     ) -> int:
         """
-        Clean up history entries older than specified days.
+        Clean up history entries older than RETENTION_DAYS.
 
         Args:
             db: Database session
-            days: Age threshold in days
 
         Returns:
             int: Number of entries deleted
         """
-        logger.info(f"Cleaning up history entries older than {days} days")
+        logger.info(f"Cleaning up history entries older than {self.RETENTION_DAYS} days")
 
-        # TODO: Implement cleanup logic
-        # - Calculate cutoff timestamp (now - days)
-        # - Delete SessionHistory records where last_viewed_at < cutoff
-        # - Clear corresponding entries from in-memory cache
-        # - Return count of deleted entries
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=self.RETENTION_DAYS)
 
-        raise NotImplementedError("cleanup_expired not yet implemented")
+        # Get entries to delete (for cache cleanup)
+        stmt = select(SessionHistory).where(
+            SessionHistory.last_viewed_at < cutoff_date
+        )
+        result = await db.execute(stmt)
+        old_entries = result.scalars().all()
 
-    async def restore_cache_from_db(
+        # Remove from cache
+        for entry in old_entries:
+            cache_key = self._get_cache_key(entry.terminal_session_id, entry.image_path)
+            self._cache.pop(cache_key, None)
+
+        # Delete from database
+        delete_stmt = delete(SessionHistory).where(
+            SessionHistory.last_viewed_at < cutoff_date
+        )
+        await db.execute(delete_stmt)
+        await db.commit()
+
+        logger.info(f"Deleted {len(old_entries)} expired history entries")
+        return len(old_entries)
+
+    async def restore_cache(
         self,
-        terminal_session_id: str,
         db: AsyncSession
     ) -> None:
         """
-        Restore in-memory cache from database on server start or cache miss.
+        Restore in-memory cache from database on server start.
 
         Args:
-            terminal_session_id: Terminal session ID to restore
             db: Database session
         """
-        logger.info(f"Restoring cache for session: {terminal_session_id}")
+        logger.info("Restoring session history cache from database")
 
-        # TODO: Implement cache restoration logic
-        # - Query SessionHistory for terminal_session_id
-        # - Order by last_viewed_at DESC
-        # - Populate in-memory OrderedDict
-        # - Limit to MAX_HISTORY_SIZE entries
+        # Load all entries ordered by last_viewed_at (oldest first for OrderedDict)
+        stmt = select(SessionHistory).order_by(SessionHistory.last_viewed_at.asc())
+        result = await db.execute(stmt)
+        entries = result.scalars().all()
 
-        raise NotImplementedError("restore_cache_from_db not yet implemented")
+        # Rebuild cache
+        self._cache.clear()
+        for entry in entries:
+            cache_key = self._get_cache_key(entry.terminal_session_id, entry.image_path)
+            self._cache[cache_key] = entry
 
-    def _evict_oldest_from_cache(
-        self,
-        terminal_session_id: str,
-        db: AsyncSession
-    ) -> None:
-        """
-        Evict oldest entry from in-memory cache when limit is reached.
-
-        Args:
-            terminal_session_id: Terminal session ID
-            db: Database session
-        """
-        # TODO: Implement LRU eviction logic
-        # - Get OrderedDict for terminal session
-        # - Pop oldest entry (first item)
-        # - Database record remains (not deleted, just removed from cache)
-
-        raise NotImplementedError("_evict_oldest_from_cache not yet implemented")
-
-    def clear_cache(self, terminal_session_id: Optional[str] = None) -> None:
-        """
-        Clear in-memory cache.
-
-        Args:
-            terminal_session_id: Optional specific session to clear, or all if None
-        """
-        if terminal_session_id:
-            self._cache.pop(terminal_session_id, None)
-            logger.info(f"Cleared cache for session: {terminal_session_id}")
-        else:
-            self._cache.clear()
-            logger.info("Cleared all session history cache")
+        logger.info(f"Restored {len(entries)} entries to cache")

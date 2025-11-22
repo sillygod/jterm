@@ -118,16 +118,16 @@
 
 ### Implementation for User Story 2
 
-- [ ] T051 [US2] Implement ImageLoaderService.load_from_stdin() in src/services/image_loader_service.py (detect stdin image data, parse format, save to temp file, create ImageSession with source_type='clipboard')
-- [ ] T052 [US2] Add `--clipboard` flag handling to imgcat CLI in src/cli/imgcat.py (read clipboard via platform-specific utility: pbpaste/xclip/clip.exe)
-- [ ] T053 [US2] Add stdin detection to POST /api/image-editor/load in src/api/image_editor.py (check for clipboard_data in request, call load_from_stdin)
-- [ ] T054 [US2] Implement platform detection in src/services/image_loader_service.py (sys.platform check, suggest appropriate clipboard utility if missing)
-- [ ] T055 [US2] Update clipboard copy handler in static/js/clipboard-handler.js (handle clipboard sources, notify user if clipboard copy succeeds)
-- [ ] T056 [US2] Implement save dialog for clipboard sources in templates/components/image_editor.html (prompt for filename, suggest default based on timestamp)
-- [ ] T057 [US2] Update POST /api/image-editor/save endpoint in src/api/image_editor.py (require output_path for clipboard sources, validate path, save via ImageEditorService)
-- [ ] T058 [US2] Implement ImageEditorService.save_image() in src/services/image_editor_service.py (apply canvas to image using Pillow, save to file system, update ImageSession.is_modified=False)
-- [ ] T059 [US2] Add empty clipboard detection in src/services/image_loader_service.py (detect empty stdin, return error FR-025)
-- [ ] T060 [US2] Add clipboard permission error handling in static/js/clipboard-handler.js (catch NotAllowedError, show permission prompt)
+- [x] T051 [US2] Implement ImageLoaderService.load_from_stdin() in src/services/image_loader_service.py (detect stdin image data, parse format, save to temp file, create ImageSession with source_type='clipboard')
+- [x] T052 [US2] Add `--clipboard` flag handling to imgcat CLI in bin/imgcat (read clipboard via platform-specific utility: pbpaste/xclip/clip.exe)
+- [x] T053 [US2] Add stdin detection to POST /api/image-editor/load in src/api/image_editor.py (check for clipboard_data in request, call load_from_stdin)
+- [x] T054 [US2] Implement platform detection in src/services/image_loader_service.py (sys.platform check, suggest appropriate clipboard utility if missing)
+- [x] T055 [US2] Update clipboard copy handler in static/js/image-editor.js (handle clipboard sources, notify user if clipboard copy succeeds)
+- [x] T056 [US2] Implement save dialog for clipboard sources in templates/components/image_editor.html (prompt for filename, suggest default based on timestamp)
+- [x] T057 [US2] Update POST /api/image-editor/save endpoint in src/api/image_editor_endpoints.py (require output_path for clipboard sources, validate path, save via ImageEditorService)
+- [x] T058 [US2] Implement ImageEditorService.save_image() in src/services/image_editor_service.py (apply canvas to image using Pillow, save to file system, update ImageSession.is_modified=False)
+- [x] T059 [US2] Add empty clipboard detection in src/services/image_loader_service.py (detect empty stdin, return error FR-025)
+- [x] T060 [US2] Add clipboard permission error handling in static/js/image-editor.js (catch NotAllowedError, show permission prompt)
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently. Users can load from files or clipboard.
 
@@ -141,22 +141,22 @@
 
 ### Tests for User Story 3
 
-- [ ] T061 [P] [US3] Write unit test for ImageEditorService.crop_image() in tests/unit/test_image_editor_service.py (test Pillow crop operation, boundary validation)
-- [ ] T062 [P] [US3] Write unit test for ImageEditorService.resize_image() in tests/unit/test_image_editor_service.py (test Pillow resize, aspect ratio calculation)
-- [ ] T063 [US3] Write integration test for crop and resize in tests/integration/test_crop_resize.py (load → crop → resize → save)
+- [x] T061 [P] [US3] Write unit test for ImageEditorService.crop_image() in tests/unit/test_image_editor_service.py (test Pillow crop operation, boundary validation)
+- [x] T062 [P] [US3] Write unit test for ImageEditorService.resize_image() in tests/unit/test_image_editor_service.py (test Pillow resize, aspect ratio calculation)
+- [x] T063 [US3] Write integration test for crop and resize in tests/integration/test_crop_resize.py (load → crop → resize → save)
 
 ### Implementation for User Story 3
 
-- [ ] T064 [P] [US3] Implement crop tool UI in static/js/drawing-tools.js (Fabric.Rect selection with draggable handles, dim outside area, "Apply Crop" button)
-- [ ] T065 [P] [US3] Implement resize dialog in templates/components/image_editor.html (width/height inputs, aspect ratio lock checkbox, preview dimensions, "Apply Resize" button)
-- [ ] T066 [US3] Implement ImageEditorService.crop_image() in src/services/image_editor_service.py (Pillow Image.crop, update ImageSession dimensions, update canvas size)
-- [ ] T067 [US3] Implement ImageEditorService.resize_image() in src/services/image_editor_service.py (Pillow Image.resize with LANCZOS filter, aspect ratio calculation if locked, update ImageSession dimensions)
-- [ ] T068 [US3] Add crop operation to POST /api/image-editor/process endpoint in src/api/image_editor.py (receive crop bounds, call ImageEditorService.crop_image, return processed image URL)
-- [ ] T069 [US3] Add resize operation to POST /api/image-editor/process endpoint in src/api/image_editor.py (receive dimensions and aspect_ratio flag, call ImageEditorService.resize_image, return processed image URL)
-- [ ] T070 [US3] Wire crop tool to API in static/js/drawing-tools.js (get selection bounds, POST to /api/image-editor/process, reload canvas with cropped image)
-- [ ] T071 [US3] Wire resize dialog to API in static/js/image-editor.js (calculate dimensions, POST to /api/image-editor/process, reload canvas with resized image)
-- [ ] T072 [US3] Add crop/resize to undo/redo stack in static/js/image-editor.js (store pre-crop/resize canvas state, enable undo to revert)
-- [ ] T073 [US3] Update canvas dimensions after crop/resize in static/js/image-editor.js (Fabric.Canvas.setDimensions, re-render annotations)
+- [x] T064 [P] [US3] Implement crop tool UI in static/js/drawing-tools.js (Fabric.Rect selection with draggable handles, dim outside area, "Apply Crop" button)
+- [x] T065 [P] [US3] Implement resize dialog in templates/components/image_editor.html (width/height inputs, aspect ratio lock checkbox, preview dimensions, "Apply Resize" button)
+- [x] T066 [US3] Implement ImageEditorService.crop_image() in src/services/image_editor_service.py (Pillow Image.crop, update ImageSession dimensions, clear annotations)
+- [x] T067 [US3] Implement ImageEditorService.resize_image() in src/services/image_editor_service.py (Pillow Image.resize with LANCZOS filter, aspect ratio calculation if locked, scale annotations)
+- [x] T068 [US3] Add crop endpoint POST /api/image-editor/crop in src/api/image_editor_endpoints.py (receive crop bounds, call ImageEditorService.crop_image, return new dimensions)
+- [x] T069 [US3] Add resize endpoint POST /api/image-editor/resize in src/api/image_editor_endpoints.py (receive dimensions and aspect_ratio flag, call ImageEditorService.resize_image, return new dimensions and scale factors)
+- [x] T070 [US3] Wire crop tool to API in static/js/drawing-tools.js (get selection bounds, POST to /api/image-editor/process, reload canvas with cropped image)
+- [x] T071 [US3] Wire resize dialog to API in static/js/image-editor.js (calculate dimensions, POST to /api/image-editor/process, reload canvas with resized image)
+- [x] T072 [US3] Add crop/resize to undo/redo stack in static/js/image-editor.js (store pre-crop/resize canvas state, enable undo to revert)
+- [x] T073 [US3] Update canvas dimensions after crop/resize in static/js/image-editor.js (Fabric.Canvas.setDimensions, re-render annotations)
 
 **Checkpoint**: All three P1 user stories should now be independently functional. MVP is complete - users can annotate, use clipboard, and crop/resize.
 
@@ -170,26 +170,26 @@
 
 ### Tests for User Story 4
 
-- [ ] T074 [P] [US4] Write unit test for client-side filter preview in tests/unit/test_filter_engine.js (Jest test for CSS filter application)
-- [ ] T075 [P] [US4] Write unit test for ImageEditorService.apply_blur() in tests/unit/test_image_editor_service.py (test Pillow GaussianBlur)
-- [ ] T076 [P] [US4] Write unit test for ImageEditorService.apply_sharpen() in tests/unit/test_image_editor_service.py (test Pillow UnsharpMask)
-- [ ] T077 [US4] Write integration test for filter workflow in tests/integration/test_filters.py (load → adjust brightness → apply blur → save)
+- [x] T074 [P] [US4] Write unit test for client-side filter preview in tests/unit/test_filter_engine.js (Jest test for CSS filter application)
+- [x] T075 [P] [US4] Write unit test for ImageEditorService.apply_blur() in tests/unit/test_image_editor_service.py (test Pillow GaussianBlur)
+- [x] T076 [P] [US4] Write unit test for ImageEditorService.apply_sharpen() in tests/unit/test_image_editor_service.py (test Pillow UnsharpMask)
+- [x] T077 [US4] Write integration test for filter workflow in tests/integration/test_filters.py (load → adjust brightness → apply blur → save)
 
 ### Implementation for User Story 4
 
-- [ ] T078 [P] [US4] Create filter panel HTML in templates/components/filter_panel.html (brightness/contrast/saturation sliders, blur/sharpen controls, "Apply" and "Reset All" buttons)
-- [ ] T079 [P] [US4] Implement client-side brightness adjustment in static/js/filter-engine.js (CSS filter: brightness, live preview on slider change, <200ms update)
-- [ ] T080 [P] [US4] Implement client-side contrast adjustment in static/js/filter-engine.js (CSS filter: contrast, live preview)
-- [ ] T081 [P] [US4] Implement client-side saturation adjustment in static/js/filter-engine.js (CSS filter: saturate, live preview)
-- [ ] T082 [US4] Implement filter apply logic in static/js/filter-engine.js (on "Apply" click, commit CSS filters to canvas using canvas filters API, clear preview CSS)
-- [ ] T083 [US4] Implement ImageEditorService.apply_blur() in src/services/image_editor_service.py (Pillow ImageFilter.GaussianBlur with radius parameter)
-- [ ] T084 [US4] Implement ImageEditorService.apply_sharpen() in src/services/image_editor_service.py (Pillow ImageFilter.UnsharpMask with intensity parameter)
-- [ ] T085 [US4] Add blur operation to POST /api/image-editor/process endpoint in src/api/image_editor.py (receive radius param, call apply_blur, return processed image URL)
-- [ ] T086 [US4] Add sharpen operation to POST /api/image-editor/process endpoint in src/api/image_editor.py (receive intensity param, call apply_sharpen, return processed image URL)
-- [ ] T087 [US4] Wire blur/sharpen controls to API in static/js/filter-engine.js (POST to /api/image-editor/process, show loading indicator, reload canvas with filtered image)
-- [ ] T088 [US4] Implement "Reset All" button logic in static/js/filter-engine.js (clear all CSS filters, reload original image, reset sliders to default)
-- [ ] T089 [US4] Add filter operations to undo/redo stack in static/js/image-editor.js (store pre-filter canvas state)
-- [ ] T090 [US4] Add loading indicator for server-side filters in templates/components/filter_panel.html (spinner during blur/sharpen processing)
+- [x] T078 [P] [US4] Create filter panel HTML in templates/components/filter_panel.html (brightness/contrast/saturation sliders, blur/sharpen controls, "Apply" and "Reset All" buttons)
+- [x] T079 [P] [US4] Implement client-side brightness adjustment in static/js/filter-engine.js (CSS filter: brightness, live preview on slider change, <200ms update)
+- [x] T080 [P] [US4] Implement client-side contrast adjustment in static/js/filter-engine.js (CSS filter: contrast, live preview)
+- [x] T081 [P] [US4] Implement client-side saturation adjustment in static/js/filter-engine.js (CSS filter: saturate, live preview)
+- [x] T082 [US4] Implement filter apply logic in static/js/filter-engine.js (on "Apply" click, commit CSS filters to canvas using canvas filters API, clear preview CSS)
+- [x] T083 [US4] Implement ImageEditorService.apply_blur() in src/services/image_editor_service.py (Pillow ImageFilter.GaussianBlur with radius parameter)
+- [x] T084 [US4] Implement ImageEditorService.apply_sharpen() in src/services/image_editor_service.py (Pillow ImageFilter.UnsharpMask with intensity parameter)
+- [x] T085 [US4] Add blur operation to POST /api/image-editor/process endpoint in src/api/image_editor.py (receive radius param, call apply_blur, return processed image URL)
+- [x] T086 [US4] Add sharpen operation to POST /api/image-editor/process endpoint in src/api/image_editor.py (receive intensity param, call apply_sharpen, return processed image URL)
+- [x] T087 [US4] Wire blur/sharpen controls to API in static/js/filter-engine.js (POST to /api/image-editor/process, show loading indicator, reload canvas with filtered image)
+- [x] T088 [US4] Implement "Reset All" button logic in static/js/filter-engine.js (clear all CSS filters, reload original image, reset sliders to default)
+- [x] T089 [US4] Add filter operations to undo/redo stack in static/js/image-editor.js (store pre-filter canvas state)
+- [x] T090 [US4] Add loading indicator for server-side filters in templates/components/filter_panel.html (spinner during blur/sharpen processing)
 
 **Checkpoint**: User Story 4 complete. Users can now adjust image quality and apply filters.
 
@@ -203,23 +203,23 @@
 
 ### Tests for User Story 5
 
-- [ ] T091 [P] [US5] Write unit test for SessionHistoryService.add_to_history() in tests/unit/test_session_history_service.py (test LRU eviction, 20-item limit)
-- [ ] T092 [P] [US5] Write unit test for SessionHistoryService.get_history() in tests/unit/test_session_history_service.py (test ordered retrieval, terminal session filtering)
-- [ ] T093 [US5] Write integration test for history workflow in tests/integration/test_history.py (view multiple images → retrieve history → reopen from history)
+- [x] T091 [P] [US5] Write unit test for SessionHistoryService.add_to_history() in tests/unit/test_session_history_service.py (test LRU eviction, 20-item limit)
+- [x] T092 [P] [US5] Write unit test for SessionHistoryService.get_history() in tests/unit/test_session_history_service.py (test ordered retrieval, terminal session filtering)
+- [x] T093 [US5] Write integration test for history workflow in tests/integration/test_history.py (view multiple images → retrieve history → reopen from history)
 
 ### Implementation for User Story 5
 
-- [ ] T094 [US5] Implement SessionHistoryService.add_to_history() in src/services/session_history_service.py (OrderedDict LRU cache, upsert to SQLite session_history table, 20-item eviction)
-- [ ] T095 [US5] Implement SessionHistoryService.get_history() in src/services/session_history_service.py (query SQLite by terminal_session_id, order by last_viewed_at DESC, limit 20)
-- [ ] T096 [US5] Update POST /api/image-editor/load to call add_to_history() in src/api/image_editor.py (after successful load, add to SessionHistory)
-- [ ] T097 [US5] Implement GET /api/image-editor/history endpoint in src/api/image_editor.py (receive terminal_session_id, call SessionHistoryService.get_history, return JSON array)
-- [ ] T098 [US5] Implement POST /api/image-editor/history/{entry_id}/reopen endpoint in src/api/image_editor.py (load image from history entry, create new ImageSession, return session_id and editor_url)
-- [ ] T099 [US5] Add `--history` flag to imgcat CLI in src/cli/imgcat.py (call GET /api/image-editor/history, display numbered list, prompt for selection)
-- [ ] T100 [US5] Add `-e N` flag to imgcat CLI in src/cli/imgcat.py (call GET /api/image-editor/history, select Nth entry, call reopen endpoint)
-- [ ] T101 [US5] Add `--edit-last` flag to imgcat CLI in src/cli/imgcat.py (shortcut for `-e 1`, reopen most recent image)
-- [ ] T102 [US5] Implement history cache restoration in src/services/session_history_service.py (load from SQLite on server start, populate in-memory OrderedDict)
-- [ ] T103 [US5] Implement cleanup job in src/services/session_history_service.py (background task to delete history entries older than 7 days, schedule via FastAPI lifespan)
-- [ ] T104 [US5] Add empty history handling in src/cli/imgcat.py (display message "No images in session history" when history is empty)
+- [x] T094 [US5] Implement SessionHistoryService.add_to_history() in src/services/session_history_service.py (OrderedDict LRU cache, upsert to SQLite session_history table, 20-item eviction)
+- [x] T095 [US5] Implement SessionHistoryService.get_history() in src/services/session_history_service.py (query SQLite by terminal_session_id, order by last_viewed_at DESC, limit 20)
+- [x] T096 [US5] Update POST /api/image-editor/load to call add_to_history() in src/api/image_editor.py (after successful load, add to SessionHistory)
+- [x] T097 [US5] Implement GET /api/image-editor/history endpoint in src/api/image_editor.py (receive terminal_session_id, call SessionHistoryService.get_history, return JSON array)
+- [x] T098 [US5] Implement POST /api/image-editor/history/{entry_id}/reopen endpoint in src/api/image_editor.py (load image from history entry, create new ImageSession, return session_id and editor_url)
+- [x] T099 [US5] Add `--history` flag to imgcat CLI in bin/imgcat (call GET /api/image-editor/history, display numbered list, prompt for selection)
+- [x] T100 [US5] Add `-e N` flag to imgcat CLI in bin/imgcat (call GET /api/image-editor/history, select Nth entry, call reopen endpoint)
+- [x] T101 [US5] Add `--edit-last` flag to imgcat CLI in bin/imgcat (shortcut for `-e 1`, reopen most recent image)
+- [x] T102 [US5] Implement history cache restoration in src/services/session_history_service.py (load from SQLite on server start, populate in-memory OrderedDict)
+- [x] T103 [US5] Implement cleanup job in src/main.py (background task to delete history entries older than 7 days, schedule via FastAPI lifespan)
+- [x] T104 [US5] Add empty history handling in bin/imgcat (display message "No images in session history" when history is empty)
 
 **Checkpoint**: User Story 5 complete. Power users can quickly re-edit recent images without retyping paths.
 
@@ -233,20 +233,20 @@
 
 ### Tests for User Story 6
 
-- [ ] T105 [P] [US6] Write unit test for ImageLoaderService.load_from_url() in tests/unit/test_image_loader.py (test aiohttp download, timeout, size limits)
-- [ ] T106 [P] [US6] Write unit test for URL validation in tests/unit/test_image_loader.py (test HTTP/HTTPS only, invalid URLs)
-- [ ] T107 [US6] Write integration test for URL loading in tests/integration/test_url_loading.py (load from URL → edit → save prompts filename)
+- [x] T105 [P] [US6] Write unit test for ImageLoaderService.load_from_url() in tests/unit/test_image_loader.py (test aiohttp download, timeout, size limits)
+- [x] T106 [P] [US6] Write unit test for URL validation in tests/unit/test_image_loader.py (test HTTP/HTTPS only, invalid URLs)
+- [x] T107 [US6] Write integration test for URL loading in tests/integration/test_url_loading.py (load from URL → edit → save prompts filename)
 
 ### Implementation for User Story 6
 
-- [ ] T108 [US6] Implement ImageLoaderService.load_from_url() in src/services/image_loader_service.py (aiohttp.ClientSession, stream download, 50MB limit, 10s timeout, save to temp file, create ImageSession with source_type='url')
-- [ ] T109 [US6] Add URL validation in src/services/image_loader_service.py (whitelist HTTP/HTTPS schemes, reject private IPs, validate Content-Type header)
-- [ ] T110 [US6] Add URL source handling to POST /api/image-editor/load in src/api/image_editor.py (check for source_type='url', call load_from_url, show progress indicator)
-- [ ] T111 [US6] Implement loading indicator for URL downloads in templates/components/image_editor.html (display "Loading image from URL..." during download)
-- [ ] T112 [US6] Add URL timeout error handling in src/services/image_loader_service.py (catch aiohttp.ClientTimeout, return error message FR-003)
-- [ ] T113 [US6] Add URL load failure handling in src/api/image_editor.py (catch connection errors, invalid URLs, return user-friendly error messages)
-- [ ] T114 [US6] Update save dialog for URL sources in templates/components/image_editor.html (suggest filename from URL path, e.g., "screenshot.png" from URL)
-- [ ] T115 [US6] Add SSRF prevention in src/services/image_loader_service.py (block private IP ranges: 127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
+- [x] T108 [US6] Implement ImageLoaderService.load_from_url() in src/services/image_loader_service.py (aiohttp.ClientSession, stream download, 50MB limit, 10s timeout, save to temp file, create ImageSession with source_type='url')
+- [x] T109 [US6] Add URL validation in src/services/image_loader_service.py (whitelist HTTP/HTTPS schemes, reject private IPs, validate Content-Type header)
+- [x] T110 [US6] Add URL source handling to POST /api/image-editor/load in src/api/image_editor_endpoints.py (check for source_type='url', call load_from_url, show progress indicator)
+- [x] T111 [US6] Implement loading indicator for URL downloads in templates/components/image_editor.html (display "Loading image from URL..." during download)
+- [x] T112 [US6] Add URL timeout error handling in src/services/image_loader_service.py (catch aiohttp.ClientTimeout, return error message FR-003)
+- [x] T113 [US6] Add URL load failure handling in src/api/image_editor_endpoints.py (catch connection errors, invalid URLs, return user-friendly error messages)
+- [x] T114 [US6] Update save dialog for URL sources in templates/components/image_editor.html (suggest filename from URL path, e.g., "screenshot.png" from URL)
+- [x] T115 [US6] Add SSRF prevention in src/services/image_loader_service.py (block private IP ranges: 127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
 
 **Checkpoint**: User Story 6 complete. Users can now load images from web URLs for editing.
 
@@ -260,20 +260,20 @@
 
 ### Tests for User Story 7
 
-- [ ] T116 [P] [US7] Write unit test for shape tool logic in tests/unit/test_drawing_tools.js (Jest test for rectangle, circle, line creation)
-- [ ] T117 [US7] Write integration test for advanced shapes in tests/integration/test_shapes.py (draw multiple shapes → customize → select → move → delete)
+- [x] T116 [P] [US7] Write unit test for shape tool logic in tests/unit/test_drawing_tools.js (Jest test for rectangle, circle, line creation)
+- [x] T117 [US7] Write integration test for advanced shapes in tests/integration/test_shapes.py (draw multiple shapes → customize → select → move → delete)
 
 ### Implementation for User Story 7
 
-- [ ] T118 [P] [US7] Implement rectangle tool in static/js/drawing-tools.js (Fabric.Rect, drag to create, use active stroke color and width)
-- [ ] T119 [P] [US7] Implement circle tool in static/js/drawing-tools.js (Fabric.Circle, drag from center, support fill toggle)
-- [ ] T120 [P] [US7] Implement line tool in static/js/drawing-tools.js (Fabric.Line, drag to create, Shift key snaps to 45° angles)
-- [ ] T121 [US7] Add fill toggle control to toolbar in templates/components/toolbar.html (checkbox for "Fill Shape", applies to circle and rectangle)
-- [ ] T122 [US7] Implement fill toggle logic in static/js/drawing-tools.js (update shape fill property based on toggle state)
-- [ ] T123 [US7] Implement selection tool in static/js/drawing-tools.js (enable Fabric.js object selection, show bounding box with handles)
-- [ ] T124 [US7] Implement shape manipulation in static/js/image-editor.js (move selected shape via drag, resize via handles, delete via Delete key)
-- [ ] T125 [US7] Add shape drawing to undo/redo stack in static/js/image-editor.js (store canvas state after shape creation)
-- [ ] T126 [US7] Update toolbar to show active tool state in templates/components/toolbar.html (highlight selected tool button)
+- [x] T118 [P] [US7] Implement rectangle tool in static/js/drawing-tools.js (Fabric.Rect, drag to create, use active stroke color and width)
+- [x] T119 [P] [US7] Implement circle tool in static/js/drawing-tools.js (Fabric.Circle, drag from center, support fill toggle)
+- [x] T120 [P] [US7] Implement line tool in static/js/drawing-tools.js (Fabric.Line, drag to create, Shift key snaps to 45° angles)
+- [x] T121 [US7] Add fill toggle control to toolbar in templates/components/toolbar.html (checkbox for "Fill Shape", applies to circle and rectangle)
+- [x] T122 [US7] Implement fill toggle logic in static/js/drawing-tools.js (update shape fill property based on toggle state)
+- [x] T123 [US7] Implement selection tool in static/js/drawing-tools.js (enable Fabric.js object selection, show bounding box with handles)
+- [x] T124 [US7] Implement shape manipulation in static/js/image-editor.js (move selected shape via drag, resize via handles, delete via Delete key)
+- [x] T125 [US7] Add shape drawing to undo/redo stack in static/js/image-editor.js (store canvas state after shape creation)
+- [x] T126 [US7] Update toolbar to show active tool state in templates/components/toolbar.html (highlight selected tool button)
 
 **Checkpoint**: User Story 7 complete. Users can now draw professional-looking shapes with customization.
 
@@ -287,20 +287,20 @@
 
 ### Tests for User Story 8
 
-- [ ] T127 [P] [US8] Write unit test for text formatting logic in tests/unit/test_drawing_tools.js (Jest test for font size, color, bold, italic, background)
-- [ ] T128 [US8] Write integration test for text formatting in tests/integration/test_text_formatting.py (add text → format → edit → save)
+- [x] T127 [P] [US8] Write unit test for text formatting logic in tests/unit/test_drawing_tools.js (Jest test for font size, color, bold, italic, background)
+- [x] T128 [US8] Write integration test for text formatting in tests/integration/test_text_formatting.py (add text → format → edit → save)
 
 ### Implementation for User Story 8
 
-- [ ] T129 [P] [US8] Add font size dropdown to toolbar in templates/components/toolbar.html (12pt, 14pt, 16pt, 18pt, 20pt, 24pt, 28pt, 32pt, 48pt, 64pt, 72pt options)
-- [ ] T130 [P] [US8] Add text formatting buttons to toolbar in templates/components/toolbar.html (Bold, Italic, Text Background checkbox with color picker)
-- [ ] T131 [US8] Implement font size control in static/js/drawing-tools.js (update Fabric.IText fontSize property, apply to new text or selected text)
-- [ ] T132 [US8] Implement bold formatting in static/js/drawing-tools.js (update Fabric.IText fontWeight property, toggle 'normal'/'bold')
-- [ ] T133 [US8] Implement italic formatting in static/js/drawing-tools.js (update Fabric.IText fontStyle property, toggle 'normal'/'italic')
-- [ ] T134 [US8] Implement text background in static/js/drawing-tools.js (add Fabric.Rect behind text with backgroundColor, bind to text position)
-- [ ] T135 [US8] Implement text editing in static/js/image-editor.js (double-click text to edit content, update format controls to match selected text)
-- [ ] T136 [US8] Update text tool to apply current format settings in static/js/drawing-tools.js (new text uses active font size, bold, italic, background)
-- [ ] T137 [US8] Add text formatting to undo/redo stack in static/js/image-editor.js (store canvas state after text formatting changes)
+- [x] T129 [P] [US8] Add font size dropdown to toolbar in templates/components/toolbar.html (12pt, 14pt, 16pt, 18pt, 20pt, 24pt, 28pt, 32pt, 48pt, 64pt, 72pt options)
+- [x] T130 [P] [US8] Add text formatting buttons to toolbar in templates/components/toolbar.html (Bold, Italic, Text Background checkbox with color picker)
+- [x] T131 [US8] Implement font size control in static/js/drawing-tools.js (update Fabric.IText fontSize property, apply to new text or selected text)
+- [x] T132 [US8] Implement bold formatting in static/js/drawing-tools.js (update Fabric.IText fontWeight property, toggle 'normal'/'bold')
+- [x] T133 [US8] Implement italic formatting in static/js/drawing-tools.js (update Fabric.IText fontStyle property, toggle 'normal'/'italic')
+- [x] T134 [US8] Implement text background in static/js/drawing-tools.js (add Fabric.Rect behind text with backgroundColor, bind to text position)
+- [x] T135 [US8] Implement text editing in static/js/image-editor.js (double-click text to edit content, update format controls to match selected text)
+- [x] T136 [US8] Update text tool to apply current format settings in static/js/drawing-tools.js (new text uses active font size, bold, italic, background)
+- [x] T137 [US8] Add text formatting to undo/redo stack in static/js/image-editor.js (store canvas state after text formatting changes)
 
 **Checkpoint**: All user stories complete. Feature is fully functional with all P1, P2, and P3 capabilities.
 
@@ -310,21 +310,21 @@
 
 **Purpose**: Improvements that affect multiple user stories and final refinements
 
-- [ ] T138 [P] Add comprehensive error handling across all services in src/services/ (log errors, return user-friendly messages, handle edge cases from spec.md)
-- [ ] T139 [P] Add security hardening: path validation in src/services/image_loader_service.py (prevent directory traversal, validate file extensions)
-- [ ] T140 [P] Add security hardening: SQL injection prevention in src/services/ (verify parameterized queries, validate UUIDs)
-- [ ] T141 [P] Implement cleanup job for expired sessions in src/services/image_editor_service.py (delete image_sessions older than 24 hours, background task)
-- [ ] T142 [P] Implement cleanup job for temporary files in src/services/image_editor_service.py (delete orphaned temp files from temp_file_path)
-- [ ] T143 [P] Add performance optimization: image downsampling in src/services/image_editor_service.py (downsample large images for editing, upsample on save)
-- [ ] T144 [P] Add performance optimization: canvas JSON compression in src/services/image_editor_service.py (gzip compress snapshots before storing in edit_operations)
+- [x] T138 [P] Add comprehensive error handling across all services in src/services/ (log errors, return user-friendly messages, handle edge cases from spec.md)
+- [x] T139 [P] Add security hardening: path validation in src/services/image_loader_service.py (prevent directory traversal, validate file extensions)
+- [x] T140 [P] Add security hardening: SQL injection prevention in src/services/ (verify parameterized queries, validate UUIDs)
+- [x] T141 [P] Implement cleanup job for expired sessions in src/services/image_editor_service.py (delete image_sessions older than 24 hours, background task)
+- [x] T142 [P] Implement cleanup job for temporary files in src/services/image_editor_service.py (delete orphaned temp files from temp_file_path)
+- [x] T143 [P] Add performance optimization: image downsampling in src/services/image_editor_service.py (downsample large images for editing, upsample on save)
+- [x] T144 [P] Add performance optimization: canvas JSON compression in src/services/image_editor_service.py (gzip compress snapshots before storing in edit_operations)
 - [ ] T145 [P] Write E2E test for full user journey in tests/e2e/test_editor_e2e.py (Playwright: load image → annotate → crop → apply filter → save → verify file)
-- [ ] T146 [P] Add logging for all image editor operations in src/services/ (structured logging with log levels, include session_id and operation_type)
-- [ ] T147 [P] Update CLAUDE.md with feature documentation (add imgcat editor to "Recent Changes" section, document new commands)
-- [ ] T148 [P] Create user documentation in docs/imgcat-editor.md (usage examples, keyboard shortcuts, troubleshooting)
+- [x] T146 [P] Add logging for all image editor operations in src/services/ (structured logging with log levels, include session_id and operation_type)
+- [x] T147 [P] Update CLAUDE.md with feature documentation (add imgcat editor to "Recent Changes" section, document new commands)
+- [x] T148 [P] Create user documentation in docs/imgcat-editor.md (usage examples, keyboard shortcuts, troubleshooting)
 - [ ] T149 Run quickstart.md manual testing validation (follow quickstart.md test scenarios, verify all workflows function correctly)
 - [ ] T150 Performance benchmarking (verify SC-001 through SC-010 success criteria met, document results)
-- [ ] T151 Security audit (review SSRF prevention, path validation, clipboard permissions, file size limits)
-- [ ] T152 Code review and refactoring (extract common patterns, improve naming, add inline comments for complex logic)
+- [x] T151 Security audit (review SSRF prevention, path validation, clipboard permissions, file size limits)
+- [x] T152 Code review and refactoring (extract common patterns, improve naming, add inline comments for complex logic)
 
 ---
 

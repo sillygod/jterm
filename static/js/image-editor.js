@@ -12,7 +12,7 @@ class ImageEditor {
         this.currentColor = '#ff0000';
         this.currentStrokeWidth = 3;
         this.currentFillEnabled = false;
-        this.currentFillColor = '#ff000080';
+        this.currentFillColor = 'rgba(255, 0, 0, 0.3)';
         this.currentFontSize = 18;
         this.currentBold = false;
         this.currentItalic = false;
@@ -66,6 +66,14 @@ class ImageEditor {
             // Initialize drawing tools
             if (typeof DrawingTools !== 'undefined') {
                 this.drawingTools = new DrawingTools(this.canvas, this);
+                console.log('[ImageEditor] DrawingTools initialized:', this.drawingTools);
+            } else {
+                console.error('[ImageEditor] DrawingTools class not found!');
+            }
+
+            // Initialize filter engine
+            if (typeof FilterEngine !== 'undefined') {
+                this.filterEngine = new FilterEngine(this.sessionId, this.canvas);
             }
 
             // Initialize with pen tool
@@ -95,7 +103,7 @@ class ImageEditor {
                 // Set canvas dimensions
                 this.canvas = new fabric.Canvas(`canvas-${this.sessionId}`, {
                     width: img.width,
-                    height: img.height,
+                    height: "100%",
                     backgroundColor: '#f0f0f0'
                 });
 
@@ -329,44 +337,57 @@ class ImageEditor {
     }
 
     setFillColor(color) {
-        this.currentFillColor = color;
+        // Convert hex color to rgba with 50% opacity for fill
+        // HTML color inputs only support #rrggbb format
+        if (color.startsWith('#') && color.length === 7) {
+            const r = parseInt(color.substr(1, 2), 16);
+            const g = parseInt(color.substr(3, 2), 16);
+            const b = parseInt(color.substr(5, 2), 16);
+            this.currentFillColor = `rgba(${r}, ${g}, ${b}, 0.3)`;
+        } else {
+            this.currentFillColor = color;
+        }
+        console.log('Fill color set to:', this.currentFillColor);
     }
 
     setFontSize(size) {
         this.currentFontSize = size;
+        console.log('Font size set to:', size);
 
-        // Update selected text object
-        const activeObject = this.canvas.getActiveObject();
-        if (activeObject && activeObject.type === 'i-text') {
-            activeObject.set('fontSize', size);
-            this.canvas.renderAll();
+        // Update selected text object via DrawingTools
+        if (this.drawingTools) {
+            this.drawingTools.updateFontSize(size);
         }
     }
 
     setTextBold(bold) {
         this.currentBold = bold;
+        console.log('Bold set to:', bold);
 
-        // Update selected text object
-        const activeObject = this.canvas.getActiveObject();
-        if (activeObject && activeObject.type === 'i-text') {
-            activeObject.set('fontWeight', bold ? 'bold' : 'normal');
-            this.canvas.renderAll();
+        // Update selected text object via DrawingTools
+        if (this.drawingTools) {
+            this.drawingTools.toggleBold(bold);
         }
     }
 
     setTextItalic(italic) {
         this.currentItalic = italic;
+        console.log('Italic set to:', italic);
 
-        // Update selected text object
-        const activeObject = this.canvas.getActiveObject();
-        if (activeObject && activeObject.type === 'i-text') {
-            activeObject.set('fontStyle', italic ? 'italic' : 'normal');
-            this.canvas.renderAll();
+        // Update selected text object via DrawingTools
+        if (this.drawingTools) {
+            this.drawingTools.toggleItalic(italic);
         }
     }
 
     setTextBackground(background) {
         this.currentTextBackground = background;
+        console.log('Text background set to:', background);
+
+        // Update selected text object via DrawingTools
+        if (this.drawingTools) {
+            this.drawingTools.toggleTextBackground(background, this.currentFillColor);
+        }
     }
 
     handleCanvasChange() {
@@ -460,10 +481,40 @@ class ImageEditor {
         this.updateUndoRedoButtons();
     }
 
-    loadState(stateJSON) {
-        this.canvas.loadFromJSON(stateJSON, () => {
-            this.canvas.renderAll();
-        });
+    loadState(state) {
+        // Handle both string (old format) and object (new format with dimensions)
+        let stateData = state;
+        let canvasData = state;
+        let targetWidth = null;
+        let targetHeight = null;
+
+        if (typeof state === 'object' && state.canvasData) {
+            // New format with dimensions (used for crop/resize undo)
+            stateData = state;
+            canvasData = state.canvasData;
+            targetWidth = state.width;
+            targetHeight = state.height;
+        }
+
+        // If dimensions changed, we need to update canvas size
+        if (targetWidth && targetHeight &&
+            (this.canvas.width !== targetWidth || this.canvas.height !== targetHeight)) {
+            this.canvas.setDimensions({
+                width: targetWidth,
+                height: targetHeight
+            });
+        }
+
+        // Load canvas state
+        if (typeof canvasData === 'string') {
+            this.canvas.loadFromJSON(canvasData, () => {
+                this.canvas.renderAll();
+            });
+        } else {
+            this.canvas.loadFromJSON(canvasData, () => {
+                this.canvas.renderAll();
+            });
+        }
     }
 
     updateUndoRedoButtons() {
@@ -481,6 +532,11 @@ class ImageEditor {
 
     async copyToClipboard() {
         try {
+            // Check if clipboard API is available
+            if (!navigator.clipboard || !navigator.clipboard.write) {
+                throw new Error('Clipboard API not supported in this browser. Use Save instead.');
+            }
+
             // Export canvas as PNG blob
             const dataURL = this.canvas.toDataURL('image/png');
             const blob = await (await fetch(dataURL)).blob();
@@ -493,10 +549,28 @@ class ImageEditor {
             ]);
 
             console.log('Copied to clipboard');
-            this.showSuccess('Copied to clipboard!');
+
+            // Get image source type from canvas element
+            const canvasElement = document.getElementById(`canvas-${this.sessionId}`);
+            const sourceType = canvasElement?.dataset?.sourceType || 'unknown';
+
+            // Show success notification with source context
+            if (sourceType === 'clipboard') {
+                this.showSuccess('Copied edited image back to clipboard! Ready to paste.');
+            } else {
+                this.showSuccess('Copied to clipboard! Ready to paste in other applications.');
+            }
         } catch (error) {
             console.error('Error copying to clipboard:', error);
-            this.showError('Failed to copy to clipboard. Browser may not support this feature.');
+
+            // Provide helpful error message based on error type
+            if (error.name === 'NotAllowedError') {
+                this.showError('Clipboard permission denied. Please allow clipboard access and try again.');
+            } else if (error.message.includes('not supported')) {
+                this.showError(error.message);
+            } else {
+                this.showError('Failed to copy to clipboard. Try saving the image instead.');
+            }
         }
     }
 
@@ -578,13 +652,187 @@ class ImageEditor {
         console.log('Success:', message);
     }
 
+    // ==================== Crop and Resize ====================
+
+    async applyCrop(bounds) {
+        try {
+            this.showLoading();
+
+            // Save state for undo
+            await this.saveStateForUndo();
+
+            const response = await fetch(`/api/v1/image-editor/crop/${this.sessionId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    x: bounds.x,
+                    y: bounds.y,
+                    width: bounds.width,
+                    height: bounds.height
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Crop failed');
+            }
+
+            const result = await response.json();
+
+            // Reload canvas with cropped image
+            await this.reloadImage();
+
+            // Update status
+            this.updateSaveStatus('unsaved');
+            this.showSuccess('Image cropped successfully');
+
+            this.hideLoading();
+        } catch (error) {
+            console.error('Crop error:', error);
+            this.showError('Failed to crop image: ' + error.message);
+            this.hideLoading();
+        }
+    }
+
+    async applyResize(width, height, maintainAspectRatio) {
+        try {
+            this.showLoading();
+
+            // Save state for undo
+            await this.saveStateForUndo();
+
+            const response = await fetch(`/api/v1/image-editor/resize/${this.sessionId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    width: width,
+                    height: height,
+                    maintain_aspect_ratio: maintainAspectRatio
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Resize failed');
+            }
+
+            const result = await response.json();
+
+            // Reload canvas with resized image
+            await this.reloadImage();
+
+            // Update status
+            this.updateSaveStatus('unsaved');
+            this.showSuccess('Image resized successfully');
+
+            this.hideLoading();
+        } catch (error) {
+            console.error('Resize error:', error);
+            this.showError('Failed to resize image: ' + error.message);
+            this.hideLoading();
+        }
+    }
+
+    async reloadImage() {
+        try {
+            // Increment version to force reload
+            this.version++;
+
+            // Save current annotations
+            const annotations = [];
+            this.canvas.getObjects().forEach(obj => {
+                if (obj !== this.canvas.backgroundImage) {
+                    annotations.push(obj.toJSON());
+                }
+            });
+
+            // Load new image with updated version
+            const imageUrl = `/api/v1/image-editor/image/${this.sessionId}?v=${this.version}`;
+
+            // Load image and update canvas
+            await new Promise((resolve, reject) => {
+                fabric.Image.fromURL(imageUrl, (img) => {
+                    if (!img || !img.getElement()) {
+                        reject(new Error('Failed to load image'));
+                        return;
+                    }
+
+                    // Update canvas dimensions to match new image size
+                    this.canvas.setDimensions({
+                        width: img.width,
+                        height: img.height
+                    });
+
+                    // Clear all objects (but keep the canvas instance)
+                    this.canvas.clear();
+
+                    // Set new image as background
+                    this.canvas.setBackgroundImage(img, this.canvas.renderAll.bind(this.canvas), {
+                        scaleX: 1,
+                        scaleY: 1,
+                    });
+
+                    resolve();
+                }, {
+                    crossOrigin: 'anonymous'
+                });
+            });
+
+            // Restore annotations (they should already be scaled by backend)
+            if (annotations.length > 0) {
+                fabric.util.enlivenObjects(annotations, (objects) => {
+                    objects.forEach(obj => {
+                        this.canvas.add(obj);
+                    });
+                    this.canvas.renderAll();
+                });
+            } else {
+                this.canvas.renderAll();
+            }
+
+        } catch (error) {
+            console.error('Error reloading image:', error);
+            this.showError('Failed to reload image: ' + error.message);
+        }
+    }
+
+    async saveStateForUndo() {
+        // Save current canvas state to undo stack
+        const state = {
+            version: this.version,
+            canvasData: this.canvas.toJSON(),
+            width: this.canvas.width,
+            height: this.canvas.height
+        };
+
+        this.undoStack.push(state);
+
+        // Limit undo stack size
+        if (this.undoStack.length > this.maxUndoSteps) {
+            this.undoStack.shift();
+        }
+
+        // Clear redo stack when new action is performed
+        this.redoStack = [];
+
+        // Update undo/redo button states
+        this.updateUndoRedoButtons();
+    }
+
     static init(sessionId) {
-        return new ImageEditor(sessionId);
+        const editor = new ImageEditor(sessionId);
+        ImageEditor.instances = ImageEditor.instances || {};
+        ImageEditor.instances[sessionId] = editor;
+        return editor;
     }
 }
 
 // Global instance map
-window.imageEditors = window.imageEditors || {};
+ImageEditor.instances = {};
 
 // Export for use in templates
 window.ImageEditor = ImageEditor;

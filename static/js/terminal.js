@@ -194,17 +194,29 @@ class WebTerminal {
         });
 
         // OSC sequence handler for media viewing and cat commands
+        console.log('[Terminal] Registering OSC 1337 handler...');
         this.terminal.parser.registerOscHandler(1337, (data) => {
+            console.log('[OSC 1337] Received data:', data);
             const parts = data.split('=');
             if (parts.length === 2) {
                 const command = parts[0];
                 const payload = parts[1];
+                console.log('[OSC 1337] Command:', command, 'Payload:', payload);
+
+                // Add test indicator
+                if (payload === '/tmp/test.png') {
+                    console.log('[OSC 1337] TEST OSC RECEIVED! Handler is working!');
+                }
 
                 switch (command) {
                     // Existing media handlers
                     case 'ViewImage':
+                        console.log('[OSC 1337] ViewImage - mediaHandler exists:', !!window.mediaHandler);
                         if (window.mediaHandler) {
+                            console.log('[OSC 1337] Calling viewFile with:', payload);
                             window.mediaHandler.viewFile(payload);
+                        } else {
+                            console.error('[OSC 1337] window.mediaHandler is not initialized!');
                         }
                         return true;
                     case 'PlayVideo':
@@ -381,6 +393,16 @@ class WebTerminal {
                 this.handleEbookViewer(data);
                 break;
 
+            case 'image_viewer':
+                // Handle image viewer OSC sequence
+                this.handleImageViewer(data);
+                break;
+
+            case 'image_viewer_url':
+                // Handle image viewer URL OSC sequence
+                this.handleImageViewerURL(data);
+                break;
+
             case 'performance_update':
                 // Forward to performance monitor if available
                 if (window.performanceMonitor && typeof window.performanceMonitor.handleServerMetrics === 'function') {
@@ -518,6 +540,354 @@ class WebTerminal {
         } catch (error) {
             console.error('Error opening ebook:', error);
             this.terminal.write(`\r\n\x1b[31mError opening ebook: ${error.message}\x1b[0m\r\n`);
+        }
+    }
+
+    async handleImageViewer(data) {
+        /**
+         * Handle image viewer OSC sequence.
+         * Called when user runs `imgcat <file>` in terminal.
+         */
+        console.log('[ImageViewer] Image viewer triggered:', data);
+        const { file_path, session_id } = data;
+
+        try {
+            // Call image editor API to load the image
+            const response = await fetch('/api/v1/image-editor/load', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    source_type: 'file',
+                    source_path: file_path,
+                    terminal_session_id: session_id
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Failed to load image');
+            }
+
+            const result = await response.json();
+            console.log('[ImageViewer] Image loaded:', result);
+
+            // Load dependencies first
+            await this.loadImageEditorDependencies();
+
+            // Fetch the editor component HTML
+            const componentResponse = await fetch(`/api/v1/image-editor/component/${result.session_id}`);
+            if (!componentResponse.ok) {
+                throw new Error('Failed to load editor component');
+            }
+            const componentHTML = await componentResponse.text();
+
+            // Get or create overlay
+            let overlay = document.getElementById('media-overlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'media-overlay';
+                overlay.className = 'media-overlay';
+                document.body.appendChild(overlay);
+            }
+
+            // Insert editor HTML
+            overlay.innerHTML = componentHTML;
+            overlay.classList.add('visible');
+
+            // Initialize the image editor
+            if (window.ImageEditor) {
+                window.ImageEditor.init(result.session_id);
+            } else {
+                throw new Error('ImageEditor not loaded');
+            }
+
+            // Set up event listeners for toolbar controls
+            setTimeout(() => {
+                const toolButtons = document.querySelectorAll('.tool-btn[data-tool]');
+                const editorElement = document.getElementById(`image-editor-${result.session_id}`);
+
+                console.log('[ImageViewer] Setting up event listeners, found', toolButtons.length, 'tool buttons');
+
+                if (editorElement) {
+                    // Tool buttons
+                    toolButtons.forEach(btn => {
+                        btn.addEventListener('click', function(e) {
+                            const tool = this.getAttribute('data-tool');
+                            console.log('[ImageViewer] Tool button clicked:', tool);
+
+                            const event = new CustomEvent('toolChange', {
+                                detail: { tool: tool },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    });
+
+                    // Color picker
+                    const colorPicker = document.getElementById(`stroke-color-${result.session_id}`);
+                    if (colorPicker) {
+                        colorPicker.addEventListener('input', function(e) {
+                            console.log('[ImageViewer] Color changed:', this.value);
+                            const event = new CustomEvent('colorChange', {
+                                detail: { color: this.value },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    }
+
+                    // Color presets
+                    const colorPresets = document.querySelectorAll('.color-preset[data-color]');
+                    colorPresets.forEach(preset => {
+                        preset.addEventListener('click', function(e) {
+                            const color = this.getAttribute('data-color');
+                            console.log('[ImageViewer] Color preset clicked:', color);
+
+                            if (colorPicker) {
+                                colorPicker.value = color;
+                            }
+
+                            const event = new CustomEvent('colorChange', {
+                                detail: { color: color },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    });
+
+                    // Stroke width
+                    const strokeWidth = document.getElementById(`stroke-width-${result.session_id}`);
+                    if (strokeWidth) {
+                        strokeWidth.addEventListener('input', function(e) {
+                            console.log('[ImageViewer] Stroke width changed:', this.value);
+                            const event = new CustomEvent('strokeWidthChange', {
+                                detail: { width: parseInt(this.value) },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    }
+
+                    // Fill toggle
+                    const fillCheckbox = document.getElementById(`fill-shape-${result.session_id}`);
+                    if (fillCheckbox) {
+                        fillCheckbox.addEventListener('change', function(e) {
+                            console.log('[ImageViewer] Fill toggle changed:', this.checked);
+                            const event = new CustomEvent('fillToggle', {
+                                detail: { fill: this.checked },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    }
+
+                    // Fill color
+                    const fillColor = document.getElementById(`fill-color-${result.session_id}`);
+                    if (fillColor) {
+                        fillColor.addEventListener('input', function(e) {
+                            console.log('[ImageViewer] Fill color changed:', this.value);
+                            const event = new CustomEvent('fillColorChange', {
+                                detail: { color: this.value },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    }
+
+                    // Text formatting controls (T131-T134)
+                    const fontSize = document.getElementById(`font-size-${result.session_id}`);
+                    if (fontSize) {
+                        fontSize.addEventListener('change', function(e) {
+                            console.log('[ImageViewer] Font size changed:', this.value);
+                            const event = new CustomEvent('fontSizeChange', {
+                                detail: { size: parseInt(this.value) },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    }
+
+                    const boldBtn = document.getElementById(`text-bold-${result.session_id}`);
+                    if (boldBtn) {
+                        boldBtn.addEventListener('click', function(e) {
+                            const isActive = this.classList.contains('active');
+                            console.log('[ImageViewer] Bold toggled:', isActive);
+                            const event = new CustomEvent('textBoldToggle', {
+                                detail: { bold: isActive },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    }
+
+                    const italicBtn = document.getElementById(`text-italic-${result.session_id}`);
+                    if (italicBtn) {
+                        italicBtn.addEventListener('click', function(e) {
+                            const isActive = this.classList.contains('active');
+                            console.log('[ImageViewer] Italic toggled:', isActive);
+                            const event = new CustomEvent('textItalicToggle', {
+                                detail: { italic: isActive },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    }
+
+                    const textBgCheckbox = document.getElementById(`text-background-${result.session_id}`);
+                    if (textBgCheckbox) {
+                        textBgCheckbox.addEventListener('change', function(e) {
+                            console.log('[ImageViewer] Text background toggled:', this.checked);
+                            const event = new CustomEvent('textBackgroundToggle', {
+                                detail: { background: this.checked },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    }
+
+                    console.log('[ImageViewer] Event listeners set up successfully');
+                }
+            }, 300); // Wait for editor to fully initialize
+
+            console.log('[ImageViewer] Image editor panel opened');
+
+        } catch (error) {
+            console.error('[ImageViewer] Error opening image:', error);
+            this.terminal.write(`\r\n\x1b[31mError opening image: ${error.message}\x1b[0m\r\n`);
+        }
+    }
+
+    async handleImageViewerURL(data) {
+        /**
+         * Handle image viewer URL OSC sequence.
+         * Called when user runs `imgcat <http://url>` in terminal.
+         */
+        console.log('[ImageViewer] Image viewer URL triggered:', data);
+        const { url, session_id } = data;
+
+        try {
+            // Call image editor API to load the image from URL
+            const response = await fetch('/api/v1/image-editor/load', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    source_type: 'url',
+                    source_path: url,
+                    terminal_session_id: session_id
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Failed to load image from URL');
+            }
+
+            const result = await response.json();
+            console.log('[ImageViewer] Image loaded from URL:', result);
+
+            // Load dependencies first
+            await this.loadImageEditorDependencies();
+
+            // Fetch the editor component HTML
+            const componentResponse = await fetch(`/api/v1/image-editor/component/${result.session_id}`);
+            if (!componentResponse.ok) {
+                throw new Error('Failed to load editor component');
+            }
+            const componentHTML = await componentResponse.text();
+
+            // Get or create overlay
+            let overlay = document.getElementById('media-overlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'media-overlay';
+                overlay.className = 'media-overlay';
+                document.body.appendChild(overlay);
+            }
+
+            // Insert editor HTML
+            overlay.innerHTML = componentHTML;
+            overlay.classList.add('visible');
+
+            // Initialize the image editor
+            if (window.ImageEditor) {
+                window.ImageEditor.init(result.session_id);
+            } else {
+                throw new Error('ImageEditor not loaded');
+            }
+
+            // Set up event listeners for toolbar controls
+            setTimeout(() => {
+                const toolButtons = document.querySelectorAll('.tool-btn[data-tool]');
+                const editorElement = document.getElementById(`image-editor-${result.session_id}`);
+
+                console.log('[ImageViewer] Setting up event listeners for URL image, found', toolButtons.length, 'tool buttons');
+
+                if (editorElement) {
+                    // Tool buttons
+                    toolButtons.forEach(btn => {
+                        btn.addEventListener('click', function(e) {
+                            const tool = this.getAttribute('data-tool');
+                            console.log('[ImageViewer] Tool button clicked:', tool);
+                            const event = new CustomEvent('toolSelected', {
+                                detail: { tool: tool },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    });
+
+                    // Color pickers
+                    const strokeColorInput = document.getElementById('stroke-color');
+                    const fillColorInput = document.getElementById('fill-color');
+
+                    if (strokeColorInput) {
+                        strokeColorInput.addEventListener('change', function(e) {
+                            console.log('[ImageViewer] Stroke color changed:', this.value);
+                            const event = new CustomEvent('strokeColorChange', {
+                                detail: { color: this.value },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    }
+
+                    if (fillColorInput) {
+                        fillColorInput.addEventListener('change', function(e) {
+                            console.log('[ImageViewer] Fill color changed:', this.value);
+                            const event = new CustomEvent('fillColorChange', {
+                                detail: { color: this.value },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    }
+
+                    // Text background toggle
+                    const textBgToggle = document.getElementById('text-background');
+                    if (textBgToggle) {
+                        textBgToggle.addEventListener('change', function(e) {
+                            console.log('[ImageViewer] Text background toggled:', this.checked);
+                            const event = new CustomEvent('textBackgroundToggle', {
+                                detail: { background: this.checked },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    }
+
+                    console.log('[ImageViewer] Event listeners set up successfully for URL image');
+                }
+            }, 300); // Wait for editor to fully initialize
+
+            console.log('[ImageViewer] Image editor panel opened for URL');
+
+        } catch (error) {
+            console.error('[ImageViewer] Error opening image from URL:', error);
+            this.terminal.write(`\r\n\x1b[31mError loading image from URL: ${error.message}\x1b[0m\r\n`);
         }
     }
 
@@ -861,6 +1231,68 @@ class WebTerminal {
             document.head.appendChild(script);
         });
     }
+
+    // Test function to manually send OSC sequence
+    testOSC() {
+        console.log('[TEST] Sending test OSC sequence to terminal...');
+        // ESC ] 1337 ; ViewImage=/tmp/test.png BEL
+        this.terminal.write('\x1b]1337;ViewImage=/tmp/test.png\x07');
+        console.log('[TEST] Test OSC sequence sent');
+    }
+
+    async loadImageEditorDependencies() {
+        /**
+         * Load all required dependencies for image editor in correct order.
+         */
+        console.log('[ImageViewer] Loading image editor dependencies...');
+
+        // 1. Load Fabric.js
+        if (typeof window.fabric === 'undefined') {
+            console.log('[ImageViewer] Loading Fabric.js...');
+            await this.loadScript('/static/js/vendor/fabric.min.js');
+        }
+
+        // 2. Load DrawingTools (must be loaded before ImageEditor)
+        if (typeof window.DrawingTools === 'undefined') {
+            console.log('[ImageViewer] Loading drawing-tools.js...');
+            await this.loadScript('/static/js/drawing-tools.js');
+        }
+
+        // 3. Load FilterEngine
+        if (typeof window.FilterEngine === 'undefined') {
+            console.log('[ImageViewer] Loading filter-engine.js...');
+            await this.loadScript('/static/js/filter-engine.js');
+        }
+
+        // 4. Load ImageEditor
+        if (typeof window.ImageEditor === 'undefined') {
+            console.log('[ImageViewer] Loading image-editor.js...');
+            await this.loadScript('/static/js/image-editor.js');
+        }
+
+        console.log('[ImageViewer] All dependencies loaded');
+    }
+
+    loadCSS(href) {
+        /**
+         * Dynamically load a CSS file.
+         */
+        return new Promise((resolve, reject) => {
+            // Check if CSS already exists
+            const existingLink = document.querySelector(`link[href="${href}"]`);
+            if (existingLink) {
+                resolve();
+                return;
+            }
+
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = href;
+            link.onload = resolve;
+            link.onerror = reject;
+            document.head.appendChild(link);
+        });
+    }
 }
 
 // Initialize terminal when DOM is loaded
@@ -872,6 +1304,39 @@ document.addEventListener('DOMContentLoaded', () => {
         window.webTerminal.focus();
     }, 100);
 });
+
+// Global test function for OSC sequences
+window.testOSC = function() {
+    console.log('[TEST] Testing OSC sequence handler...');
+    if (window.webTerminal && window.webTerminal.testOSC) {
+        window.webTerminal.testOSC();
+    } else {
+        console.error('[TEST] Terminal not found or not initialized yet!');
+    }
+};
+
+// Global close function for image editor
+window.closeImageEditor = function(sessionId) {
+    console.log('[ImageEditor] Closing editor for session:', sessionId);
+
+    // Remove the editor element
+    const editor = document.getElementById(`image-editor-${sessionId}`);
+    if (editor) {
+        editor.remove();
+    }
+
+    // Hide the overlay
+    const overlay = document.getElementById('media-overlay');
+    if (overlay) {
+        overlay.classList.remove('visible');
+        overlay.innerHTML = '';
+    }
+
+    // Clean up ImageEditor instance
+    if (window.ImageEditor && window.ImageEditor.instances) {
+        delete window.ImageEditor.instances[sessionId];
+    }
+};
 
 // Export for use in other scripts
 window.WebTerminal = WebTerminal;

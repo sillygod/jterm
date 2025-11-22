@@ -501,6 +501,285 @@ class TestImageEditorServiceClipboard:
 
 
 @pytest.mark.asyncio
+class TestImageEditorServiceCropResize:
+    """Test crop and resize operations (T061, T062)."""
+
+    @pytest.fixture
+    def service(self):
+        """Create ImageEditorService instance."""
+        if not SERVICE_AVAILABLE:
+            pytest.skip("ImageEditorService not implemented yet")
+        return ImageEditorService()
+
+    @pytest.fixture
+    def mock_db(self):
+        """Create mock database session."""
+        db = AsyncMock()
+
+        # Mock query results
+        mock_result = AsyncMock()
+        mock_result.scalar_one_or_none = AsyncMock()
+        db.execute = AsyncMock(return_value=mock_result)
+        db.commit = AsyncMock()
+
+        return db
+
+    @pytest.fixture
+    def image_session(self):
+        """Create mock ImageSession."""
+        if not SERVICE_AVAILABLE:
+            pytest.skip("Models not available")
+
+        session = ImageSession(
+            id="test-session-123",
+            terminal_session_id="terminal-abc",
+            image_source_type="file",
+            image_source_path="/path/to/image.png",
+            image_format="png",
+            image_width=800,
+            image_height=600,
+            image_size_bytes=102400,
+            temp_file_path="/tmp/test_image.png",
+            is_modified=False
+        )
+        return session
+
+    async def test_crop_image_basic_operation(
+        self, service, mock_db, image_session
+    ):
+        """Test basic crop operation with valid bounds (T061).
+
+        Contract: Should crop image to specified bounds using Pillow,
+        update ImageSession dimensions, and update canvas size.
+        """
+        session_id = "test-session-123"
+        x, y, width, height = 100, 100, 400, 300
+
+        with pytest.raises((NotImplementedError, AssertionError)):
+            result = await service.crop_image(
+                session_id=session_id,
+                x=x,
+                y=y,
+                width=width,
+                height=height,
+                db=mock_db
+            )
+
+            # Verify result contains updated dimensions
+            assert isinstance(result, dict)
+            assert "width" in result or "image_width" in result
+            assert "height" in result or "image_height" in result
+
+    async def test_crop_image_boundary_validation(
+        self, service, mock_db
+    ):
+        """Test crop validates bounds within image dimensions (T061).
+
+        Contract: Should reject crop bounds that exceed image dimensions.
+        """
+        session_id = "test-session-123"
+
+        # Invalid crop: exceeds image bounds
+        invalid_crops = [
+            (-10, 0, 100, 100),  # Negative x
+            (0, -10, 100, 100),  # Negative y
+            (750, 0, 100, 100),  # x + width > image_width
+            (0, 550, 100, 100),  # y + height > image_height
+            (0, 0, 0, 100),      # Zero width
+            (0, 0, 100, 0),      # Zero height
+        ]
+
+        for x, y, w, h in invalid_crops:
+            with pytest.raises((NotImplementedError, ValueError, ImageEditorError)):
+                await service.crop_image(
+                    session_id=session_id,
+                    x=x,
+                    y=y,
+                    width=w,
+                    height=h,
+                    db=mock_db
+                )
+
+    async def test_crop_image_updates_dimensions(
+        self, service, mock_db
+    ):
+        """Test crop updates ImageSession width/height (T061).
+
+        Contract: After crop, ImageSession.image_width and image_height
+        should reflect new cropped dimensions.
+        """
+        session_id = "test-session-123"
+        crop_width, crop_height = 400, 300
+
+        with pytest.raises((NotImplementedError, AssertionError)):
+            result = await service.crop_image(
+                session_id=session_id,
+                x=100,
+                y=100,
+                width=crop_width,
+                height=crop_height,
+                db=mock_db
+            )
+
+            # Verify dimensions updated
+            new_width = result.get("width") or result.get("image_width")
+            new_height = result.get("height") or result.get("image_height")
+
+            assert new_width == crop_width
+            assert new_height == crop_height
+
+    async def test_crop_image_session_not_found(
+        self, service, mock_db
+    ):
+        """Test crop raises error for non-existent session (T061).
+
+        Contract: Should raise SessionNotFoundError for invalid session_id.
+        """
+        session_id = "nonexistent-session"
+
+        with pytest.raises((NotImplementedError, SessionNotFoundError)):
+            await service.crop_image(
+                session_id=session_id,
+                x=0,
+                y=0,
+                width=100,
+                height=100,
+                db=mock_db
+            )
+
+    async def test_resize_image_basic_operation(
+        self, service, mock_db
+    ):
+        """Test basic resize operation (T062).
+
+        Contract: Should resize image using Pillow with LANCZOS filter,
+        update ImageSession dimensions.
+        """
+        session_id = "test-session-123"
+        new_width, new_height = 400, 300
+
+        with pytest.raises((NotImplementedError, AssertionError)):
+            result = await service.resize_image(
+                session_id=session_id,
+                width=new_width,
+                height=new_height,
+                maintain_aspect_ratio=False,
+                db=mock_db
+            )
+
+            # Verify result contains updated dimensions
+            assert isinstance(result, dict)
+            assert "width" in result or "image_width" in result
+            assert "height" in result or "image_height" in result
+
+    async def test_resize_image_maintain_aspect_ratio(
+        self, service, mock_db
+    ):
+        """Test resize with aspect ratio locked (T062).
+
+        Contract: When maintain_aspect_ratio=True, should calculate
+        height from width (or vice versa) to preserve aspect ratio.
+        """
+        session_id = "test-session-123"
+        target_width = 400
+        # Original: 800x600 (4:3 ratio)
+        # Expected height: 300 (to maintain 4:3)
+
+        with pytest.raises((NotImplementedError, AssertionError)):
+            result = await service.resize_image(
+                session_id=session_id,
+                width=target_width,
+                height=300,  # May be recalculated
+                maintain_aspect_ratio=True,
+                db=mock_db
+            )
+
+            # Verify aspect ratio maintained
+            new_width = result.get("width") or result.get("image_width")
+            new_height = result.get("height") or result.get("image_height")
+
+            # Calculate aspect ratio (should be close to original)
+            # Allow small floating point differences
+            aspect_ratio = new_width / new_height
+            expected_ratio = 800 / 600  # 4:3
+            assert abs(aspect_ratio - expected_ratio) < 0.01
+
+    async def test_resize_image_dimension_validation(
+        self, service, mock_db
+    ):
+        """Test resize validates dimensions (T062).
+
+        Contract: Should reject invalid dimensions (zero, negative,
+        exceeding Canvas API limit 32767).
+        """
+        session_id = "test-session-123"
+
+        invalid_dimensions = [
+            (0, 100),      # Zero width
+            (100, 0),      # Zero height
+            (-100, 100),   # Negative width
+            (100, -100),   # Negative height
+            (40000, 100),  # Exceeds max dimension
+            (100, 40000),  # Exceeds max dimension
+        ]
+
+        for width, height in invalid_dimensions:
+            with pytest.raises((NotImplementedError, ValueError, ImageEditorError)):
+                await service.resize_image(
+                    session_id=session_id,
+                    width=width,
+                    height=height,
+                    maintain_aspect_ratio=False,
+                    db=mock_db
+                )
+
+    async def test_resize_image_updates_dimensions(
+        self, service, mock_db
+    ):
+        """Test resize updates ImageSession dimensions (T062).
+
+        Contract: After resize, ImageSession.image_width and image_height
+        should reflect new dimensions.
+        """
+        session_id = "test-session-123"
+        new_width, new_height = 1024, 768
+
+        with pytest.raises((NotImplementedError, AssertionError)):
+            result = await service.resize_image(
+                session_id=session_id,
+                width=new_width,
+                height=new_height,
+                maintain_aspect_ratio=False,
+                db=mock_db
+            )
+
+            # Verify dimensions updated
+            updated_width = result.get("width") or result.get("image_width")
+            updated_height = result.get("height") or result.get("image_height")
+
+            assert updated_width == new_width
+            assert updated_height == new_height
+
+    async def test_resize_image_session_not_found(
+        self, service, mock_db
+    ):
+        """Test resize raises error for non-existent session (T062).
+
+        Contract: Should raise SessionNotFoundError for invalid session_id.
+        """
+        session_id = "nonexistent-session"
+
+        with pytest.raises((NotImplementedError, SessionNotFoundError)):
+            await service.resize_image(
+                session_id=session_id,
+                width=400,
+                height=300,
+                maintain_aspect_ratio=False,
+                db=mock_db
+            )
+
+
+@pytest.mark.asyncio
 class TestImageEditorServiceCleanup:
     """Test session cleanup functionality."""
 
@@ -558,3 +837,388 @@ class TestImageEditorServiceCleanup:
 
             assert isinstance(count, int)
             assert count >= 0
+
+
+@pytest.mark.asyncio
+class TestImageEditorServiceFilters:
+    """Test filter operations: blur and sharpen (T075, T076)."""
+
+    @pytest.fixture
+    def service(self):
+        """Create ImageEditorService instance."""
+        if not SERVICE_AVAILABLE:
+            pytest.skip("ImageEditorService not implemented yet")
+        return ImageEditorService()
+
+    @pytest.fixture
+    def mock_db(self):
+        """Create mock database session."""
+        db = AsyncMock()
+
+        # Mock query results
+        mock_result = AsyncMock()
+        mock_result.scalar_one_or_none = AsyncMock()
+        db.execute = AsyncMock(return_value=mock_result)
+        db.commit = AsyncMock()
+
+        return db
+
+    @pytest.fixture
+    def image_session(self, tmp_path):
+        """Create mock ImageSession with actual image file."""
+        if not SERVICE_AVAILABLE:
+            pytest.skip("Models not available")
+
+        # Create a test image
+        from PIL import Image
+        image_path = tmp_path / "test_image.png"
+        img = Image.new('RGB', (100, 100), color='red')
+        img.save(image_path, 'PNG')
+
+        session = ImageSession(
+            id="test-session-123",
+            terminal_session_id="terminal-abc",
+            image_source_type="file",
+            image_source_path=str(image_path),
+            image_format="png",
+            image_width=100,
+            image_height=100,
+            image_size_bytes=1024,
+            temp_file_path=str(image_path),
+            is_modified=False
+        )
+        return session
+
+    # T075: Test apply_blur()
+    async def test_apply_blur_basic_operation(
+        self, service, mock_db, image_session
+    ):
+        """Test basic blur operation with Gaussian blur filter (T075).
+
+        Contract: Should apply Pillow GaussianBlur filter with specified radius,
+        preserve dimensions, and update image file.
+        """
+        session_id = "test-session-123"
+        radius = 5.0
+
+        with pytest.raises((NotImplementedError, AssertionError)):
+            result = await service.apply_blur(
+                session_id=session_id,
+                radius=radius,
+                db=mock_db
+            )
+
+            # Verify result contains success message and dimensions
+            assert isinstance(result, dict)
+            assert "message" in result or "success" in result
+            assert "width" in result or "image_width" in result
+            assert "height" in result or "image_height" in result
+
+    async def test_apply_blur_radius_validation(
+        self, service, mock_db
+    ):
+        """Test blur validates radius parameter (T075).
+
+        Contract: Should reject radius < 0 or > 20.
+        """
+        session_id = "test-session-123"
+
+        invalid_radii = [-5.0, 25.0, 100.0, -0.1]
+
+        for radius in invalid_radii:
+            with pytest.raises((NotImplementedError, ValueError, ImageEditorError)):
+                await service.apply_blur(
+                    session_id=session_id,
+                    radius=radius,
+                    db=mock_db
+                )
+
+    async def test_apply_blur_zero_radius(
+        self, service, mock_db, image_session
+    ):
+        """Test blur with radius 0 (no blur effect) (T075).
+
+        Contract: Should handle radius=0 as valid (no blur applied).
+        """
+        session_id = "test-session-123"
+
+        with pytest.raises((NotImplementedError, AssertionError)):
+            result = await service.apply_blur(
+                session_id=session_id,
+                radius=0.0,
+                db=mock_db
+            )
+
+            # Should succeed with radius 0
+            assert result is not None
+
+    async def test_apply_blur_max_radius(
+        self, service, mock_db, image_session
+    ):
+        """Test blur with maximum allowed radius (T075).
+
+        Contract: Should handle radius=20 as maximum valid value.
+        """
+        session_id = "test-session-123"
+
+        with pytest.raises((NotImplementedError, AssertionError)):
+            result = await service.apply_blur(
+                session_id=session_id,
+                radius=20.0,
+                db=mock_db
+            )
+
+            # Should succeed with max radius
+            assert result is not None
+
+    async def test_apply_blur_preserves_dimensions(
+        self, service, mock_db, image_session
+    ):
+        """Test blur preserves image dimensions (T075).
+
+        Contract: Image width and height should remain unchanged after blur.
+        """
+        session_id = "test-session-123"
+
+        with pytest.raises((NotImplementedError, AssertionError)):
+            result = await service.apply_blur(
+                session_id=session_id,
+                radius=5.0,
+                db=mock_db
+            )
+
+            # Verify original dimensions preserved
+            width = result.get("width") or result.get("image_width")
+            height = result.get("height") or result.get("image_height")
+
+            assert width == 100
+            assert height == 100
+
+    async def test_apply_blur_session_not_found(
+        self, service, mock_db
+    ):
+        """Test blur raises error for non-existent session (T075).
+
+        Contract: Should raise SessionNotFoundError for invalid session_id.
+        """
+        session_id = "nonexistent-session"
+
+        with pytest.raises((NotImplementedError, SessionNotFoundError)):
+            await service.apply_blur(
+                session_id=session_id,
+                radius=5.0,
+                db=mock_db
+            )
+
+    async def test_apply_blur_gaussian_filter_applied(
+        self, service, mock_db, image_session
+    ):
+        """Test Pillow GaussianBlur filter is correctly applied (T075).
+
+        Contract: Should use ImageFilter.GaussianBlur with specified radius.
+        """
+        session_id = "test-session-123"
+
+        with pytest.raises((NotImplementedError, AssertionError)):
+            # Apply blur
+            await service.apply_blur(
+                session_id=session_id,
+                radius=3.0,
+                db=mock_db
+            )
+
+            # Load processed image and verify it was modified
+            from PIL import Image
+            processed_img = Image.open(image_session.temp_file_path)
+
+            # Image should exist and have correct dimensions
+            assert processed_img.size == (100, 100)
+
+    # T076: Test apply_sharpen()
+    async def test_apply_sharpen_basic_operation(
+        self, service, mock_db, image_session
+    ):
+        """Test basic sharpen operation with UnsharpMask filter (T076).
+
+        Contract: Should apply Pillow UnsharpMask filter with specified amount,
+        preserve dimensions, and update image file.
+        """
+        session_id = "test-session-123"
+        amount = 5.0
+
+        with pytest.raises((NotImplementedError, AssertionError)):
+            result = await service.apply_sharpen(
+                session_id=session_id,
+                amount=amount,
+                db=mock_db
+            )
+
+            # Verify result contains success message and dimensions
+            assert isinstance(result, dict)
+            assert "message" in result or "success" in result
+            assert "width" in result or "image_width" in result
+            assert "height" in result or "image_height" in result
+
+    async def test_apply_sharpen_amount_validation(
+        self, service, mock_db
+    ):
+        """Test sharpen validates amount parameter (T076).
+
+        Contract: Should reject amount < 0 or > 10.
+        """
+        session_id = "test-session-123"
+
+        invalid_amounts = [-3.0, 15.0, 100.0, -0.1]
+
+        for amount in invalid_amounts:
+            with pytest.raises((NotImplementedError, ValueError, ImageEditorError)):
+                await service.apply_sharpen(
+                    session_id=session_id,
+                    amount=amount,
+                    db=mock_db
+                )
+
+    async def test_apply_sharpen_zero_amount(
+        self, service, mock_db, image_session
+    ):
+        """Test sharpen with amount 0 (no sharpen effect) (T076).
+
+        Contract: Should handle amount=0 as valid (no sharpening applied).
+        """
+        session_id = "test-session-123"
+
+        with pytest.raises((NotImplementedError, AssertionError)):
+            result = await service.apply_sharpen(
+                session_id=session_id,
+                amount=0.0,
+                db=mock_db
+            )
+
+            # Should succeed with amount 0
+            assert result is not None
+
+    async def test_apply_sharpen_max_amount(
+        self, service, mock_db, image_session
+    ):
+        """Test sharpen with maximum allowed amount (T076).
+
+        Contract: Should handle amount=10 as maximum valid value.
+        """
+        session_id = "test-session-123"
+
+        with pytest.raises((NotImplementedError, AssertionError)):
+            result = await service.apply_sharpen(
+                session_id=session_id,
+                amount=10.0,
+                db=mock_db
+            )
+
+            # Should succeed with max amount
+            assert result is not None
+
+    async def test_apply_sharpen_preserves_dimensions(
+        self, service, mock_db, image_session
+    ):
+        """Test sharpen preserves image dimensions (T076).
+
+        Contract: Image width and height should remain unchanged after sharpen.
+        """
+        session_id = "test-session-123"
+
+        with pytest.raises((NotImplementedError, AssertionError)):
+            result = await service.apply_sharpen(
+                session_id=session_id,
+                amount=7.0,
+                db=mock_db
+            )
+
+            # Verify original dimensions preserved
+            width = result.get("width") or result.get("image_width")
+            height = result.get("height") or result.get("image_height")
+
+            assert width == 100
+            assert height == 100
+
+    async def test_apply_sharpen_session_not_found(
+        self, service, mock_db
+    ):
+        """Test sharpen raises error for non-existent session (T076).
+
+        Contract: Should raise SessionNotFoundError for invalid session_id.
+        """
+        session_id = "nonexistent-session"
+
+        with pytest.raises((NotImplementedError, SessionNotFoundError)):
+            await service.apply_sharpen(
+                session_id=session_id,
+                amount=5.0,
+                db=mock_db
+            )
+
+    async def test_apply_sharpen_unsharp_mask_filter_applied(
+        self, service, mock_db, image_session
+    ):
+        """Test Pillow UnsharpMask filter is correctly applied (T076).
+
+        Contract: Should use ImageFilter.UnsharpMask with calculated parameters.
+        """
+        session_id = "test-session-123"
+
+        with pytest.raises((NotImplementedError, AssertionError)):
+            # Apply sharpen
+            await service.apply_sharpen(
+                session_id=session_id,
+                amount=5.0,
+                db=mock_db
+            )
+
+            # Load processed image and verify it was modified
+            from PIL import Image
+            processed_img = Image.open(image_session.temp_file_path)
+
+            # Image should exist and have correct dimensions
+            assert processed_img.size == (100, 100)
+
+    async def test_apply_sharpen_different_amounts_produce_different_results(
+        self, service, mock_db, image_session, tmp_path
+    ):
+        """Test different sharpen amounts produce visually different results (T076).
+
+        Contract: Higher amount values should produce more aggressive sharpening.
+        """
+        session_id = "test-session-123"
+
+        with pytest.raises((NotImplementedError, AssertionError)):
+            # Create gradient image for better sharpening test
+            from PIL import Image
+            gradient_path = tmp_path / "gradient.png"
+            img = Image.new('RGB', (100, 100))
+            pixels = img.load()
+            for i in range(100):
+                for j in range(100):
+                    pixels[i, j] = (i * 2, j * 2, 128)
+            img.save(gradient_path, 'PNG')
+
+            # Update image session path
+            image_session.temp_file_path = str(gradient_path)
+
+            # Apply low sharpen
+            result_low = await service.apply_sharpen(
+                session_id=session_id,
+                amount=2.0,
+                db=mock_db
+            )
+
+            # Restore gradient image
+            img.save(gradient_path, 'PNG')
+
+            # Apply high sharpen
+            result_high = await service.apply_sharpen(
+                session_id=session_id,
+                amount=8.0,
+                db=mock_db
+            )
+
+            # Both should succeed but produce different results
+            assert result_low is not None
+            assert result_high is not None

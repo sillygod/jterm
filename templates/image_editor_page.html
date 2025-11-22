@@ -85,6 +85,7 @@
 
     <!-- Load drawing tools and editor JavaScript -->
     <script src="/static/js/drawing-tools.js"></script>
+    <script src="/static/js/filter-engine.js"></script>
     <script src="/static/js/image-editor.js"></script>
 
     <!-- Initialize editor -->
@@ -99,6 +100,101 @@
             } else {
                 console.error('ImageEditor class not found');
             }
+
+            // Add fallback event listeners for toolbar controls
+            setTimeout(function() {
+                const toolButtons = document.querySelectorAll('.tool-btn[data-tool]');
+                const editorElement = document.getElementById('image-editor-{{ session_id }}');
+
+                console.log('Setting up fallback event listeners, found', toolButtons.length, 'tool buttons');
+
+                if (editorElement) {
+                    // Tool buttons
+                    toolButtons.forEach(btn => {
+                        btn.addEventListener('click', function(e) {
+                            const tool = this.getAttribute('data-tool');
+                            console.log('Tool button clicked:', tool);
+
+                            const event = new CustomEvent('toolChange', {
+                                detail: { tool: tool },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    });
+
+                    // Color picker
+                    const colorPicker = document.getElementById('stroke-color-{{ session_id }}');
+                    if (colorPicker) {
+                        colorPicker.addEventListener('input', function(e) {
+                            console.log('Color changed:', this.value);
+                            const event = new CustomEvent('colorChange', {
+                                detail: { color: this.value },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    }
+
+                    // Color presets
+                    const colorPresets = document.querySelectorAll('.color-preset[data-color]');
+                    colorPresets.forEach(preset => {
+                        preset.addEventListener('click', function(e) {
+                            const color = this.getAttribute('data-color');
+                            console.log('Color preset clicked:', color);
+
+                            if (colorPicker) {
+                                colorPicker.value = color;
+                            }
+
+                            const event = new CustomEvent('colorChange', {
+                                detail: { color: color },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    });
+
+                    // Stroke width
+                    const strokeWidth = document.getElementById('stroke-width-{{ session_id }}');
+                    if (strokeWidth) {
+                        strokeWidth.addEventListener('input', function(e) {
+                            console.log('Stroke width changed:', this.value);
+                            const event = new CustomEvent('strokeWidthChange', {
+                                detail: { width: parseInt(this.value) },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    }
+
+                    // Fill toggle
+                    const fillCheckbox = document.getElementById('fill-shape-{{ session_id }}');
+                    if (fillCheckbox) {
+                        fillCheckbox.addEventListener('change', function(e) {
+                            console.log('Fill toggle changed:', this.checked);
+                            const event = new CustomEvent('fillToggle', {
+                                detail: { fill: this.checked },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    }
+
+                    // Fill color
+                    const fillColor = document.getElementById('fill-color-{{ session_id }}');
+                    if (fillColor) {
+                        fillColor.addEventListener('input', function(e) {
+                            console.log('Fill color changed:', this.value);
+                            const event = new CustomEvent('fillColorChange', {
+                                detail: { color: this.value },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    }
+                }
+            }, 200); // Wait 200ms for image editor to fully initialize
         });
     </script>
 </body>

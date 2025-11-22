@@ -39,16 +39,21 @@
                 Copy
             </button>
             <button class="btn btn-secondary"
+                    id="save-btn-{{ session_id }}"
+                    {% if source_type == 'clipboard' or not source_path %}
+                    _="on click trigger showSaveDialog on #image-editor-{{ session_id }}"
+                    {% else %}
                     hx-post="/api/v1/image-editor/save/{{ session_id }}"
                     hx-vals='{"output_path": "{{ source_path }}"}'
                     hx-target="#save-status-{{ session_id }}"
                     hx-swap="innerHTML"
+                    {% endif %}
                     title="Save">
                 <span class="icon">💾</span>
                 Save
             </button>
             <button class="btn btn-icon close-btn"
-                    _="on click remove #image-editor-{{ session_id }}"
+                    onclick="closeImageEditor('{{ session_id }}')"
                     title="Close">
                 <span class="icon">✕</span>
             </button>
@@ -68,10 +73,16 @@
                 data-version="1">
         </canvas>
 
-        <!-- Loading Overlay -->
+        <!-- Loading Overlay (T111: Show specific message for URL loading) -->
         <div class="canvas-loading" id="loading-{{ session_id }}" style="display: none;">
             <div class="loading-spinner"></div>
-            <div class="loading-text">Loading image...</div>
+            <div class="loading-text" id="loading-text-{{ session_id }}">
+                {% if source_type == 'url' %}
+                    Loading image from URL...
+                {% else %}
+                    Loading image...
+                {% endif %}
+            </div>
         </div>
 
         <!-- Error Overlay -->
@@ -104,6 +115,120 @@
             </button>
         </div>
     </div>
+
+    <!-- Filter Panel Component -->
+    {% include 'components/filter_panel.html' %}
+
+    <!-- Save Dialog (for clipboard and URL sources - T114) -->
+    <div class="save-dialog-overlay" id="save-dialog-{{ session_id }}" style="display: none;">
+        <div class="save-dialog">
+            <div class="dialog-header">
+                <h3>Save Image</h3>
+                <button class="btn btn-icon close-btn"
+                        _="on click hide #save-dialog-{{ session_id }}"
+                        title="Close">
+                    <span class="icon">✕</span>
+                </button>
+            </div>
+            <div class="dialog-body">
+                <p>Enter a filename to save your edited image:</p>
+                <form id="save-form-{{ session_id }}"
+                      hx-post="/api/v1/image-editor/save/{{ session_id }}"
+                      hx-target="#save-status-{{ session_id }}"
+                      hx-swap="innerHTML">
+                    <div class="form-group">
+                        <label for="save-filename-{{ session_id }}">Filename:</label>
+                        <input type="text"
+                               id="save-filename-{{ session_id }}"
+                               name="output_path"
+                               class="form-control"
+                               placeholder="edited_image_{{ timestamp }}.png"
+                               value="edited_image_{{ timestamp }}.png"
+                               required>
+                        <small class="form-hint">File will be saved to the current directory</small>
+                    </div>
+                    <div class="dialog-actions">
+                        <button type="button"
+                                class="btn btn-secondary"
+                                _="on click hide #save-dialog-{{ session_id }}">
+                            Cancel
+                        </button>
+                        <button type="submit"
+                                class="btn btn-primary"
+                                _="on htmx:afterRequest hide #save-dialog-{{ session_id }}">
+                            <span class="icon">💾</span>
+                            Save
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resize Dialog -->
+    <div class="save-dialog-overlay" id="resize-dialog-{{ session_id }}" style="display: none;">
+        <div class="save-dialog">
+            <div class="dialog-header">
+                <h3>Resize Image</h3>
+                <button class="btn btn-icon close-btn"
+                        _="on click hide #resize-dialog-{{ session_id }}"
+                        title="Close">
+                    <span class="icon">✕</span>
+                </button>
+            </div>
+            <div class="dialog-body">
+                <p>Enter new dimensions for the image:</p>
+                <form id="resize-form-{{ session_id }}">
+                    <div class="form-group">
+                        <label for="resize-width-{{ session_id }}">Width (px):</label>
+                        <input type="number"
+                               id="resize-width-{{ session_id }}"
+                               class="form-control"
+                               value="{{ image_width }}"
+                               min="1"
+                               max="32767"
+                               required>
+                    </div>
+                    <div class="form-group">
+                        <label for="resize-height-{{ session_id }}">Height (px):</label>
+                        <input type="number"
+                               id="resize-height-{{ session_id }}"
+                               class="form-control"
+                               value="{{ image_height }}"
+                               min="1"
+                               max="32767"
+                               required>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox"
+                                   id="resize-aspect-{{ session_id }}"
+                                   checked>
+                            Maintain aspect ratio
+                        </label>
+                        <small class="form-hint">Lock proportions to prevent distortion</small>
+                    </div>
+                    <div class="form-group">
+                        <p class="resize-preview" id="resize-preview-{{ session_id }}">
+                            Preview: {{ image_width }} × {{ image_height }} px
+                        </p>
+                    </div>
+                    <div class="dialog-actions">
+                        <button type="button"
+                                class="btn btn-secondary"
+                                _="on click hide #resize-dialog-{{ session_id }}">
+                            Cancel
+                        </button>
+                        <button type="submit"
+                                class="btn btn-primary">
+                            <span class="icon">↔️</span>
+                            Apply Resize
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 
 <style>
@@ -115,9 +240,11 @@
     border-radius: 0.5rem;
     overflow: hidden;
     box-shadow: 0 4px 12px var(--shadow);
-    max-width: 98%;
-    max-height: 98%;
-    margin: 1rem auto;
+    width: 95vw;
+    height: 90vh;
+    max-width: 95vw;
+    max-height: 90vh;
+    margin: auto;
 }
 
 .image-editor.fullscreen {
@@ -204,15 +331,18 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
+    overflow: auto;
     background: var(--terminal-bg);
     position: relative;
-    min-height: 400px;
+    min-height: 0; /* Allow flex to shrink below content size */
 }
 
 .editor-canvas-container canvas {
     max-width: 100%;
     max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
@@ -302,6 +432,91 @@
 .btn-secondary:hover:not(:disabled) {
     background: var(--secondary-hover, #4b5563);
 }
+
+/* Save Dialog */
+.save-dialog-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.save-dialog {
+    background: var(--secondary-bg);
+    border-radius: 0.5rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    width: 90%;
+    max-width: 500px;
+    overflow: hidden;
+}
+
+.dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    background: var(--accent-bg);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.dialog-header h3 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 500;
+}
+
+.dialog-body {
+    padding: 1.5rem 1.25rem;
+}
+
+.dialog-body p {
+    margin: 0 0 1rem 0;
+    color: var(--secondary-text);
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    font-size: 0.875rem;
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    font-size: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    background: var(--terminal-bg);
+    color: var(--primary-text);
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--primary-color, #3b82f6);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.form-hint {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--secondary-text);
+}
+
+.dialog-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+}
 </style>
 
 <!-- Initialize Fabric.js Canvas -->
@@ -312,5 +527,244 @@
         if (typeof ImageEditor !== 'undefined') {
             ImageEditor.init('{{ session_id }}');
         }
+
+        // Handle save dialog for clipboard and URL sources (T114)
+        const editor = document.getElementById('image-editor-{{ session_id }}');
+        if (editor) {
+            editor.addEventListener('showSaveDialog', function() {
+                const dialog = document.getElementById('save-dialog-{{ session_id }}');
+                if (dialog) {
+                    dialog.style.display = 'flex';
+
+                    // T114: Extract filename from URL if source is URL
+                    const sourceType = '{{ source_type }}';
+                    const sourcePath = '{{ source_path }}';
+                    const input = document.getElementById('save-filename-{{ session_id }}');
+
+                    if (input && sourceType === 'url' && sourcePath) {
+                        try {
+                            // Extract filename from URL path
+                            const url = new URL(sourcePath);
+                            const pathname = url.pathname;
+                            const filename = pathname.substring(pathname.lastIndexOf('/') + 1);
+
+                            // Use extracted filename if valid, otherwise use default
+                            if (filename && filename.includes('.')) {
+                                input.value = filename;
+                                input.placeholder = filename;
+                            }
+                        } catch (e) {
+                            console.warn('Could not extract filename from URL:', e);
+                        }
+                    }
+
+                    // Focus on filename input
+                    if (input) {
+                        setTimeout(() => input.select(), 100);
+                    }
+                }
+            });
+
+            // Handle resize dialog
+            editor.addEventListener('showResizeDialog', function() {
+                const dialog = document.getElementById('resize-dialog-{{ session_id }}');
+                if (dialog) {
+                    dialog.style.display = 'flex';
+                    // Focus on width input
+                    const widthInput = document.getElementById('resize-width-{{ session_id }}');
+                    if (widthInput) {
+                        setTimeout(() => widthInput.select(), 100);
+                    }
+                }
+            });
+        }
+
+        // Handle resize form aspect ratio calculations
+        const resizeForm = document.getElementById('resize-form-{{ session_id }}');
+        const widthInput = document.getElementById('resize-width-{{ session_id }}');
+        const heightInput = document.getElementById('resize-height-{{ session_id }}');
+        const aspectCheckbox = document.getElementById('resize-aspect-{{ session_id }}');
+        const previewText = document.getElementById('resize-preview-{{ session_id }}');
+
+        if (resizeForm && widthInput && heightInput && aspectCheckbox && previewText) {
+            const originalWidth = {{ image_width }};
+            const originalHeight = {{ image_height }};
+            const aspectRatio = originalWidth / originalHeight;
+
+            let isUpdating = false;
+
+            // Update height when width changes (if aspect ratio locked)
+            widthInput.addEventListener('input', function() {
+                if (aspectCheckbox.checked && !isUpdating) {
+                    isUpdating = true;
+                    const newWidth = parseInt(widthInput.value) || originalWidth;
+                    const newHeight = Math.round(newWidth / aspectRatio);
+                    heightInput.value = Math.min(newHeight, 32767);
+                    updatePreview();
+                    isUpdating = false;
+                }
+            });
+
+            // Update width when height changes (if aspect ratio locked)
+            heightInput.addEventListener('input', function() {
+                if (aspectCheckbox.checked && !isUpdating) {
+                    isUpdating = true;
+                    const newHeight = parseInt(heightInput.value) || originalHeight;
+                    const newWidth = Math.round(newHeight * aspectRatio);
+                    widthInput.value = Math.min(newWidth, 32767);
+                    updatePreview();
+                    isUpdating = false;
+                }
+            });
+
+            // Update preview when either dimension changes
+            widthInput.addEventListener('input', updatePreview);
+            heightInput.addEventListener('input', updatePreview);
+
+            function updatePreview() {
+                const width = parseInt(widthInput.value) || originalWidth;
+                const height = parseInt(heightInput.value) || originalHeight;
+                previewText.textContent = `Preview: ${width} × ${height} px`;
+            }
+
+            // Handle form submission
+            resizeForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                const width = parseInt(widthInput.value);
+                const height = parseInt(heightInput.value);
+
+                if (!width || !height || width < 1 || height < 1) {
+                    alert('Please enter valid dimensions');
+                    return;
+                }
+
+                if (width > 32767 || height > 32767) {
+                    alert('Maximum dimension is 32767 pixels');
+                    return;
+                }
+
+                try {
+                    // Get editor instance and call applyResize method
+                    if (typeof ImageEditor !== 'undefined') {
+                        const editorInstance = ImageEditor.instances['{{ session_id }}'];
+                        if (editorInstance) {
+                            await editorInstance.applyResize(width, height, aspectCheckbox.checked);
+
+                            // Hide resize dialog on success
+                            const dialog = document.getElementById('resize-dialog-{{ session_id }}');
+                            if (dialog) {
+                                dialog.style.display = 'none';
+                            }
+                        } else {
+                            throw new Error('Editor instance not found');
+                        }
+                    } else {
+                        throw new Error('ImageEditor not loaded');
+                    }
+
+                } catch (error) {
+                    console.error('Resize error:', error);
+                    alert('Failed to resize image: ' + error.message);
+                }
+            });
+        }
+
+        // Add fallback event listeners for tool buttons (in case Hyperscript events don't fire)
+        // Use setTimeout to ensure toolbar is fully loaded
+        setTimeout(function() {
+            const toolButtons = document.querySelectorAll('.tool-btn[data-tool]');
+            const editorElement = document.getElementById('image-editor-{{ session_id }}');
+
+            console.log('Setting up fallback event listeners, found', toolButtons.length, 'tool buttons');
+
+            if (editorElement) {
+                toolButtons.forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        const tool = this.getAttribute('data-tool');
+                        console.log('Tool button clicked:', tool);
+
+                        // Trigger custom event
+                        const event = new CustomEvent('toolChange', {
+                            detail: { tool: tool },
+                            bubbles: true
+                        });
+                        editorElement.dispatchEvent(event);
+                    });
+                });
+
+            // Add fallback for color picker
+            const colorPicker = document.getElementById('stroke-color-{{ session_id }}');
+            if (colorPicker) {
+                colorPicker.addEventListener('input', function(e) {
+                    console.log('Color changed:', this.value);
+                    const event = new CustomEvent('colorChange', {
+                        detail: { color: this.value },
+                        bubbles: true
+                    });
+                    editorElement.dispatchEvent(event);
+                });
+            }
+
+            // Add fallback for color presets
+            const colorPresets = document.querySelectorAll('.color-preset[data-color]');
+            colorPresets.forEach(preset => {
+                preset.addEventListener('click', function(e) {
+                    const color = this.getAttribute('data-color');
+                    console.log('Color preset clicked:', color);
+
+                    // Update color picker value
+                    if (colorPicker) {
+                        colorPicker.value = color;
+                    }
+
+                    const event = new CustomEvent('colorChange', {
+                        detail: { color: color },
+                        bubbles: true
+                    });
+                    editorElement.dispatchEvent(event);
+                });
+            });
+
+            // Add fallback for stroke width
+            const strokeWidth = document.getElementById('stroke-width-{{ session_id }}');
+            if (strokeWidth) {
+                strokeWidth.addEventListener('input', function(e) {
+                    console.log('Stroke width changed:', this.value);
+                    const event = new CustomEvent('strokeWidthChange', {
+                        detail: { width: parseInt(this.value) },
+                        bubbles: true
+                    });
+                    editorElement.dispatchEvent(event);
+                });
+            }
+
+            // Add fallback for fill toggle
+            const fillCheckbox = document.getElementById('fill-shape-{{ session_id }}');
+            if (fillCheckbox) {
+                fillCheckbox.addEventListener('change', function(e) {
+                    console.log('Fill toggle changed:', this.checked);
+                    const event = new CustomEvent('fillToggle', {
+                        detail: { fill: this.checked },
+                        bubbles: true
+                    });
+                    editorElement.dispatchEvent(event);
+                });
+            }
+
+                // Add fallback for fill color
+                const fillColor = document.getElementById('fill-color-{{ session_id }}');
+                if (fillColor) {
+                    fillColor.addEventListener('input', function(e) {
+                        console.log('Fill color changed:', this.value);
+                        const event = new CustomEvent('fillColorChange', {
+                            detail: { color: this.value },
+                            bubbles: true
+                        });
+                        editorElement.dispatchEvent(event);
+                    });
+                }
+            }
+        }, 100); // Wait 100ms for DOM to be fully ready
     });
 </script>
