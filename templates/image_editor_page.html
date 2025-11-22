@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Editor - {{ file_name }}</title>
+
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.8/dist/htmx.min.js"></script>
+
+    <!-- Hyperscript -->
+    <script src="https://unpkg.com/hyperscript.org@0.9.12/dist/_hyperscript.min.js"></script>
+
+    <!-- Fabric.js for canvas editing -->
+    <script src="/static/js/vendor/fabric.min.js"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/main.css">
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--terminal-bg, #1a1b26);
+            color: var(--primary-text, #c0caf5);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            overflow: hidden;
+        }
+
+        /* CSS Variables */
+        :root {
+            --primary-color: #3b82f6;
+            --primary-hover: #2563eb;
+            --secondary-color: #6b7280;
+            --secondary-hover: #4b5563;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --terminal-bg: #1a1b26;
+            --secondary-bg: #16161e;
+            --accent-bg: #24283b;
+            --primary-text: #c0caf5;
+            --secondary-text: #9aa5ce;
+            --border-color: #414868;
+            --shadow: rgba(0, 0, 0, 0.3);
+            --animation-fast: 0.15s;
+        }
+
+        /* Basic button styles */
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all var(--animation-fast);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-icon {
+            padding: 0.5rem;
+            background: transparent;
+            color: var(--primary-text);
+        }
+
+        .btn-icon:hover {
+            background: var(--accent-bg);
+        }
+
+        .btn-sm {
+            padding: 0.25rem 0.75rem;
+            font-size: 0.8125rem;
+        }
+
+        .icon {
+            font-size: 1.125rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Include the image editor component -->
+    {% include 'components/image_editor.html' %}
+
+    <!-- Load drawing tools and editor JavaScript -->
+    <script src="/static/js/drawing-tools.js"></script>
+    <script src="/static/js/filter-engine.js"></script>
+    <script src="/static/js/image-editor.js"></script>
+
+    <!-- Initialize editor -->
+    <script>
+        // Wait for DOM to load
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Initializing image editor for session: {{ session_id }}');
+
+            // Initialize editor
+            if (typeof ImageEditor !== 'undefined') {
+                window.currentEditor = ImageEditor.init('{{ session_id }}');
+            } else {
+                console.error('ImageEditor class not found');
+            }
+
+            // Add fallback event listeners for toolbar controls
+            setTimeout(function() {
+                const toolButtons = document.querySelectorAll('.tool-btn[data-tool]');
+                const editorElement = document.getElementById('image-editor-{{ session_id }}');
+
+                console.log('Setting up fallback event listeners, found', toolButtons.length, 'tool buttons');
+
+                if (editorElement) {
+                    // Tool buttons
+                    toolButtons.forEach(btn => {
+                        btn.addEventListener('click', function(e) {
+                            const tool = this.getAttribute('data-tool');
+                            console.log('Tool button clicked:', tool);
+
+                            const event = new CustomEvent('toolChange', {
+                                detail: { tool: tool },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    });
+
+                    // Color picker
+                    const colorPicker = document.getElementById('stroke-color-{{ session_id }}');
+                    if (colorPicker) {
+                        colorPicker.addEventListener('input', function(e) {
+                            console.log('Color changed:', this.value);
+                            const event = new CustomEvent('colorChange', {
+                                detail: { color: this.value },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    }
+
+                    // Color presets
+                    const colorPresets = document.querySelectorAll('.color-preset[data-color]');
+                    colorPresets.forEach(preset => {
+                        preset.addEventListener('click', function(e) {
+                            const color = this.getAttribute('data-color');
+                            console.log('Color preset clicked:', color);
+
+                            if (colorPicker) {
+                                colorPicker.value = color;
+                            }
+
+                            const event = new CustomEvent('colorChange', {
+                                detail: { color: color },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    });
+
+                    // Stroke width
+                    const strokeWidth = document.getElementById('stroke-width-{{ session_id }}');
+                    if (strokeWidth) {
+                        strokeWidth.addEventListener('input', function(e) {
+                            console.log('Stroke width changed:', this.value);
+                            const event = new CustomEvent('strokeWidthChange', {
+                                detail: { width: parseInt(this.value) },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    }
+
+                    // Fill toggle
+                    const fillCheckbox = document.getElementById('fill-shape-{{ session_id }}');
+                    if (fillCheckbox) {
+                        fillCheckbox.addEventListener('change', function(e) {
+                            console.log('Fill toggle changed:', this.checked);
+                            const event = new CustomEvent('fillToggle', {
+                                detail: { fill: this.checked },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    }
+
+                    // Fill color
+                    const fillColor = document.getElementById('fill-color-{{ session_id }}');
+                    if (fillColor) {
+                        fillColor.addEventListener('input', function(e) {
+                            console.log('Fill color changed:', this.value);
+                            const event = new CustomEvent('fillColorChange', {
+                                detail: { color: this.value },
+                                bubbles: true
+                            });
+                            editorElement.dispatchEvent(event);
+                        });
+                    }
+                }
+            }, 200); // Wait 200ms for image editor to fully initialize
+        });
+    </script>
+</body>
+</html>

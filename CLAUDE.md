@@ -15,6 +15,7 @@ Web-based terminal emulator with multimedia support, animations, AI assistance, 
 - SQLite (aiosqlite) + file system for media caching (002-enhance-and-implement)
 - Python 3.11+ (backend), JavaScript ES2022 (frontend) + FastAPI, xterm.js, HTMX, WebSockets, Python PTY module (003-cat-commands)
 - SQLite database (existing) + browser localStorage (history/queries) + file system (exports) (003-cat-commands)
+- SQLite (session history persistence), File system (image files, temp storage) (004-imgcat-editor)
 
 ## Project Structure
 ```
@@ -48,16 +49,17 @@ tests/
 1. **Terminal Emulation**: xterm.js with WebSocket PTY communication
 2. **Media Support**: Inline images (<1s load), videos (50MB max), HTML preview with sandboxing
 3. **Ebook Viewer** (`bookcat` command): PDF and EPUB rendering with foliate-js, password-protected PDF support, up to 50MB files
-4. **AI Assistant**: Voice input/output, context-aware suggestions (2s simple, 5s complex responses)
+4. **Image Editor** (`imgcat` with edit mode): Web-based canvas editor with annotation tools, filters, crop/resize, clipboard support, undo/redo (50 operations), session history (20 images)
+5. **AI Assistant**: Voice input/output, context-aware suggestions (2s simple, 5s complex responses)
 
 https://github.com/KoljaB/RealtimeSTT (options)
 ps aux | grep "jterm/venv/bin/python3" | awk '{print $2}' | xargs kill -9 (clean some orphan processes)
 
 
-5. **Session Recording**: Record/replay/export with 30-day retention, <5% performance impact, responsive width scaling (80-200 columns)
-6. **Performance Monitoring**: Real-time CPU/memory metrics, configurable refresh intervals, 24-hour retention
-7. **Customization**: Themes, extensions, VS Code theme import
-8. **Security**: HTML sandboxing, file validation, secure API communications
+6. **Session Recording**: Record/replay/export with 30-day retention, <5% performance impact, responsive width scaling (80-200 columns)
+7. **Performance Monitoring**: Real-time CPU/memory metrics, configurable refresh intervals, 24-hour retention
+8. **Customization**: Themes, extensions, VS Code theme import
+9. **Security**: HTML sandboxing, file validation, secure API communications, path traversal prevention, SSRF protection
 
 ## Development Commands
 ```bash
@@ -101,6 +103,19 @@ flake8 src/ tests/
 - **Ebook file limit**: 50MB maximum
 
 ## Recent Changes
+- **004-imgcat-editor** (2025-11-18): ✅ COMPLETE
+  - Added comprehensive image editor with Fabric.js canvas and Pillow image processing
+  - **Drawing Tools**: Pen, arrow, text, rectangles, circles, lines with customizable colors and stroke widths
+  - **Image Operations**: Crop, resize (with aspect ratio lock), blur, sharpen, brightness/contrast/saturation adjustments
+  - **Clipboard Integration**: Load images from system clipboard (macOS/Windows), copy edited images to clipboard
+  - **Session History**: Quick re-edit of recently viewed images (`imgcat --history`, `imgcat -e N`)
+  - **URL Loading**: Load and edit images directly from HTTP/HTTPS URLs with SSRF protection
+  - **Undo/Redo**: 50-operation circular buffer with canvas state snapshots
+  - **Security**: Path validation, SQL injection prevention (UUID validation), directory traversal blocking
+  - **Performance**: Image downsampling for large files (>4096px), canvas JSON gzip compression, cleanup jobs for expired sessions
+  - **Storage**: SQLite for session management, annotation layers, edit history, session history (7-day retention)
+  - Commands: `imgcat file.png`, `imgcat --clipboard`, `imgcat URL`, `imgcat --history`, `imgcat -e 2`
+  - Libraries: Pillow (backend image processing), Fabric.js 5.3.0 (frontend canvas), aiohttp (URL loading)
 - 003-cat-commands: Added Python 3.11+ (backend), JavaScript ES2022 (frontend) + FastAPI, xterm.js, HTMX, WebSockets, Python PTY module
 - **002-enhance-and-implement** (2025-10-27): ✅ COMPLETE
   - Added ebook viewer (`bookcat` command) with PDF/EPUB support via foliate-js
@@ -112,7 +127,6 @@ flake8 src/ tests/
     - Lazy-load xterm.js addons (deferred loading)
   - Added performance monitoring with real-time metrics display
   - Libraries: PyPDF2 (PDF), ebooklib (EPUB), psutil (performance), foliate-js (frontend)
-- **001-web-based-terminal**: Initial feature specification and implementation plan
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

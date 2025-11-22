@@ -331,8 +331,42 @@ class TerminalWebSocketHandler:
                 except Exception as e:
                     logger.error(f"Error sending ebook viewer message: {e}")
 
+            async def image_osc_callback(file_path: str):
+                """Handle image OSC sequence - trigger image editor via WebSocket."""
+                logger.info(f"Image OSC triggered for file: {file_path}")
+                try:
+                    # Send WebSocket message to frontend to open image editor
+                    await self._send_message(
+                        connection_id,
+                        "image_viewer",
+                        {"file_path": file_path, "session_id": session_id},
+                        session_id
+                    )
+                except Exception as e:
+                    logger.error(f"Error sending image viewer message: {e}")
+
+            async def image_url_osc_callback(url: str):
+                """Handle image URL OSC sequence - trigger image editor with URL via WebSocket."""
+                logger.info(f"Image URL OSC triggered for URL: {url}")
+                try:
+                    # Send WebSocket message to frontend to open image editor with URL
+                    await self._send_message(
+                        connection_id,
+                        "image_viewer_url",
+                        {"url": url, "session_id": session_id},
+                        session_id
+                    )
+                except Exception as e:
+                    logger.error(f"Error sending image URL viewer message: {e}")
+
             await self.pty_service.register_osc_callback(session_id, 'ebook', ebook_osc_callback)
             logger.info(f"Registered ebook OSC callback for session {session_id}")
+
+            await self.pty_service.register_osc_callback(session_id, 'image', image_osc_callback)
+            logger.info(f"Registered image OSC callback for session {session_id}")
+
+            await self.pty_service.register_osc_callback(session_id, 'image_url', image_url_osc_callback)
+            logger.info(f"Registered image URL OSC callback for session {session_id}")
 
             # Update connection with session ID
             await self.ws_manager.update_connection_metadata(

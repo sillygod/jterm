@@ -1,36 +1,409 @@
 #!/bin/bash
 # Web Terminal Image Viewer (imgcat - similar to iTerm2's imgcat)
 # Usage: imgcat <image_file>
+#        imgcat --clipboard
+#
+# Note: --clipboard now uses Python PIL.ImageGrab (built into Pillow).
+#       Works on macOS and Windows without external tools.
+#       Falls back to platform utilities (pngpaste/wl-paste/xclip) if Pillow unavailable.
+#       pbpaste does NOT work for images (text only)!
 
-if [ -z "$1" ]; then
-    echo "Usage: imgcat <image_file>"
+# Show usage
+show_usage() {
+    echo "Usage: imgcat <image_file>" >&2
+    echo "       imgcat <http://url/to/image.png>" >&2
+    echo "       imgcat --clipboard" >&2
+    echo "       imgcat --history" >&2
+    echo "       imgcat -e <N>" >&2
+    echo "       imgcat --edit-last" >&2
+    echo "" >&2
+    echo "Examples:" >&2
+    echo "  imgcat screenshot.png                              # Load from file" >&2
+    echo "  imgcat https://example.com/image.png              # Load from URL" >&2
+    echo "  imgcat --clipboard                                 # Load from clipboard" >&2
+    echo "" >&2
+    echo "Clipboard usage:" >&2
+    echo "  imgcat --clipboard              (uses PIL.ImageGrab - works on macOS/Windows)" >&2
+    echo "" >&2
+    echo "Alternative clipboard methods (if Pillow not available):" >&2
+    echo "  macOS:   pngpaste - | imgcat                   (requires: brew install pngpaste)" >&2
+    echo "  Linux:   wl-paste -t image/png | imgcat       (Wayland)" >&2
+    echo "           xclip -selection clipboard -t image/png -o | imgcat  (X11)" >&2
+    echo "" >&2
+    echo "Options:" >&2
+    echo "  --clipboard   Read image from system clipboard (uses Python/Pillow)" >&2
+    echo "  --history     Show history of recently viewed images" >&2
+    echo "  -e <N>        Edit Nth most recent image from history (1-based)" >&2
+    echo "  --edit-last   Edit the most recently viewed image" >&2
+    echo "  --help        Show this help message" >&2
+    echo "" >&2
+    echo "Note: The --clipboard option now uses PIL.ImageGrab (built into Pillow)." >&2
+    echo "      This works on macOS and Windows without external tools!" >&2
     exit 1
-fi
+}
 
-FILE_PATH="$1"
+# Detect platform for clipboard utility
+get_clipboard_cmd() {
+    case "$(uname -s)" in
+        Darwin)
+            # macOS: Use pngpaste if available, otherwise use osascript (AppleScript)
+            if command -v pngpaste >/dev/null 2>&1; then
+                echo "pngpaste -"
+            else
+                # Use AppleScript to get clipboard image (built-in on macOS)
+                echo "osascript_clipboard"
+            fi
+            ;;
+        Linux)
+            if command -v wl-paste >/dev/null 2>&1; then
+                echo "wl-paste -t image/png"
+            elif command -v xclip >/dev/null 2>&1; then
+                echo "xclip -selection clipboard -t image/png -o"
+            else
+                echo ""
+            fi
+            ;;
+        CYGWIN*|MINGW*|MSYS*)
+            echo "powershell -Command Get-Clipboard"
+            ;;
+        *)
+            echo ""
+            ;;
+    esac
+}
 
-# Check if file exists
-if [ ! -f "$FILE_PATH" ]; then
-    echo "Error: File not found: $FILE_PATH"
-    exit 1
-fi
+# Get clipboard image using AppleScript on macOS
+get_clipboard_with_applescript() {
+    osascript -e '
+        set theImage to (the clipboard as «class PNGf»)
+        set stdout to open for access "/dev/stdout"
+        write theImage to stdout
+        close access stdout
+    ' 2>/dev/null
+}
 
-# Get absolute path
-ABS_PATH=$(realpath "$FILE_PATH" 2>/dev/null || readlink -f "$FILE_PATH" 2>/dev/null || echo "$FILE_PATH")
+# Check if stdin has data (piped input)
+has_stdin_data() {
+    [ -p /dev/stdin ] || [ ! -t 0 ]
+}
 
-# Get file extension
-EXT="${FILE_PATH##*.}"
-EXT_LOWER=$(echo "$EXT" | tr '[:upper:]' '[:lower:]')
+# Get terminal session ID from environment
+get_terminal_session_id() {
+    # Try JTERM_SESSION_ID first (set by jterm)
+    if [ -n "$JTERM_SESSION_ID" ]; then
+        echo "$JTERM_SESSION_ID"
+    # Fallback to TTY name
+    elif [ -t 0 ]; then
+        tty | sed 's/\//_/g'
+    else
+        echo "default-session"
+    fi
+}
 
-# Check if it's an image
-case "$EXT_LOWER" in
-    jpg|jpeg|png|gif|webp|bmp|svg)
-        # Send OSC sequence to trigger web terminal viewer
-        printf '\033]1337;ViewImage=%s\007' "$ABS_PATH"
-        ;;
-    *)
-        echo "Error: Unsupported image type: $EXT_LOWER"
-        echo "Supported: jpg, jpeg, png, gif, webp, bmp, svg"
+# Show history
+show_history() {
+    TERMINAL_SESSION_ID=$(get_terminal_session_id)
+
+    # Call API to get history
+    curl -s "http://localhost:8000/api/v1/image-editor/history?terminal_session_id=$TERMINAL_SESSION_ID&limit=20" | \
+    python3 -c "
+import sys
+import json
+
+try:
+    data = json.load(sys.stdin)
+    history = data.get('history', [])
+
+    if not history:
+        print('No history available.', file=sys.stderr)
+        sys.exit(0)
+
+    print('Recent Images:')
+    print('')
+    for i, entry in enumerate(history, 1):
+        path = entry['image_path']
+        view_count = entry['view_count']
+        # Truncate path if too long
+        if len(path) > 60:
+            path = '...' + path[-57:]
+        print(f'{i:2d}. {path} (viewed {view_count}x)')
+    print('')
+    print('Use: imgcat -e <N>  to edit image #N')
+    print('     imgcat --edit-last  to edit most recent image')
+
+except Exception as e:
+    print(f'Error fetching history: {e}', file=sys.stderr)
+    sys.exit(1)
+"
+}
+
+# Edit Nth image from history
+edit_from_history() {
+    N=$1
+    TERMINAL_SESSION_ID=$(get_terminal_session_id)
+
+    # Get history entry ID (1-based index)
+    ENTRY_ID=$(curl -s "http://localhost:8000/api/v1/image-editor/history?terminal_session_id=$TERMINAL_SESSION_ID&limit=20" | \
+    python3 -c "
+import sys
+import json
+
+try:
+    data = json.load(sys.stdin)
+    history = data.get('history', [])
+
+    n = $N
+    if n < 1 or n > len(history):
+        print(f'Error: Invalid index {n}. History has {len(history)} entries.', file=sys.stderr)
+        sys.exit(1)
+
+    entry = history[n-1]
+    print(entry['id'])
+
+except Exception as e:
+    print(f'Error: {e}', file=sys.stderr)
+    sys.exit(1)
+")
+
+    if [ -z "$ENTRY_ID" ]; then
+        echo "Error: Failed to get history entry." >&2
         exit 1
-        ;;
-esac
+    fi
+
+    # Send OSC sequence to reopen from history
+    printf '\033]1337;ReopenFromHistory=%s\007' "$ENTRY_ID"
+}
+
+# Handle history flags first (T099, T100, T101)
+if [ "$1" = "--history" ]; then
+    show_history
+    exit 0
+
+elif [ "$1" = "-e" ]; then
+    # Check if index argument provided
+    if [ -z "$2" ]; then
+        echo "Error: -e requires an index argument." >&2
+        echo "Usage: imgcat -e <N>" >&2
+        exit 1
+    fi
+
+    # Validate index is a number
+    if ! [[ "$2" =~ ^[0-9]+$ ]]; then
+        echo "Error: Index must be a positive integer." >&2
+        exit 1
+    fi
+
+    edit_from_history "$2"
+    exit 0
+
+elif [ "$1" = "--edit-last" ]; then
+    edit_from_history 1
+    exit 0
+
+# Handle clipboard flag
+elif [ "$1" = "--clipboard" ]; then
+    # Use Python with PIL.ImageGrab (built into Pillow)
+    # This works on macOS and Windows without external dependencies
+    TEMP_FILE=$(mktemp /tmp/imgcat_clipboard.XXXXXX)
+    # Add .png extension for proper file type detection
+    mv "$TEMP_FILE" "$TEMP_FILE.png"
+    TEMP_FILE="$TEMP_FILE.png"
+
+    # Try Python clipboard grab using Pillow
+    python3 << EOF
+import sys
+import tempfile
+from pathlib import Path
+
+try:
+    from PIL import ImageGrab
+
+    # Get image from clipboard
+    img = ImageGrab.grabclipboard()
+
+    if img is None:
+        print("Error: Clipboard is empty or does not contain image data.", file=sys.stderr)
+        print("", file=sys.stderr)
+        print("Make sure you:", file=sys.stderr)
+        print("  1. Copy an IMAGE (not a file path) - use ⌘C on an image", file=sys.stderr)
+        print("  2. For screenshots, use ⌘⇧⌃4 to copy to clipboard", file=sys.stderr)
+        print("  3. Right-click on image → 'Copy Image' (not 'Copy Image Address')", file=sys.stderr)
+        sys.exit(1)
+
+    # Check if it's a list of file paths (some apps copy files as paths)
+    if isinstance(img, list):
+        print("Error: Clipboard contains file paths, not image data.", file=sys.stderr)
+        print("", file=sys.stderr)
+        print("Try:", file=sys.stderr)
+        print("  1. Right-click on image → 'Copy Image' (not just Copy)", file=sys.stderr)
+        print("  2. Or open the image and copy the content (⌘C)", file=sys.stderr)
+        sys.exit(1)
+
+    # Save to temp file
+    temp_path = "$TEMP_FILE"
+    img.save(temp_path, 'PNG')
+    print(f"Successfully grabbed image from clipboard", file=sys.stderr)
+    sys.exit(0)
+
+except ImportError:
+    # PIL.ImageGrab not available (Linux or Pillow not installed)
+    # Fall back to platform-specific utilities
+    print("PIL.ImageGrab not available, trying platform utilities...", file=sys.stderr)
+    sys.exit(2)
+except Exception as e:
+    print(f"Error: Failed to read clipboard image: {e}", file=sys.stderr)
+    sys.exit(1)
+EOF
+
+    PYTHON_EXIT_CODE=$?
+
+    # If Python succeeded, send OSC sequence
+    if [ $PYTHON_EXIT_CODE -eq 0 ]; then
+        # Check if temp file has data
+        if [ ! -s "$TEMP_FILE" ]; then
+            echo "Error: Failed to save clipboard image to temp file." >&2
+            rm -f "$TEMP_FILE"
+            exit 1
+        fi
+
+        # Get absolute path of temp file
+        ABS_TEMP_PATH=$(realpath "$TEMP_FILE" 2>/dev/null || readlink -f "$TEMP_FILE" 2>/dev/null || echo "$TEMP_FILE")
+
+        # Send OSC sequence with temp file (to stdout, clean)
+        printf '\033]1337;ViewImage=%s\007' "$ABS_TEMP_PATH"
+        exit 0
+    fi
+
+    # If Python failed with exit code 2, fall back to platform utilities
+    if [ $PYTHON_EXIT_CODE -eq 2 ]; then
+        echo "Falling back to platform-specific clipboard utilities..." >&2
+
+        CLIPBOARD_CMD=$(get_clipboard_cmd)
+        if [ -z "$CLIPBOARD_CMD" ]; then
+            echo "Error: No clipboard utility found for this platform." >&2
+            echo "" >&2
+            case "$(uname -s)" in
+                Linux)
+                    echo "Install one of the following:" >&2
+                    echo "  - wl-clipboard (Wayland): sudo apt-get install wl-clipboard" >&2
+                    echo "  - xclip (X11): sudo apt-get install xclip" >&2
+                    echo "" >&2
+                    echo "Or install Pillow: pip install Pillow" >&2
+                    ;;
+                *)
+                    echo "Install Pillow for clipboard support: pip install Pillow" >&2
+                    ;;
+            esac
+            rm -f "$TEMP_FILE"
+            exit 1
+        fi
+
+        # Use platform utility
+        if [ "$CLIPBOARD_CMD" = "osascript_clipboard" ]; then
+            if ! get_clipboard_with_applescript > "$TEMP_FILE" 2>/dev/null; then
+                echo "Error: Failed to read image from clipboard using AppleScript." >&2
+                rm -f "$TEMP_FILE"
+                exit 1
+            fi
+        else
+            if ! eval "$CLIPBOARD_CMD" > "$TEMP_FILE" 2>/dev/null; then
+                echo "Error: Failed to read from clipboard using $CLIPBOARD_CMD" >&2
+                rm -f "$TEMP_FILE"
+                exit 1
+            fi
+        fi
+
+        # Check if temp file has data
+        if [ ! -s "$TEMP_FILE" ]; then
+            echo "Error: Clipboard is empty or does not contain image data." >&2
+            rm -f "$TEMP_FILE"
+            exit 1
+        fi
+
+        # Get absolute path of temp file
+        ABS_TEMP_PATH=$(realpath "$TEMP_FILE" 2>/dev/null || readlink -f "$TEMP_FILE" 2>/dev/null || echo "$TEMP_FILE")
+
+        # Send OSC sequence with temp file (to stdout, clean)
+        printf '\033]1337;ViewImage=%s\007' "$ABS_TEMP_PATH"
+        exit 0
+    fi
+
+    # Python failed with actual error (exit code 1)
+    rm -f "$TEMP_FILE"
+    exit 1
+
+elif [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    show_usage
+
+# Handle piped input (stdin)
+elif has_stdin_data; then
+    # Save stdin to temp file
+    TEMP_FILE=$(mktemp /tmp/imgcat_stdin.XXXXXX)
+    # Add .png extension for proper file type detection
+    mv "$TEMP_FILE" "$TEMP_FILE.png"
+    TEMP_FILE="$TEMP_FILE.png"
+    cat > "$TEMP_FILE"
+
+    # Check if temp file has data
+    if [ ! -s "$TEMP_FILE" ]; then
+        echo "Error: No image data received from stdin." >&2
+        rm -f "$TEMP_FILE"
+        exit 1
+    fi
+
+    # Get absolute path of temp file
+    ABS_TEMP_PATH=$(realpath "$TEMP_FILE" 2>/dev/null || readlink -f "$TEMP_FILE" 2>/dev/null || echo "$TEMP_FILE")
+
+    # Send OSC sequence with temp file
+    printf '\033]1337;ViewImage=%s\007' "$ABS_TEMP_PATH"
+
+    # Cleanup will be handled by the viewer
+    exit 0
+
+# Handle file path or URL argument
+elif [ -z "$1" ]; then
+    echo "Error: No image file or URL specified." >&2
+    echo "" >&2
+    show_usage
+
+else
+    INPUT="$1"
+
+    # Check if input is a URL (starts with http:// or https://)
+    if [[ "$INPUT" =~ ^https?:// ]]; then
+        # Send OSC sequence for URL loading
+        printf '\033]1337;ViewImageURL=%s\007' "$INPUT"
+        exit 0
+    fi
+
+    # Otherwise treat as file path
+    FILE_PATH="$INPUT"
+
+    # Check if file exists
+    if [ ! -f "$FILE_PATH" ]; then
+        echo "Error: File not found: $FILE_PATH" >&2
+        echo "" >&2
+        echo "If you're trying to load a URL, make sure it starts with http:// or https://" >&2
+        exit 1
+    fi
+
+    # Get absolute path
+    ABS_PATH=$(realpath "$FILE_PATH" 2>/dev/null || readlink -f "$FILE_PATH" 2>/dev/null || echo "$FILE_PATH")
+
+    # Get file extension
+    EXT="${FILE_PATH##*.}"
+    EXT_LOWER=$(echo "$EXT" | tr '[:upper:]' '[:lower:]')
+
+    # Check if it's an image
+    case "$EXT_LOWER" in
+        jpg|jpeg|png|gif|webp|bmp|svg)
+            # Send OSC sequence to trigger web terminal viewer
+            printf '\033]1337;ViewImage=%s\007' "$ABS_PATH"
+            ;;
+        *)
+            echo "Error: Unsupported image type: $EXT_LOWER" >&2
+            echo "Supported: jpg, jpeg, png, gif, webp, bmp, svg" >&2
+            exit 1
+            ;;
+    esac
+fi

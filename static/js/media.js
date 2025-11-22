@@ -63,19 +63,23 @@ class MediaHandler {
 
     async viewFile(filePath, options = {}) {
         try {
+            console.log('[MediaHandler] viewFile called with:', filePath);
             const fileExt = this.getFileExtension(filePath);
+            console.log('[MediaHandler] File extension:', fileExt);
             const fileType = this.getMediaType(fileExt);
+            console.log('[MediaHandler] File type:', fileType);
 
             if (fileType === 'image') {
+                console.log('[MediaHandler] Calling displayImage...');
                 await this.displayImage(filePath, options);
             } else if (fileType === 'video') {
                 await this.playVideo(filePath, options);
             } else {
-                console.log('Unsupported file type for viewing:', fileExt);
+                console.log('[MediaHandler] Unsupported file type for viewing:', fileExt);
                 this.showError('Unsupported file type: ' + fileExt);
             }
         } catch (error) {
-            console.error('Error viewing file:', error);
+            console.error('[MediaHandler] Error viewing file:', error);
             this.showError('Failed to load file: ' + error.message);
         }
     }

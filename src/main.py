@@ -26,6 +26,9 @@ from src.api.cert_endpoints import router as cert_router
 from src.api.sql_endpoints import router as sql_router
 from src.api.http_endpoints import router as http_router
 
+# Image editor router
+from src.api.image_editor_endpoints import router as image_editor_router
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -80,10 +83,52 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         print(f"⚠️  Warning: Could not create default user: {e}")
         print("   You may need to run: ./bin/setup_db.sh")
 
+    # T102: Restore session history cache on startup
+    try:
+        from src.services.session_history_service import SessionHistoryService
+
+        async with AsyncSessionLocal() as db:
+            session_history_service = SessionHistoryService()
+            await session_history_service.restore_cache(db)
+            print("📜 Session history cache restored")
+    except Exception as e:
+        print(f"⚠️  Warning: Could not restore session history cache: {e}")
+
+    # T103: Start background cleanup job for old history entries
+    import asyncio
+    cleanup_task = None
+    try:
+        async def cleanup_old_history():
+            """Background task to cleanup old history entries every 24 hours."""
+            from src.services.session_history_service import SessionHistoryService
+            while True:
+                try:
+                    await asyncio.sleep(86400)  # 24 hours
+                    async with AsyncSessionLocal() as db:
+                        service = SessionHistoryService()
+                        deleted_count = await service.cleanup_old_entries(db)
+                        print(f"🧹 Cleaned up {deleted_count} old history entries")
+                except Exception as e:
+                    print(f"⚠️  History cleanup error: {e}")
+
+        cleanup_task = asyncio.create_task(cleanup_old_history())
+        print("🧹 Background history cleanup job started")
+    except Exception as e:
+        print(f"⚠️  Warning: Could not start history cleanup job: {e}")
+
     yield
 
     # Shutdown
     print("🛑 Web Terminal shutting down...")
+
+    # Cancel cleanup task
+    if cleanup_task:
+        cleanup_task.cancel()
+        try:
+            await cleanup_task
+        except asyncio.CancelledError:
+            pass
+
     await engine.dispose()
 
 
@@ -130,6 +175,98 @@ async def index(request: Request):
 async def get_settings(request: Request):
     """Get settings modal content."""
     return templates.TemplateResponse("components/settings.html", {"request": request})
+
+
+# Image Editor endpoint
+@app.get("/editor/{session_id}")
+async def image_editor(request: Request, session_id: str):
+    """Serve the image editor page."""
+    from src.database.base import get_db
+    from src.models.image_editor import ImageSession
+    from sqlalchemy import select
+
+    # Get session from database
+    async for db in get_db():
+        query = select(ImageSession).where(ImageSession.id == session_id)
+        result = await db.execute(query)
+        image_session = result.scalar_one_or_none()
+
+        if not image_session:
+            raise HTTPException(status_code=404, detail=f"Image session not found: {session_id}")
+
+        # Prepare template context
+        context = {
+            "request": request,
+            "session_id": session_id,
+            "file_name": os.path.basename(image_session.image_source_path or "image"),
+            "image_width": image_session.image_width,
+            "image_height": image_session.image_height,
+            "image_format": image_session.image_format,
+            "source_path": image_session.image_source_path or ""
+        }
+
+        return templates.TemplateResponse("image_editor_page.html", context)
+
+    raise HTTPException(status_code=500, detail="Database connection failed")
+
+
+# Image Editor component endpoint (for in-page panel)
+@app.get("/api/v1/image-editor/component/{session_id}")
+async def image_editor_component(request: Request, session_id: str):
+    """Serve just the image editor component HTML for embedding in terminal page."""
+    from src.database.base import get_db
+    from src.models.image_editor import ImageSession
+    from sqlalchemy import select
+
+    # Get session from database
+    async for db in get_db():
+        query = select(ImageSession).where(ImageSession.id == session_id)
+        result = await db.execute(query)
+        image_session = result.scalar_one_or_none()
+
+        if not image_session:
+            raise HTTPException(status_code=404, detail=f"Image session not found: {session_id}")
+
+        # Prepare template context
+        context = {
+            "request": request,
+            "session_id": session_id,
+            "file_name": os.path.basename(image_session.image_source_path or "image"),
+            "image_width": image_session.image_width,
+            "image_height": image_session.image_height,
+            "image_format": image_session.image_format,
+            "source_path": image_session.image_source_path or ""
+        }
+
+        return templates.TemplateResponse("components/image_editor.html", context)
+
+    raise HTTPException(status_code=500, detail="Database connection failed")
+
+
+# Serve image for editor
+@app.get("/api/v1/image-editor/image/{session_id}")
+async def serve_editor_image(session_id: str):
+    """Serve image file for editor session."""
+    from src.database.base import get_db
+    from src.models.image_editor import ImageSession
+    from sqlalchemy import select
+
+    # Get session from database
+    async for db in get_db():
+        query = select(ImageSession).where(ImageSession.id == session_id)
+        result = await db.execute(query)
+        image_session = result.scalar_one_or_none()
+
+        if not image_session:
+            raise HTTPException(status_code=404, detail=f"Image session not found: {session_id}")
+
+        # Serve from temp file path
+        if not image_session.temp_file_path or not os.path.exists(image_session.temp_file_path):
+            raise HTTPException(status_code=404, detail="Image file not found")
+
+        return FileResponse(image_session.temp_file_path)
+
+    raise HTTPException(status_code=500, detail="Database connection failed")
 
 
 # Simple image viewing endpoint
@@ -428,6 +565,9 @@ app.include_router(log_router)
 app.include_router(cert_router)
 app.include_router(sql_router)
 app.include_router(http_router)
+
+# Image editor router
+app.include_router(image_editor_router)
 
 
 # WebSocket endpoints

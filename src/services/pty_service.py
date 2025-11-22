@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 OSC_PATTERNS = {
     'ebook': re.compile(rb'\x1b\]1338;ViewEbook=([^\x07]+)\x07'),
     'image': re.compile(rb'\x1b\]1337;ViewImage=([^\x07]+)\x07'),
+    'image_url': re.compile(rb'\x1b\]1337;ViewImageURL=([^\x07]+)\x07'),
     # Add other media types as needed
 }
 
