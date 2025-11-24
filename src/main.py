@@ -247,9 +247,11 @@ async def image_editor_component(request: Request, session_id: str):
 @app.get("/api/v1/image-editor/image/{session_id}")
 async def serve_editor_image(session_id: str):
     """Serve image file for editor session."""
+    from fastapi.responses import Response
     from src.database.base import get_db
     from src.models.image_editor import ImageSession
     from sqlalchemy import select
+    import mimetypes
 
     # Get session from database
     async for db in get_db():
@@ -264,9 +266,43 @@ async def serve_editor_image(session_id: str):
         if not image_session.temp_file_path or not os.path.exists(image_session.temp_file_path):
             raise HTTPException(status_code=404, detail="Image file not found")
 
-        return FileResponse(image_session.temp_file_path)
+        # Read file and serve with explicit CORS headers for Edge compatibility
+        with open(image_session.temp_file_path, 'rb') as f:
+            image_data = f.read()
+
+        # Determine content type
+        content_type, _ = mimetypes.guess_type(image_session.temp_file_path)
+        if not content_type:
+            content_type = f'image/{image_session.image_format}'
+
+        # Return with explicit CORS headers for Edge browser compatibility
+        return Response(
+            content=image_data,
+            media_type=content_type,
+            headers={
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                'Access-Control-Allow-Headers': '*',
+                'Cache-Control': 'no-cache'
+            }
+        )
 
     raise HTTPException(status_code=500, detail="Database connection failed")
+
+
+# OPTIONS handler for CORS preflight (needed for Edge browser)
+@app.options("/api/v1/image-editor/image/{session_id}")
+async def serve_editor_image_options(session_id: str):
+    """Handle CORS preflight for image endpoint."""
+    from fastapi.responses import Response
+    return Response(
+        status_code=200,
+        headers={
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
+            'Access-Control-Allow-Headers': '*',
+        }
+    )
 
 
 # Simple image viewing endpoint

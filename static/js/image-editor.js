@@ -91,11 +91,25 @@ class ImageEditor {
 
     async loadImage(imageUrl) {
         return new Promise((resolve, reject) => {
-            fabric.Image.fromURL(imageUrl, (img) => {
-                if (!img || !img.getElement()) {
-                    reject(new Error('Failed to load image'));
+            console.log('[ImageEditor] Loading image from:', imageUrl);
+
+            // Add timestamp to prevent caching issues in Edge
+            const cacheBustedUrl = imageUrl + (imageUrl.includes('?') ? '&' : '?') + '_t=' + Date.now();
+
+            fabric.Image.fromURL(cacheBustedUrl, (img, isError) => {
+                if (isError) {
+                    console.error('[ImageEditor] Error loading image:', isError);
+                    reject(new Error('Failed to load image: ' + (isError.message || 'Unknown error')));
                     return;
                 }
+
+                if (!img || !img.getElement()) {
+                    console.error('[ImageEditor] Image loaded but invalid:', img);
+                    reject(new Error('Failed to load image: Invalid image element'));
+                    return;
+                }
+
+                console.log('[ImageEditor] Image loaded successfully:', img.width, 'x', img.height);
 
                 // Create canvas with image dimensions
                 const canvasElement = document.getElementById(`canvas-${this.sessionId}`);
@@ -103,15 +117,19 @@ class ImageEditor {
                 // Set canvas dimensions
                 this.canvas = new fabric.Canvas(`canvas-${this.sessionId}`, {
                     width: img.width,
-                    height: "100%",
+                    height: img.height,
                     backgroundColor: '#f0f0f0'
                 });
+
+                console.log('[ImageEditor] Canvas created:', this.canvas.width, 'x', this.canvas.height);
 
                 // Set image as background
                 this.canvas.setBackgroundImage(img, this.canvas.renderAll.bind(this.canvas), {
                     scaleX: 1,
                     scaleY: 1,
                 });
+
+                console.log('[ImageEditor] Background image set');
 
                 // Save initial state
                 this.saveState();
@@ -532,14 +550,52 @@ class ImageEditor {
 
     async copyToClipboard() {
         try {
+            console.log('[ImageEditor] copyToClipboard called');
+
             // Check if clipboard API is available
             if (!navigator.clipboard || !navigator.clipboard.write) {
                 throw new Error('Clipboard API not supported in this browser. Use Save instead.');
             }
 
-            // Export canvas as PNG blob
-            const dataURL = this.canvas.toDataURL('image/png');
-            const blob = await (await fetch(dataURL)).blob();
+            // Create a temporary canvas to merge background image + annotations
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = this.canvas.width;
+            tempCanvas.height = this.canvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+
+            // Draw the background image first
+            if (this.canvas.backgroundImage) {
+                const bgImg = this.canvas.backgroundImage;
+                const img = bgImg.getElement();
+                if (img) {
+                    tempCtx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
+                    console.log('[ImageEditor] Background image drawn');
+                }
+            }
+
+            // Draw the canvas content (annotations) on top
+            const canvasDataURL = this.canvas.toDataURL({
+                format: 'png',
+                quality: 1,
+                multiplier: 1
+            });
+
+            const canvasImg = new Image();
+            await new Promise((resolve, reject) => {
+                canvasImg.onload = resolve;
+                canvasImg.onerror = reject;
+                canvasImg.src = canvasDataURL;
+            });
+
+            tempCtx.drawImage(canvasImg, 0, 0);
+            console.log('[ImageEditor] Annotations drawn');
+
+            // Convert to blob
+            const blob = await new Promise((resolve) => {
+                tempCanvas.toBlob(resolve, 'image/png');
+            });
+
+            console.log('[ImageEditor] Blob created, size:', blob.size);
 
             // Copy to clipboard
             await navigator.clipboard.write([
@@ -548,7 +604,7 @@ class ImageEditor {
                 })
             ]);
 
-            console.log('Copied to clipboard');
+            console.log('[ImageEditor] Copied to clipboard successfully');
 
             // Get image source type from canvas element
             const canvasElement = document.getElementById(`canvas-${this.sessionId}`);
@@ -561,7 +617,7 @@ class ImageEditor {
                 this.showSuccess('Copied to clipboard! Ready to paste in other applications.');
             }
         } catch (error) {
-            console.error('Error copying to clipboard:', error);
+            console.error('[ImageEditor] Error copying to clipboard:', error);
 
             // Provide helpful error message based on error type
             if (error.name === 'NotAllowedError') {
@@ -569,7 +625,7 @@ class ImageEditor {
             } else if (error.message.includes('not supported')) {
                 this.showError(error.message);
             } else {
-                this.showError('Failed to copy to clipboard. Try saving the image instead.');
+                this.showError('Failed to copy to clipboard: ' + error.message);
             }
         }
     }
@@ -836,3 +892,25 @@ ImageEditor.instances = {};
 
 // Export for use in templates
 window.ImageEditor = ImageEditor;
+
+// Global helper function for clipboard copy (easier to call from onclick)
+window.copyImageToClipboard = function(sessionId) {
+    console.log('[Global] copyImageToClipboard called for session:', sessionId);
+
+    if (!window.ImageEditor || !window.ImageEditor.instances) {
+        console.error('[Global] ImageEditor not initialized');
+        alert('Editor not initialized. Please refresh the page.');
+        return;
+    }
+
+    const editor = window.ImageEditor.instances[sessionId];
+    if (!editor) {
+        console.error('[Global] No editor instance found for session:', sessionId);
+        console.log('[Global] Available instances:', Object.keys(window.ImageEditor.instances));
+        alert('Editor instance not found. Please refresh the page.');
+        return;
+    }
+
+    console.log('[Global] Calling copyToClipboard on editor instance');
+    editor.copyToClipboard();
+};

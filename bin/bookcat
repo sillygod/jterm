@@ -1,10 +1,62 @@
 #!/bin/bash
 # Web Terminal Ebook Viewer (bookcat)
 # Usage: bookcat <pdf_or_epub_file>
+#        ls | grep pdf | bookcat
 
+# Check if stdin has data (piped input)
+has_stdin_data() {
+    [ -p /dev/stdin ] || [ ! -t 0 ]
+}
+
+# Handle piped input (stdin) - process each line as a file path
+if has_stdin_data; then
+    # Read all lines from stdin
+    while IFS= read -r line; do
+        # Skip empty lines
+        [ -z "$line" ] && continue
+
+        # Trim whitespace
+        FILE_PATH=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+        # Check if file exists
+        if [ ! -f "$FILE_PATH" ]; then
+            echo "Error: File not found: $FILE_PATH" >&2
+            continue
+        fi
+
+        # Get absolute path
+        ABS_PATH=$(realpath "$FILE_PATH" 2>/dev/null || readlink -f "$FILE_PATH" 2>/dev/null || echo "$FILE_PATH")
+
+        # Get file extension
+        EXT="${FILE_PATH##*.}"
+        EXT_LOWER=$(echo "$EXT" | tr '[:upper:]' '[:lower:]')
+
+        # Check if it's a supported ebook format
+        case "$EXT_LOWER" in
+            pdf|epub)
+                # Send OSC sequence to trigger web terminal ebook viewer
+                printf '\033]1338;ViewEbook=%s\007' "$ABS_PATH"
+                ;;
+            *)
+                echo "Warning: Skipping unsupported ebook format: $FILE_PATH ($EXT_LOWER)" >&2
+                ;;
+        esac
+    done
+    exit 0
+fi
+
+# Handle file path argument
 if [ -z "$1" ]; then
-    echo "Usage: bookcat <pdf_or_epub_file>"
-    echo "Supported formats: PDF, EPUB"
+    echo "Usage: bookcat <pdf_or_epub_file>" >&2
+    echo "       ls | grep pdf | bookcat" >&2
+    echo "" >&2
+    echo "Supported formats: PDF, EPUB" >&2
+    echo "" >&2
+    echo "Examples:" >&2
+    echo "  bookcat document.pdf                  # View a single ebook" >&2
+    echo "  ls *.pdf | bookcat                    # View all .pdf files from ls" >&2
+    echo "  find . -name '*.pdf' | head -n 1 | bookcat # View first PDF file" >&2
+    echo "  ls | grep epub | bookcat              # View all EPUB files" >&2
     exit 1
 fi
 
@@ -12,7 +64,7 @@ FILE_PATH="$1"
 
 # Check if file exists
 if [ ! -f "$FILE_PATH" ]; then
-    echo "Error: File not found: $FILE_PATH"
+    echo "Error: File not found: $FILE_PATH" >&2
     exit 1
 fi
 
@@ -30,8 +82,8 @@ case "$EXT_LOWER" in
         printf '\033]1338;ViewEbook=%s\007' "$ABS_PATH"
         ;;
     *)
-        echo "Error: Unsupported ebook format: $EXT_LOWER"
-        echo "Supported formats: pdf, epub"
+        echo "Error: Unsupported ebook format: $EXT_LOWER" >&2
+        echo "Supported formats: pdf, epub" >&2
         exit 1
         ;;
 esac

@@ -16,6 +16,12 @@ class EbookViewer {
         this.minFontSize = 50;
         this.maxFontSize = 200;
 
+        // Zoom configuration
+        this.defaultZoomLevel = 100; // percentage
+        this.zoomStep = 10;
+        this.minZoom = 50;
+        this.maxZoom = 300;
+
         this.init();
     }
 
@@ -114,8 +120,15 @@ class EbookViewer {
 .ebook-content {
     flex: 1;
     position: relative;
-    overflow: hidden;
+    overflow: auto;
     background: var(--terminal-bg, #000);
+}
+
+.ebook-content > .foliate-viewer-container {
+    width: 100%;
+    height: 100%;
+    min-width: 100%;
+    min-height: 100%;
 }
 
 .ebook-loading {
@@ -170,6 +183,24 @@ class EbookViewer {
     height: 100%;
     background: white;
     color: black;
+}
+
+/* PDF canvas container - use flexbox for centering */
+.foliate-viewer-container:has(canvas) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.foliate-viewer-container canvas {
+    max-width: none;
+    max-height: none;
+    background: white;
+}
+
+foliate-view {
+    width: 100% !important;
+    height: 100% !important;
 }
 
 /* Style the foliate-view custom element for readability */
@@ -311,6 +342,43 @@ foliate-view iframe {
     color: var(--error-color, #ff5555);
 }
 
+.ebook-actions {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.zoom-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.zoom-label {
+    font-size: 0.875rem;
+    min-width: 2.5rem;
+    text-align: center;
+    color: var(--text-color, #fff);
+}
+
+.btn-sm {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+    background: transparent;
+    color: var(--text-color, #fff);
+    border: 1px solid var(--border-color, #444);
+    border-radius: 0.25rem;
+    cursor: pointer;
+}
+
+.btn-sm:hover {
+    background: var(--hover-bg, rgba(255, 255, 255, 0.1));
+}
+
+.btn-sm .icon {
+    font-size: 1rem;
+}
+
 @keyframes slideIn {
     from {
         opacity: 0;
@@ -376,20 +444,38 @@ foliate-view iframe {
             case '=':
                 if (e.ctrlKey || e.metaKey) {
                     e.preventDefault();
-                    this.increaseFontSize(ebookId);
+                    if (e.shiftKey) {
+                        // Shift + Ctrl + Plus = Zoom in
+                        this.zoomIn(ebookId);
+                    } else {
+                        // Ctrl + Plus = Increase font size
+                        this.increaseFontSize(ebookId);
+                    }
                 }
                 break;
             case '-':
             case '_':
                 if (e.ctrlKey || e.metaKey) {
                     e.preventDefault();
-                    this.decreaseFontSize(ebookId);
+                    if (e.shiftKey) {
+                        // Shift + Ctrl + Minus = Zoom out
+                        this.zoomOut(ebookId);
+                    } else {
+                        // Ctrl + Minus = Decrease font size
+                        this.decreaseFontSize(ebookId);
+                    }
                 }
                 break;
             case '0':
                 if (e.ctrlKey || e.metaKey) {
                     e.preventDefault();
-                    this.resetFontSize(ebookId);
+                    if (e.shiftKey) {
+                        // Shift + Ctrl + 0 = Reset zoom
+                        this.resetZoom(ebookId);
+                    } else {
+                        // Ctrl + 0 = Reset font size
+                        this.resetFontSize(ebookId);
+                    }
                 }
                 break;
         }
@@ -572,6 +658,28 @@ foliate-view iframe {
                         <span class="icon">►</span>
                     </button>
                 </div>
+
+                <div class="ebook-actions">
+                    <!-- Zoom controls -->
+                    <div class="zoom-controls">
+                        <button class="btn btn-sm"
+                                onclick="window.ebookViewer.zoomOut('${ebookId}')"
+                                title="Zoom Out (Shift+Ctrl+-)">
+                            <span class="icon">🔎−</span>
+                        </button>
+                        <span class="zoom-label" id="ebook-zoom-${ebookId}">100%</span>
+                        <button class="btn btn-sm"
+                                onclick="window.ebookViewer.zoomIn('${ebookId}')"
+                                title="Zoom In (Shift+Ctrl++)">
+                            <span class="icon">🔎+</span>
+                        </button>
+                        <button class="btn btn-sm"
+                                onclick="window.ebookViewer.resetZoom('${ebookId}')"
+                                title="Reset Zoom (Shift+Ctrl+0)">
+                            <span class="icon">⟲</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         `;
 
@@ -692,7 +800,13 @@ foliate-view iframe {
                             // Calculate scale to fit container
                             const scaleX = containerWidth / viewport.width;
                             const scaleY = containerHeight / viewport.height;
-                            const scale = Math.min(scaleX, scaleY) * 0.95; // 95% to add some padding
+                            let scale = Math.min(scaleX, scaleY) * 0.95; // 95% to add some padding
+
+                            // Apply zoom level from viewer state
+                            const state = viewerInstance.viewerStates.get(this._ebookId);
+                            if (state && state.zoomLevel) {
+                                scale *= (state.zoomLevel / 100);
+                            }
 
                             // Get scaled viewport
                             const scaledViewport = page.getViewport({ scale });
@@ -701,9 +815,7 @@ foliate-view iframe {
                             this._canvas.width = scaledViewport.width;
                             this._canvas.height = scaledViewport.height;
 
-                            // Center canvas in container
-                            this._canvas.style.maxWidth = '100%';
-                            this._canvas.style.maxHeight = '100%';
+                            // Center canvas in container (removed max-width/max-height to allow zooming)
                             this._canvas.style.margin = 'auto';
                             this._canvas.style.display = 'block';
 
@@ -932,6 +1044,7 @@ foliate-view iframe {
                 currentPage: 1,
                 totalPages: metadata.total_pages || 0,
                 fontSize: this.defaultFontSize,
+                zoomLevel: this.defaultZoomLevel,
                 isSearchVisible: false,
                 searchResults: [],
                 currentSearchIndex: 0,
@@ -1486,6 +1599,66 @@ foliate-view iframe {
         if (fontSizeLabel) {
             fontSizeLabel.textContent = `${state.fontSize}%`;
         }
+    }
+
+    /**
+     * Zoom in (increase zoom level)
+     * @param {string} ebookId - Ebook identifier
+     */
+    zoomIn(ebookId) {
+        const state = this.viewerStates.get(ebookId);
+        if (!state) return;
+
+        state.zoomLevel = Math.min(state.zoomLevel + this.zoomStep, this.maxZoom);
+        this.applyZoom(ebookId);
+    }
+
+    /**
+     * Zoom out (decrease zoom level)
+     * @param {string} ebookId - Ebook identifier
+     */
+    zoomOut(ebookId) {
+        const state = this.viewerStates.get(ebookId);
+        if (!state) return;
+
+        state.zoomLevel = Math.max(state.zoomLevel - this.zoomStep, this.minZoom);
+        this.applyZoom(ebookId);
+    }
+
+    /**
+     * Reset zoom to default level
+     * @param {string} ebookId - Ebook identifier
+     */
+    resetZoom(ebookId) {
+        const state = this.viewerStates.get(ebookId);
+        if (!state) return;
+
+        state.zoomLevel = this.defaultZoomLevel;
+        this.applyZoom(ebookId);
+    }
+
+    /**
+     * Apply zoom level to viewer
+     * @param {string} ebookId - Ebook identifier
+     */
+    async applyZoom(ebookId) {
+        const state = this.viewerStates.get(ebookId);
+        const reader = this.viewers.get(ebookId);
+
+        if (!state || !reader) return;
+
+        // For PDF viewers, re-render the current page with new zoom
+        if (reader._pdfDoc && reader._renderPage) {
+            await reader._renderPage(reader._currentPage);
+        }
+
+        // Update UI label
+        const zoomLabel = document.getElementById(`ebook-zoom-${ebookId}`);
+        if (zoomLabel) {
+            zoomLabel.textContent = `${state.zoomLevel}%`;
+        }
+
+        console.log(`Zoom level updated to ${state.zoomLevel}%`);
     }
 
     /**

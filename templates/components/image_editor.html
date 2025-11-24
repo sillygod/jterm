@@ -33,7 +33,7 @@
             </button>
             <button class="btn btn-primary"
                     id="copy-clipboard-btn-{{ session_id }}"
-                    _="on click trigger copyToClipboard on #image-editor-{{ session_id }}"
+                    onclick="copyImageToClipboard('{{ session_id }}')"
                     title="Copy to Clipboard">
                 <span class="icon">📋</span>
                 Copy

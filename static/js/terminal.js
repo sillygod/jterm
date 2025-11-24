@@ -209,15 +209,20 @@ class WebTerminal {
                 }
 
                 switch (command) {
-                    // Existing media handlers
+                    // Image editor handler (for imgcat command)
                     case 'ViewImage':
-                        console.log('[OSC 1337] ViewImage - mediaHandler exists:', !!window.mediaHandler);
-                        if (window.mediaHandler) {
-                            console.log('[OSC 1337] Calling viewFile with:', payload);
-                            window.mediaHandler.viewFile(payload);
-                        } else {
-                            console.error('[OSC 1337] window.mediaHandler is not initialized!');
-                        }
+                        console.log('[OSC 1337] ViewImage - triggering image editor for:', payload);
+                        this.handleImageViewer({
+                            file_path: payload,
+                            session_id: this.sessionId
+                        });
+                        return true;
+                    case 'ViewImageURL':
+                        console.log('[OSC 1337] ViewImageURL - triggering image editor for URL:', payload);
+                        this.handleImageViewerURL({
+                            url: payload,
+                            session_id: this.sessionId
+                        });
                         return true;
                     case 'PlayVideo':
                         if (window.mediaHandler) {

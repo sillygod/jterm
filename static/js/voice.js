@@ -25,6 +25,11 @@ class VoiceInput {
         this.statusIndicator = null;
         this.transcript = null;
 
+        // Auto-send mechanism
+        this.silenceTimeout = null;
+        this.silenceDelay = 1500; // 1.5 seconds of silence before auto-send
+        this.lastTranscript = '';
+
         this.init();
     }
 
@@ -97,32 +102,70 @@ class VoiceInput {
                 }
             }
 
+            const currentTranscript = (finalTranscript || interimTranscript).trim();
+
             // Update transcript display
             if (this.transcript) {
-                if (finalTranscript) {
-                    this.transcript.textContent = finalTranscript.trim();
-                } else {
-                    this.transcript.textContent = interimTranscript;
+                this.transcript.textContent = currentTranscript;
+            }
+
+            // Store the current transcript for auto-send
+            this.lastTranscript = currentTranscript;
+
+            // Clear any existing silence timeout
+            if (this.silenceTimeout) {
+                clearTimeout(this.silenceTimeout);
+            }
+
+            // If we have a final result, send immediately
+            if (finalTranscript) {
+                console.log('Final transcript detected, sending immediately:', finalTranscript.trim());
+
+                // Call result callback
+                if (this.onResult) {
+                    this.onResult(finalTranscript.trim());
                 }
-            }
 
-            // Call result callback
-            if (finalTranscript && this.onResult) {
-                console.log('Final transcript detected, calling onResult:', finalTranscript.trim());
-                this.onResult(finalTranscript.trim());
-            } else if (finalTranscript) {
-                console.warn('Final transcript detected but no onResult callback set');
-            }
+                // Dispatch event with isFinal=true
+                this.dispatchEvent('voice-result', {
+                    transcript: finalTranscript.trim(),
+                    isFinal: true
+                });
 
-            // Dispatch event
-            this.dispatchEvent('voice-result', {
-                transcript: finalTranscript || interimTranscript,
-                isFinal: !!finalTranscript
-            });
+                // Stop listening after final result
+                this.stop();
+            } else if (currentTranscript) {
+                // For interim results, set a timeout to auto-send after silence
+                this.silenceTimeout = setTimeout(() => {
+                    if (this.lastTranscript && this.isListening) {
+                        console.log('Silence detected, auto-sending transcript:', this.lastTranscript);
+
+                        // Call result callback
+                        if (this.onResult) {
+                            this.onResult(this.lastTranscript);
+                        }
+
+                        // Dispatch as final result
+                        this.dispatchEvent('voice-result', {
+                            transcript: this.lastTranscript,
+                            isFinal: true
+                        });
+
+                        // Stop listening
+                        this.stop();
+                    }
+                }, this.silenceDelay);
+            }
         };
 
         this.recognition.onerror = (event) => {
             console.error('Speech recognition error:', event.error);
+
+            // Clear any pending silence timeout
+            if (this.silenceTimeout) {
+                clearTimeout(this.silenceTimeout);
+                this.silenceTimeout = null;
+            }
 
             let errorMessage = 'Voice recognition error';
             switch (event.error) {
@@ -183,6 +226,13 @@ class VoiceInput {
             return false;
         }
 
+        // Reset transcript and timeout
+        this.lastTranscript = '';
+        if (this.silenceTimeout) {
+            clearTimeout(this.silenceTimeout);
+            this.silenceTimeout = null;
+        }
+
         try {
             this.recognition.start();
             return true;
@@ -197,6 +247,12 @@ class VoiceInput {
 
     stop() {
         if (!this.isListening) return;
+
+        // Clear any pending silence timeout
+        if (this.silenceTimeout) {
+            clearTimeout(this.silenceTimeout);
+            this.silenceTimeout = null;
+        }
 
         try {
             this.recognition.stop();

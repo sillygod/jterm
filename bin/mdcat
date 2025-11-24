@@ -1,16 +1,66 @@
 #!/bin/bash
 # Web Terminal Markdown Viewer
 # Usage: mdcat <markdown_file>
+#        ls | grep md | mdcat
 
+# Check if stdin has data (piped input)
+has_stdin_data() {
+    [ -p /dev/stdin ] || [ ! -t 0 ]
+}
+
+# Handle piped input (stdin) - process each line as a file path
+if has_stdin_data; then
+    # Read all lines from stdin
+    while IFS= read -r line; do
+        # Skip empty lines
+        [ -z "$line" ] && continue
+
+        # Trim whitespace
+        FILE_PATH=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+        # Check if file exists
+        if [ ! -f "$FILE_PATH" ]; then
+            echo "Error: File not found: $FILE_PATH" >&2
+            continue
+        fi
+
+        # Get absolute path
+        ABS_PATH=$(realpath "$FILE_PATH" 2>/dev/null || readlink -f "$FILE_PATH" 2>/dev/null || echo "$FILE_PATH")
+
+        # Get file extension
+        EXT="${FILE_PATH##*.}"
+        EXT_LOWER=$(echo "$EXT" | tr '[:upper:]' '[:lower:]')
+
+        # Check if it's a markdown file
+        case "$EXT_LOWER" in
+            md|markdown)
+                # Send OSC sequence to trigger markdown viewer
+                printf '\033]1337;ViewMarkdown=%s\007' "$ABS_PATH"
+                ;;
+            *)
+                echo "Warning: Skipping non-markdown file: $FILE_PATH ($EXT_LOWER)" >&2
+                ;;
+        esac
+    done
+    exit 0
+fi
+
+# Handle file path argument
 if [ -z "$1" ]; then
-    echo "Usage: mdcat <markdown_file>"
+    echo "Usage: mdcat <markdown_file>" >&2
+    echo "       ls | grep md | mdcat" >&2
+    echo "" >&2
+    echo "Examples:" >&2
+    echo "  mdcat README.md                    # View a single file" >&2
+    echo "  ls *.md | mdcat                    # View all .md files from ls" >&2
+    echo "  find . -name '*.md' | head | mdcat # View first 10 .md files" >&2
     exit 1
 fi
 
 FILE_PATH="$1"
 
 if [ ! -f "$FILE_PATH" ]; then
-    echo "Error: File not found: $FILE_PATH"
+    echo "Error: File not found: $FILE_PATH" >&2
     exit 1
 fi
 
@@ -23,8 +73,8 @@ case "$EXT_LOWER" in
         printf '\033]1337;ViewMarkdown=%s\007' "$ABS_PATH"
         ;;
     *)
-        echo "Error: Not a markdown file: $EXT_LOWER"
-        echo "Supported: md, markdown"
+        echo "Error: Not a markdown file: $EXT_LOWER" >&2
+        echo "Supported: md, markdown" >&2
         exit 1
         ;;
 esac
