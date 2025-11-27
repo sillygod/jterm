@@ -28,6 +28,8 @@ class SQLViewer extends BaseViewer {
         this.queryHistory = [];
         this.currentQuery = this.query;
         this.selectedTable = null;
+        this.isFullscreen = false;
+        this.isHistoryCollapsed = false;
 
         // CodeMirror editor instance
         this.editor = null;
@@ -106,9 +108,14 @@ class SQLViewer extends BaseViewer {
                                     <button class="sql-tab-btn active" data-tab="schema">Schema</button>
                                     <button class="sql-tab-btn" data-tab="er-diagram">ER Diagram</button>
                                 </div>
-                                <button class="sql-refresh-btn" id="${this.viewerId}-refresh-schema" title="Refresh schema">
-                                    ↻
-                                </button>
+                                <div class="sql-panel-header-controls">
+                                    <button class="sql-fullscreen-btn" id="${this.viewerId}-fullscreen-btn" title="Toggle fullscreen (F)">
+                                        ⛶
+                                    </button>
+                                    <button class="sql-refresh-btn" id="${this.viewerId}-refresh-schema" title="Refresh schema (Ctrl+R)">
+                                        ↻
+                                    </button>
+                                </div>
                             </div>
                             <div class="sql-panel-content">
                                 <div id="${this.viewerId}-schema-tree" class="sql-schema-tree sql-tab-content active" data-tab-content="schema"></div>
@@ -156,9 +163,14 @@ class SQLViewer extends BaseViewer {
                         <div class="sql-panel sql-history-panel">
                             <div class="sql-panel-header">
                                 <span>History</span>
-                                <button class="sql-clear-btn" id="${this.viewerId}-clear-history" title="Clear history">
-                                    ✕
-                                </button>
+                                <div class="sql-panel-header-controls">
+                                    <button class="sql-collapse-btn" id="${this.viewerId}-collapse-history" title="Hide history panel">
+                                        ⮜
+                                    </button>
+                                    <button class="sql-clear-btn" id="${this.viewerId}-clear-history" title="Clear history">
+                                        ✕
+                                    </button>
+                                </div>
                             </div>
                             <div class="sql-panel-content">
                                 <div id="${this.viewerId}-query-history" class="sql-query-history"></div>
@@ -294,6 +306,18 @@ class SQLViewer extends BaseViewer {
             clearHistoryBtn.addEventListener('click', () => this.clearHistory());
         }
 
+        // Fullscreen button
+        const fullscreenBtn = document.getElementById(`${this.viewerId}-fullscreen-btn`);
+        if (fullscreenBtn) {
+            fullscreenBtn.addEventListener('click', () => this.toggleFullscreen());
+        }
+
+        // Collapse history panel button
+        const collapseHistoryBtn = document.getElementById(`${this.viewerId}-collapse-history`);
+        if (collapseHistoryBtn) {
+            collapseHistoryBtn.addEventListener('click', () => this.toggleHistoryPanel());
+        }
+
         // Tab switching (Schema / ER Diagram)
         const container = document.getElementById(`${this.viewerId}-container`);
         if (container) {
@@ -311,9 +335,21 @@ class SQLViewer extends BaseViewer {
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
+            // Only handle if viewer is visible
+            const overlay = document.getElementById(`${this.viewerId}-overlay`);
+            if (!overlay || overlay.style.display === 'none') return;
+
             if (e.ctrlKey && e.key === 'Enter') {
                 e.preventDefault();
                 this.executeQuery();
+            } else if (e.key === 'f' || e.key === 'F') {
+                // Toggle fullscreen with F key
+                e.preventDefault();
+                this.toggleFullscreen();
+            } else if (e.key === 'Escape' && this.isFullscreen) {
+                // Exit fullscreen with Escape
+                e.preventDefault();
+                this.toggleFullscreen();
             }
         });
     }
@@ -1080,6 +1116,7 @@ class SQLViewer extends BaseViewer {
     renderERDiagram() {
         /**
          * Render Entity-Relationship diagram for database schema
+         * Improved layout with better spacing and responsive design
          */
         const erContainer = document.getElementById(`${this.viewerId}-er-diagram`);
         if (!erContainer || !this.schema) return;
@@ -1093,10 +1130,36 @@ class SQLViewer extends BaseViewer {
         svg.setAttribute('height', '100%');
         svg.setAttribute('class', 'er-diagram-svg');
 
-        // Create a viewBox for zoom/pan support
-        const viewBoxWidth = 1000;
-        const viewBoxHeight = Math.max(600, this.schema.length * 150);
-        svg.setAttribute('viewBox', `0 0 ${viewBoxWidth} ${viewBoxHeight}`);
+        // Calculate viewBox based on container size and number of tables
+        // Use larger dimensions for better spacing and distribution
+        const containerWidth = erContainer.offsetWidth || 800;
+        const isFullscreen = this.isFullscreen;
+
+        // Calculate based on number of tables for optimal layout
+        const tableCount = this.schema.length;
+
+        // Estimate columns (same logic as layout below)
+        let estimatedColumns;
+        if (tableCount <= 6) {
+            estimatedColumns = 3;
+        } else if (tableCount <= 12) {
+            estimatedColumns = 4;
+        } else if (tableCount <= 20) {
+            estimatedColumns = 5;
+        } else {
+            estimatedColumns = Math.min(6, Math.ceil(Math.sqrt(tableCount)));
+        }
+
+        // Calculate viewBox width generously
+        const baseWidth = isFullscreen ? 2400 : 2000; // Wider for better spread
+        const viewBoxWidth = Math.max(baseWidth, containerWidth * 1.5);
+
+        // Note: viewBox height will be calculated after we know row heights
+        // We'll update it later
+
+        console.log(`ER Diagram Layout: ${tableCount} tables, ${estimatedColumns} columns`);
+
+        svg.setAttribute('viewBox', `0 0 ${viewBoxWidth} 1000`); // Temporary, will update
         svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
         // Add styles
@@ -1112,20 +1175,20 @@ class SQLViewer extends BaseViewer {
             }
             .er-table-name {
                 fill: var(--viewer-fg, #d4d4d4);
-                font-size: 14px;
+                font-size: ${isFullscreen ? '16px' : '14px'};
                 font-weight: bold;
             }
             .er-column-text {
                 fill: var(--viewer-fg, #d4d4d4);
-                font-size: 11px;
+                font-size: ${isFullscreen ? '13px' : '12px'};
             }
             .er-pk-icon {
                 fill: #ffd700;
-                font-size: 10px;
+                font-size: ${isFullscreen ? '12px' : '11px'};
             }
             .er-type-text {
                 fill: var(--viewer-subtitle-color, #858585);
-                font-size: 10px;
+                font-size: ${isFullscreen ? '12px' : '11px'};
             }
             .er-relationship-line {
                 stroke: var(--viewer-accent, #007acc);
@@ -1135,21 +1198,75 @@ class SQLViewer extends BaseViewer {
         `;
         svg.appendChild(style);
 
-        // Layout tables in a grid
-        const tableWidth = 250;
-        const tableHeaderHeight = 35;
-        const columnHeight = 22;
-        const padding = 20;
-        const columnsPerRow = Math.floor((viewBoxWidth - padding * 2) / (tableWidth + 40));
+        // Improved layout algorithm with better space utilization
+        const tableWidth = isFullscreen ? 320 : 280;
+        const tableHeaderHeight = 40;
+        const columnHeight = 24;
+        const padding = 60; // Increased padding
+
+        // Calculate optimal columns based on number of tables and available width
+        // tableCount already declared above in viewBox calculation
+
+        // For small number of tables, use fewer columns for better spread
+        // Use 3-4 columns max for better readability
+        let columnsPerRow;
+        if (tableCount <= 6) {
+            columnsPerRow = 3; // 2 rows of 3
+        } else if (tableCount <= 12) {
+            columnsPerRow = 4; // 3 rows of 4
+        } else if (tableCount <= 20) {
+            columnsPerRow = 5; // 4 rows of 5
+        } else {
+            columnsPerRow = Math.min(6, Math.ceil(Math.sqrt(tableCount)));
+        }
+
+        // Adjust for available width
+        const maxPossibleColumns = Math.floor((viewBoxWidth - padding * 2) / (tableWidth + 100));
+        columnsPerRow = Math.min(columnsPerRow, maxPossibleColumns);
+        columnsPerRow = Math.max(3, columnsPerRow); // At least 3 columns for better layout
+
+        // Calculate gaps to distribute tables evenly across width
+        const totalTableWidth = columnsPerRow * tableWidth;
+        const availableGapSpace = viewBoxWidth - padding * 2 - totalTableWidth;
+        const horizontalGap = Math.max(80, Math.min(200, availableGapSpace / (columnsPerRow - 1)));
 
         // Store table positions for drawing relationships
         const tablePositions = new Map();
 
+        // First pass: organize tables into rows and calculate row heights
+        const rows = [];
+        for (let i = 0; i < tableCount; i += columnsPerRow) {
+            const rowTables = this.schema.slice(i, Math.min(i + columnsPerRow, tableCount));
+            rows.push(rowTables);
+        }
+
+        // Calculate max height for each row to keep them aligned
+        const rowHeights = rows.map(rowTables => {
+            const maxTableHeight = Math.max(...rowTables.map(t =>
+                tableHeaderHeight + (t.columns.length * columnHeight)
+            ));
+            return maxTableHeight;
+        });
+
+        // Second pass: position tables
+        let currentY = padding;
+
         this.schema.forEach((table, index) => {
             const row = Math.floor(index / columnsPerRow);
             const col = index % columnsPerRow;
-            const x = padding + col * (tableWidth + 40);
-            const y = padding + row * 200;
+
+            // Center the tables horizontally if not filling the full row
+            const tablesInThisRow = Math.min(columnsPerRow, tableCount - row * columnsPerRow);
+            const totalRowWidth = tablesInThisRow * tableWidth + (tablesInThisRow - 1) * horizontalGap;
+            const rowStartX = (viewBoxWidth - totalRowWidth) / 2;
+
+            const x = rowStartX + col * (tableWidth + horizontalGap);
+
+            // Y position based on accumulated row heights
+            let y = padding;
+            for (let r = 0; r < row; r++) {
+                y += rowHeights[r] + (isFullscreen ? 80 : 70); // Gap between rows
+            }
 
             // Calculate table height based on number of columns
             const tableHeight = tableHeaderHeight + (table.columns.length * columnHeight);
@@ -1233,14 +1350,25 @@ class SQLViewer extends BaseViewer {
             svg.appendChild(tableGroup);
         });
 
+        // Update viewBox height now that we know actual row heights
+        const totalHeight = padding * 2 + rowHeights.reduce((sum, h, idx) => {
+            return sum + h + (idx < rowHeights.length - 1 ? (isFullscreen ? 80 : 70) : 0);
+        }, 0);
+        const viewBoxHeight = Math.max(1000, totalHeight);
+        svg.setAttribute('viewBox', `0 0 ${viewBoxWidth} ${viewBoxHeight}`);
+
+        console.log(`Layout details: ${columnsPerRow} cols/row, ${rows.length} rows, table width: ${tableWidth}px, h-gap: ${horizontalGap.toFixed(0)}px, total height: ${viewBoxHeight}px`);
+        console.log(`Row heights: ${rowHeights.map(h => h.toFixed(0)).join(', ')}`);
+
         // Draw relationships (foreign key connections)
-        // This is a simplified version - in production would parse FK constraints from schema
         this.drawRelationships(svg, tablePositions);
 
         // Add zoom/pan controls hint
         const hint = document.createElement('div');
         hint.className = 'er-diagram-hint';
-        hint.textContent = 'Scroll to zoom • Drag to pan';
+        hint.textContent = isFullscreen
+            ? 'Scroll/+/- to zoom • Drag to pan • 0 to reset • F or Esc to exit fullscreen'
+            : 'Scroll/+/- to zoom • Drag to pan • 0 to reset • F for fullscreen';
         erContainer.appendChild(hint);
 
         erContainer.appendChild(svg);
@@ -1252,22 +1380,275 @@ class SQLViewer extends BaseViewer {
     drawRelationships(svg, tablePositions) {
         /**
          * Draw relationship lines between tables based on foreign keys
-         * This is a placeholder - real implementation would parse FK constraints
+         * Enhanced detection for complex table naming patterns
          */
-        // In a real implementation, we would:
-        // 1. Parse foreign key constraints from table.indexes or schema metadata
-        // 2. Draw lines connecting related tables
-        // 3. Add cardinality indicators (1:1, 1:N, N:M)
-
-        // For now, just add a placeholder comment in the diagram
         const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         group.setAttribute('class', 'er-relationships');
+
+        const relationships = [];
+
+        // Detect foreign key relationships by convention
+        for (const table of this.schema) {
+            for (const column of table.columns) {
+                // Check if column name ends with _id
+                if (column.name.endsWith('_id')) {
+                    const targetTable = this.findTargetTable(column.name);
+
+                    if (targetTable) {
+                        relationships.push({
+                            fromTable: table.name,
+                            fromColumn: column.name,
+                            toTable: targetTable.name,
+                            toColumn: this.findPrimaryKeyColumn(targetTable)
+                        });
+                    } else {
+                        console.debug(`No target found for ${table.name}.${column.name}`);
+                    }
+                }
+            }
+        }
+
+        console.log(`Detected ${relationships.length} relationships in total`);
+
+        // Draw relationship lines
+        for (const rel of relationships) {
+            const fromPos = tablePositions.get(rel.fromTable);
+            const toPos = tablePositions.get(rel.toTable);
+
+            if (!fromPos || !toPos) {
+                console.warn(`Cannot draw relationship: ${rel.fromTable}.${rel.fromColumn} -> ${rel.toTable}.${rel.toColumn} (missing position)`);
+                continue;
+            }
+
+            // Calculate connection points based on relative positions
+            let fromX, fromY, toX, toY;
+
+            // If target is to the right, connect from right side to left side
+            if (toPos.x > fromPos.x + fromPos.width) {
+                fromX = fromPos.x + fromPos.width;
+                fromY = fromPos.y + fromPos.height / 2;
+                toX = toPos.x;
+                toY = toPos.y + toPos.height / 2;
+            }
+            // If target is to the left, connect from left side to right side
+            else if (toPos.x + toPos.width < fromPos.x) {
+                fromX = fromPos.x;
+                fromY = fromPos.y + fromPos.height / 2;
+                toX = toPos.x + toPos.width;
+                toY = toPos.y + toPos.height / 2;
+            }
+            // If target is above or below, connect vertically
+            else {
+                if (toPos.y < fromPos.y) {
+                    // Target is above
+                    fromX = fromPos.x + fromPos.width / 2;
+                    fromY = fromPos.y;
+                    toX = toPos.x + toPos.width / 2;
+                    toY = toPos.y + toPos.height;
+                } else {
+                    // Target is below
+                    fromX = fromPos.x + fromPos.width / 2;
+                    fromY = fromPos.y + fromPos.height;
+                    toX = toPos.x + toPos.width / 2;
+                    toY = toPos.y;
+                }
+            }
+
+            // Draw line with arrow
+            const line = this.createRelationshipLine(fromX, fromY, toX, toY);
+            group.appendChild(line);
+
+            // Add arrow marker at the end
+            const arrow = this.createArrowMarker(toX, toY, fromX, fromY);
+            group.appendChild(arrow);
+
+            console.log(`Drew relationship: ${rel.fromTable}.${rel.fromColumn} -> ${rel.toTable}.${rel.toColumn}`);
+        }
+
         svg.appendChild(group);
+
+        // If no relationships were found, add a subtle message
+        if (relationships.length === 0) {
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', '50%');
+            text.setAttribute('y', '30');
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('fill', 'var(--viewer-subtitle-color, #858585)');
+            text.setAttribute('font-size', '12px');
+            text.textContent = 'No foreign key relationships detected';
+            svg.appendChild(text);
+        } else {
+            // Show relationship count in top-left corner
+            const countText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            countText.setAttribute('x', '10');
+            countText.setAttribute('y', '25');
+            countText.setAttribute('fill', 'var(--viewer-subtitle-color, #858585)');
+            countText.setAttribute('font-size', '11px');
+            countText.textContent = `${relationships.length} relationship${relationships.length > 1 ? 's' : ''} detected`;
+            svg.appendChild(countText);
+        }
+    }
+
+    findTargetTable(columnName) {
+        /**
+         * Find the target table for a foreign key column
+         * Handles complex naming patterns like user_id -> user_profiles
+         */
+        if (!columnName.endsWith('_id')) return null;
+
+        // Remove '_id' suffix
+        const baseName = columnName.slice(0, -3);
+
+        // Strategy 1: Exact match (e.g., user_id -> user, session_id -> session)
+        for (const table of this.schema) {
+            if (table.name.toLowerCase() === baseName.toLowerCase()) {
+                if (this.hasPrimaryKey(table)) {
+                    return table;
+                }
+            }
+        }
+
+        // Strategy 2: Plural forms (e.g., user_id -> users, category_id -> categories)
+        const pluralForms = [
+            baseName + 's',
+            baseName + 'es',
+            baseName.replace(/y$/, 'ies'), // category -> categories
+        ];
+
+        for (const plural of pluralForms) {
+            for (const table of this.schema) {
+                if (table.name.toLowerCase() === plural.toLowerCase()) {
+                    if (this.hasPrimaryKey(table)) {
+                        return table;
+                    }
+                }
+            }
+        }
+
+        // Strategy 3: Table name starts with base name (e.g., user_id -> user_profiles)
+        for (const table of this.schema) {
+            if (table.name.toLowerCase().startsWith(baseName.toLowerCase() + '_')) {
+                if (this.hasPrimaryKey(table)) {
+                    return table;
+                }
+            }
+        }
+
+        // Strategy 4: Table name contains base name (e.g., session_id -> terminal_sessions)
+        const candidates = [];
+        for (const table of this.schema) {
+            const tableLower = table.name.toLowerCase();
+            const baseLower = baseName.toLowerCase();
+
+            // Check if table contains the base name as a word
+            if (tableLower.includes(baseLower) || tableLower.includes(baseLower + 's')) {
+                if (this.hasPrimaryKey(table)) {
+                    // Prefer tables ending with the base name
+                    const priority = tableLower.endsWith(baseLower) || tableLower.endsWith(baseLower + 's') ? 1 : 2;
+                    candidates.push({ table, priority });
+                }
+            }
+        }
+
+        // Sort by priority and return best match
+        if (candidates.length > 0) {
+            candidates.sort((a, b) => a.priority - b.priority);
+            return candidates[0].table;
+        }
+
+        // Strategy 5: Handle special cases (terminal_session_id -> terminal_sessions)
+        // Remove underscores and try matching
+        const baseNameNoUnderscore = baseName.replace(/_/g, '');
+        for (const table of this.schema) {
+            const tableNameNoUnderscore = table.name.replace(/_/g, '').toLowerCase();
+            if (tableNameNoUnderscore === baseNameNoUnderscore ||
+                tableNameNoUnderscore === baseNameNoUnderscore + 's') {
+                if (this.hasPrimaryKey(table)) {
+                    return table;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    hasPrimaryKey(table) {
+        /**
+         * Check if table has a primary key column
+         */
+        return table.columns.some(c => c.primary_key);
+    }
+
+    findPrimaryKeyColumn(table) {
+        /**
+         * Find the primary key column name for a table
+         */
+        const pkColumn = table.columns.find(c => c.primary_key);
+        return pkColumn ? pkColumn.name : 'id';
+    }
+
+    createRelationshipLine(x1, y1, x2, y2) {
+        /**
+         * Create a curved line between two points for relationships
+         */
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+
+        // Calculate control points for a nice curve
+        const midX = (x1 + x2) / 2;
+        const dx = Math.abs(x2 - x1);
+        const curveOffset = Math.min(dx * 0.3, 50);
+
+        // Create a curved path (quadratic bezier)
+        const pathData = `M ${x1} ${y1} Q ${x1 + curveOffset} ${y1}, ${midX} ${(y1 + y2) / 2} T ${x2} ${y2}`;
+
+        line.setAttribute('d', pathData);
+        line.setAttribute('class', 'er-relationship-line');
+        line.setAttribute('stroke', 'var(--viewer-accent, #007acc)');
+        line.setAttribute('stroke-width', '2.5');
+        line.setAttribute('fill', 'none');
+        line.setAttribute('opacity', '0.75');
+        line.setAttribute('stroke-dasharray', '5,3'); // Dashed line for better visibility
+
+        return line;
+    }
+
+    createArrowMarker(x, y, fromX, fromY) {
+        /**
+         * Create an arrow marker at the end of a relationship line
+         */
+        // Calculate angle for arrow direction
+        const angle = Math.atan2(y - fromY, x - fromX);
+        const arrowSize = 8;
+
+        // Create arrow as a polygon
+        const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+
+        // Arrow points (pointing right by default)
+        const points = [
+            { x: 0, y: 0 },
+            { x: -arrowSize, y: -arrowSize / 2 },
+            { x: -arrowSize, y: arrowSize / 2 }
+        ];
+
+        // Rotate and translate points
+        const rotatedPoints = points.map(p => {
+            const rotX = p.x * Math.cos(angle) - p.y * Math.sin(angle);
+            const rotY = p.x * Math.sin(angle) + p.y * Math.cos(angle);
+            return `${x + rotX},${y + rotY}`;
+        });
+
+        arrow.setAttribute('points', rotatedPoints.join(' '));
+        arrow.setAttribute('fill', 'var(--viewer-accent, #007acc)');
+        arrow.setAttribute('stroke', 'var(--viewer-accent, #007acc)');
+        arrow.setAttribute('stroke-width', '1');
+        arrow.setAttribute('opacity', '0.9');
+
+        return arrow;
     }
 
     setupERDiagramInteraction(svg, container) {
         /**
-         * Setup zoom and pan for ER diagram
+         * Setup zoom and pan for ER diagram with enhanced zoom range
          */
         let scale = 1;
         let translateX = 0;
@@ -1276,14 +1657,18 @@ class SQLViewer extends BaseViewer {
         let startX = 0;
         let startY = 0;
 
-        // Zoom on scroll
+        // Store zoom state for controls
+        this.erZoomState = { scale, translateX, translateY };
+
+        // Zoom on scroll - increased range from 0.3-3 to 0.1-10
         container.addEventListener('wheel', (e) => {
             e.preventDefault();
 
-            const delta = e.deltaY > 0 ? 0.9 : 1.1;
-            const newScale = Math.max(0.3, Math.min(3, scale * delta));
+            const delta = e.deltaY > 0 ? 0.85 : 1.15; // More aggressive zoom
+            const newScale = Math.max(0.1, Math.min(10, scale * delta)); // Wider range
 
             scale = newScale;
+            this.erZoomState.scale = scale;
             svg.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
         }, { passive: false });
 
@@ -1302,6 +1687,8 @@ class SQLViewer extends BaseViewer {
 
             translateX = e.clientX - startX;
             translateY = e.clientY - startY;
+            this.erZoomState.translateX = translateX;
+            this.erZoomState.translateY = translateY;
             svg.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
         });
 
@@ -1317,6 +1704,146 @@ class SQLViewer extends BaseViewer {
 
         // Set initial cursor
         container.style.cursor = 'grab';
+
+        // Add zoom control buttons
+        this.addERZoomControls(container, svg);
+    }
+
+    addERZoomControls(container, svg) {
+        /**
+         * Add zoom in/out and reset buttons to ER diagram
+         */
+        const controlsHtml = `
+            <div class="er-zoom-controls">
+                <button class="er-zoom-btn" id="${this.viewerId}-zoom-in" title="Zoom in (+)">+</button>
+                <button class="er-zoom-btn" id="${this.viewerId}-zoom-reset" title="Reset zoom (0)">⊙</button>
+                <button class="er-zoom-btn" id="${this.viewerId}-zoom-out" title="Zoom out (-)">−</button>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', controlsHtml);
+
+        // Zoom in button
+        const zoomInBtn = document.getElementById(`${this.viewerId}-zoom-in`);
+        if (zoomInBtn) {
+            zoomInBtn.addEventListener('click', () => {
+                if (!this.erZoomState) return;
+                const newScale = Math.min(10, this.erZoomState.scale * 1.3);
+                this.erZoomState.scale = newScale;
+                svg.style.transform = `translate(${this.erZoomState.translateX}px, ${this.erZoomState.translateY}px) scale(${newScale})`;
+            });
+        }
+
+        // Zoom out button
+        const zoomOutBtn = document.getElementById(`${this.viewerId}-zoom-out`);
+        if (zoomOutBtn) {
+            zoomOutBtn.addEventListener('click', () => {
+                if (!this.erZoomState) return;
+                const newScale = Math.max(0.1, this.erZoomState.scale * 0.7);
+                this.erZoomState.scale = newScale;
+                svg.style.transform = `translate(${this.erZoomState.translateX}px, ${this.erZoomState.translateY}px) scale(${newScale})`;
+            });
+        }
+
+        // Reset zoom button
+        const zoomResetBtn = document.getElementById(`${this.viewerId}-zoom-reset`);
+        if (zoomResetBtn) {
+            zoomResetBtn.addEventListener('click', () => {
+                if (!this.erZoomState) return;
+                this.erZoomState.scale = 1;
+                this.erZoomState.translateX = 0;
+                this.erZoomState.translateY = 0;
+                svg.style.transform = 'translate(0px, 0px) scale(1)';
+            });
+        }
+
+        // Keyboard shortcuts for zoom
+        document.addEventListener('keydown', (e) => {
+            const overlay = document.getElementById(`${this.viewerId}-overlay`);
+            if (!overlay || overlay.style.display === 'none') return;
+
+            const erTab = document.querySelector(`#${this.viewerId}-container .sql-tab-btn[data-tab="er-diagram"]`);
+            if (!erTab || !erTab.classList.contains('active')) return;
+
+            if (e.key === '+' || e.key === '=') {
+                e.preventDefault();
+                zoomInBtn?.click();
+            } else if (e.key === '-' || e.key === '_') {
+                e.preventDefault();
+                zoomOutBtn?.click();
+            } else if (e.key === '0') {
+                e.preventDefault();
+                zoomResetBtn?.click();
+            }
+        });
+    }
+
+    toggleFullscreen() {
+        /**
+         * Toggle fullscreen mode for schema/ER diagram panel
+         */
+        const schemaPanel = document.querySelector(`#${this.viewerId}-container .sql-schema-panel`);
+        const mainPanel = document.querySelector(`#${this.viewerId}-container .sql-main-panel`);
+        const historyPanel = document.querySelector(`#${this.viewerId}-container .sql-history-panel`);
+        const fullscreenBtn = document.getElementById(`${this.viewerId}-fullscreen-btn`);
+
+        if (!schemaPanel) return;
+
+        this.isFullscreen = !this.isFullscreen;
+
+        if (this.isFullscreen) {
+            // Enter fullscreen mode
+            schemaPanel.classList.add('fullscreen');
+            if (mainPanel) mainPanel.classList.add('hidden');
+            if (historyPanel) historyPanel.classList.add('hidden');
+            if (fullscreenBtn) {
+                fullscreenBtn.textContent = '⛶';
+                fullscreenBtn.title = 'Exit fullscreen (F or Esc)';
+            }
+        } else {
+            // Exit fullscreen mode
+            schemaPanel.classList.remove('fullscreen');
+            if (mainPanel) mainPanel.classList.remove('hidden');
+            if (historyPanel && !this.isHistoryCollapsed) {
+                historyPanel.classList.remove('hidden');
+            }
+            if (fullscreenBtn) {
+                fullscreenBtn.textContent = '⛶';
+                fullscreenBtn.title = 'Toggle fullscreen (F)';
+            }
+        }
+
+        // Re-render ER diagram if it's active to adjust to new size
+        const erTab = document.querySelector(`#${this.viewerId}-container .sql-tab-btn[data-tab="er-diagram"]`);
+        if (erTab && erTab.classList.contains('active')) {
+            // Small delay to let CSS transitions complete
+            setTimeout(() => this.renderERDiagram(), 350);
+        }
+    }
+
+    toggleHistoryPanel() {
+        /**
+         * Toggle visibility of history panel
+         */
+        const historyPanel = document.querySelector(`#${this.viewerId}-container .sql-history-panel`);
+        const collapseBtn = document.getElementById(`${this.viewerId}-collapse-history`);
+
+        if (!historyPanel) return;
+
+        this.isHistoryCollapsed = !this.isHistoryCollapsed;
+
+        if (this.isHistoryCollapsed) {
+            historyPanel.classList.add('collapsed');
+            if (collapseBtn) {
+                collapseBtn.textContent = '⮞';
+                collapseBtn.title = 'Show history panel';
+            }
+        } else {
+            historyPanel.classList.remove('collapsed');
+            if (collapseBtn) {
+                collapseBtn.textContent = '⮜';
+                collapseBtn.title = 'Hide history panel';
+            }
+        }
     }
 
     getDisplayName() {

@@ -62,9 +62,22 @@
 .sql-schema-panel {
     border-right: 1px solid var(--viewer-border, #3e3e42);
     flex-shrink: 0; /* Don't shrink when resized */
-    width: 300px; /* Initial width */
-    min-width: 200px;
-    max-width: 600px;
+    width: 500px; /* Increased from 300px for better readability */
+    min-width: 300px; /* Increased from 200px */
+    max-width: 1000px; /* Increased from 600px */
+    transition: width 0.3s ease, opacity 0.3s ease;
+}
+
+.sql-schema-panel.collapsed {
+    width: 40px;
+    min-width: 40px;
+    overflow: hidden;
+}
+
+.sql-schema-panel.fullscreen {
+    width: 100% !important;
+    max-width: 100% !important;
+    z-index: 10;
 }
 
 .sql-schema-tree {
@@ -132,7 +145,9 @@
 }
 
 .sql-refresh-btn,
-.sql-clear-btn {
+.sql-clear-btn,
+.sql-collapse-btn,
+.sql-fullscreen-btn {
     background: none;
     border: none;
     color: var(--viewer-subtitle-color, #858585);
@@ -144,9 +159,21 @@
 }
 
 .sql-refresh-btn:hover,
-.sql-clear-btn:hover {
+.sql-clear-btn:hover,
+.sql-collapse-btn:hover,
+.sql-fullscreen-btn:hover {
     background-color: var(--viewer-hover-bg, #2a2d2e);
     color: var(--viewer-fg, #d4d4d4);
+}
+
+.sql-fullscreen-btn {
+    margin-left: 4px;
+}
+
+.sql-panel-header-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
 /* ============================================================================
@@ -159,6 +186,11 @@
     border-right: none;
     flex: 1; /* Take remaining space */
     min-width: 0; /* Allow shrinking below content size */
+    transition: opacity 0.3s ease;
+}
+
+.sql-main-panel.hidden {
+    display: none;
 }
 
 .sql-editor-section {
@@ -311,6 +343,19 @@
     border-left: 1px solid var(--viewer-border, #3e3e42);
     width: 300px;
     flex-shrink: 0; /* Don't shrink */
+    transition: width 0.3s ease, opacity 0.3s ease;
+}
+
+.sql-history-panel.collapsed {
+    width: 0;
+    min-width: 0;
+    border: none;
+    opacity: 0;
+    overflow: hidden;
+}
+
+.sql-history-panel.hidden {
+    display: none;
 }
 
 .sql-query-history {
@@ -503,6 +548,7 @@
     height: 100%;
     display: block;
     transition: transform 0.1s ease-out;
+    min-height: 400px;
 }
 
 .er-diagram-hint {
@@ -517,6 +563,54 @@
     border: 1px solid var(--viewer-border, #3e3e42);
     pointer-events: none;
     z-index: 10;
+}
+
+/* Fullscreen ER diagram mode */
+.sql-schema-panel.fullscreen .er-diagram-hint {
+    background-color: rgba(37, 37, 38, 0.95);
+    backdrop-filter: blur(4px);
+}
+
+/* ER Diagram Zoom Controls */
+.er-zoom-controls {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    display: flex;
+    gap: 4px;
+    background-color: var(--viewer-header-bg, #252526);
+    border: 1px solid var(--viewer-border, #3e3e42);
+    border-radius: 6px;
+    padding: 4px;
+    z-index: 20;
+}
+
+.er-zoom-btn {
+    background: var(--viewer-item-bg, #1e1e1e);
+    border: 1px solid var(--viewer-border, #3e3e42);
+    color: var(--viewer-fg, #d4d4d4);
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: bold;
+    transition: all 0.15s;
+    min-width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.er-zoom-btn:hover {
+    background-color: var(--viewer-hover-bg, #2a2d2e);
+    border-color: var(--viewer-accent, #007acc);
+    color: var(--viewer-accent, #007acc);
+    transform: scale(1.05);
+}
+
+.er-zoom-btn:active {
+    transform: scale(0.95);
 }
 
 /* SVG styles are inline in the JavaScript to use CSS variables */
