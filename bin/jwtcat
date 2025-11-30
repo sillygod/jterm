@@ -1,0 +1,126 @@
+#!/bin/bash
+# jwtcat - Web-enhanced JWT decoder for jterm
+# Usage: jwtcat [token|file|--clipboard|--help]
+
+# Show usage
+show_usage() {
+    echo "Usage: jwtcat [TOKEN|FILE]" >&2
+    echo "       jwtcat --clipboard" >&2
+    echo "       echo TOKEN | jwtcat" >&2
+    echo "" >&2
+    echo "Decode and inspect JSON Web Tokens (JWT)" >&2
+    echo "" >&2
+    echo "Examples:" >&2
+    echo "  jwtcat eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c" >&2
+    echo "  jwtcat token.txt" >&2
+    echo "  jwtcat --clipboard" >&2
+    echo "  echo \$JWT_TOKEN | jwtcat" >&2
+    echo "" >&2
+    echo "Options:" >&2
+    echo "  --clipboard   Read JWT token from system clipboard" >&2
+    echo "  --help, -h    Show this help message" >&2
+    exit 1
+}
+
+# Check if stdin has data (piped input)
+has_stdin_data() {
+    [ -p /dev/stdin ] || [ ! -t 0 ]
+}
+
+# Get clipboard content (cross-platform)
+get_clipboard() {
+    case "$(uname -s)" in
+        Darwin)
+            # macOS
+            pbpaste
+            ;;
+        Linux)
+            if command -v xclip >/dev/null 2>&1; then
+                xclip -selection clipboard -o
+            elif command -v wl-paste >/dev/null 2>&1; then
+                wl-paste
+            else
+                echo "Error: No clipboard utility found. Install xclip or wl-clipboard" >&2
+                exit 1
+            fi
+            ;;
+        CYGWIN*|MINGW*|MSYS*)
+            # Windows
+            powershell -Command Get-Clipboard
+            ;;
+        *)
+            echo "Error: Unsupported platform for clipboard access" >&2
+            exit 1
+            ;;
+    esac
+}
+
+# Validate JWT format (basic check for three base64 parts)
+validate_jwt() {
+    local token="$1"
+    # Remove whitespace
+    token=$(echo "$token" | tr -d '[:space:]')
+
+    # Check for three parts separated by dots
+    if [[ ! "$token" =~ ^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$ ]]; then
+        echo "Error: Invalid JWT format. Expected format: header.payload.signature" >&2
+        return 1
+    fi
+
+    echo "$token"
+    return 0
+}
+
+# Main logic
+TOKEN=""
+
+# Handle help flag
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    show_usage
+fi
+
+# Handle clipboard flag
+if [ "$1" = "--clipboard" ]; then
+    TOKEN=$(get_clipboard)
+    if [ -z "$TOKEN" ]; then
+        echo "Error: Clipboard is empty" >&2
+        exit 1
+    fi
+
+# Handle file or direct token argument (check before stdin)
+elif [ -n "$1" ]; then
+    # Check if it's a file
+    if [ -f "$1" ]; then
+        TOKEN=$(cat "$1")
+        if [ -z "$TOKEN" ]; then
+            echo "Error: File is empty: $1" >&2
+            exit 1
+        fi
+    else
+        # Treat as direct token
+        TOKEN="$1"
+    fi
+
+# Handle piped input (stdin) - only if no arguments
+elif has_stdin_data; then
+    TOKEN=$(cat)
+    if [ -z "$TOKEN" ]; then
+        echo "Error: No input received from stdin" >&2
+        exit 1
+    fi
+
+else
+    echo "Error: No JWT token provided" >&2
+    echo "" >&2
+    show_usage
+fi
+
+# Validate and clean token
+TOKEN=$(validate_jwt "$TOKEN")
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+
+# Send OSC sequence to trigger JWT viewer
+# Format: \033]1337;ViewJWT=<token>\007
+printf '\033]1337;ViewJWT=%s\007' "$TOKEN"

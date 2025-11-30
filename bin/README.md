@@ -66,6 +66,24 @@ htmlcat page.htm
 **Supported formats:** html, htm
 **Security:** JavaScript disabled by default for safety
 
+### jwtcat - Decode JWT Tokens
+
+Decode and inspect JSON Web Tokens (JWT):
+
+```bash
+jwtcat <token>
+jwtcat token.txt
+jwtcat --clipboard
+echo $JWT_TOKEN | jwtcat
+```
+
+**Features:**
+- Decode JWT header and payload
+- Display in JSON or Claims Table format
+- Optional signature verification
+- Copy functionality for all sections
+- Support for HMAC and RSA algorithms
+
 ## How It Works
 
 These commands send OSC (Operating System Command) escape sequences to the terminal, which are intercepted by the web terminal's JavaScript and trigger the media viewer.

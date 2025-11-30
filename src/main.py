@@ -25,6 +25,7 @@ from src.api.log_endpoints import router as log_router
 from src.api.cert_endpoints import router as cert_router
 from src.api.sql_endpoints import router as sql_router
 from src.api.http_endpoints import router as http_router
+from src.api.jwt_endpoints import router as jwt_router
 
 # Image editor router
 from src.api.image_editor_endpoints import router as image_editor_router
@@ -601,6 +602,7 @@ app.include_router(log_router)
 app.include_router(cert_router)
 app.include_router(sql_router)
 app.include_router(http_router)
+app.include_router(jwt_router)
 
 # Image editor router
 app.include_router(image_editor_router)

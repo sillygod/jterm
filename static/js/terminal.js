@@ -253,6 +253,9 @@ class WebTerminal {
                     case 'HTTPRequest':
                         this.handleHTTPViewer(payload);
                         return true;
+                    case 'ViewJWT':
+                        this.handleJWTViewer(payload);
+                        return true;
                 }
             }
             return false;
@@ -1076,6 +1079,58 @@ class WebTerminal {
         } catch (error) {
             console.error('Error opening HTTP viewer:', error);
             this.terminal.write(`\r\n\x1b[31mError opening HTTP viewer: ${error.message}\x1b[0m\r\n`);
+        }
+    }
+
+    async handleJWTViewer(payload) {
+        /**
+         * Handle JWT viewer OSC sequence.
+         * Called when user runs `jwtcat <token>` in terminal.
+         * Payload format: JWT token string
+         */
+        console.log('JWT viewer triggered:', payload);
+
+        try {
+            // Load CSS files if not already loaded
+            if (!document.querySelector('link[href="/static/css/jwt-viewer.css"]')) {
+                console.log('Loading jwt-viewer CSS...');
+                await this.loadCSS('/static/css/jwt-viewer.css');
+            }
+
+            if (!document.querySelector('link[href="/static/css/shared-viewers.css"]')) {
+                console.log('Loading shared-viewers CSS...');
+                await this.loadCSS('/static/css/shared-viewers.css');
+            }
+
+            // Load BaseViewer first if not already loaded
+            if (typeof window.BaseViewer === 'undefined') {
+                console.log('Loading base-viewer.js...');
+                await this.loadScript('/static/js/base-viewer.js');
+            }
+
+            // Lazy-load jwt-viewer.js if not already loaded
+            if (typeof window.JWTViewer === 'undefined') {
+                console.log('Loading jwt-viewer.js...');
+                await this.loadScript('/static/js/jwt-viewer.js');
+                console.log('jwt-viewer.js loaded. Checking window.JWTViewer:', typeof window.JWTViewer);
+            } else {
+                console.log('JWTViewer already loaded');
+            }
+
+            // Initialize and show JWT viewer
+            if (window.JWTViewer) {
+                console.log('Creating JWTViewer instance with payload:', payload);
+                const viewer = new window.JWTViewer(payload);
+                await viewer.open();
+            } else {
+                console.error('window.JWTViewer is:', window.JWTViewer);
+                console.error('Available window properties:', Object.keys(window).filter(k => k.includes('Viewer')));
+                throw new Error('JWTViewer not available after loading');
+            }
+
+        } catch (error) {
+            console.error('Error opening JWT viewer:', error);
+            this.terminal.write(`\r\n\x1b[31mError opening JWT viewer: ${error.message}\x1b[0m\r\n`);
         }
     }
 

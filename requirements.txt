@@ -41,6 +41,7 @@ cryptography>=41.0.0
 python-dateutil>=2.8.0
 openpyxl>=3.1.0
 certifi>=2023.0.0
+PyJWT>=2.8.0
 
 # Development and Testing
 pytest==7.4.3

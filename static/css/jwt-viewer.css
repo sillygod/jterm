@@ -1,0 +1,488 @@
+/**
+ * JWT Viewer CSS Styles
+ * Styles for JSON Web Token decoder viewer
+ */
+
+/* ============================================================================
+   JWT Viewer Container
+   ============================================================================ */
+
+.jwt-viewer-container {
+    max-width: 1600px;
+    width: 95%;
+    height: 95%;
+}
+
+.jwt-viewer-body {
+    padding: 20px;
+    overflow-y: auto;
+    background-color: #1a1a1a;
+    display: grid;
+    grid-template-columns: 1fr 1.5fr;
+    gap: 20px;
+    align-items: start;
+}
+
+@media (max-width: 1200px) {
+    .jwt-viewer-body {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ============================================================================
+   JWT Sections
+   ============================================================================ */
+
+.jwt-section {
+    background-color: #252525;
+    border: 1px solid #3a3a3a;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.jwt-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background-color: #2d2d2d;
+    border-bottom: 1px solid #3a3a3a;
+}
+
+.jwt-section-header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.jwt-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: #888;
+    text-transform: uppercase;
+}
+
+.jwt-section-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.jwt-section-content {
+    padding: 16px;
+}
+
+/* ============================================================================
+   JWT Buttons
+   ============================================================================ */
+
+.jwt-btn {
+    padding: 6px 14px;
+    background-color: #3a3a3a;
+    color: #ddd;
+    border: 1px solid #4a4a4a;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.jwt-btn:hover {
+    background-color: #4a4a4a;
+    border-color: #5a5a5a;
+}
+
+.jwt-btn:active {
+    background-color: #2a2a2a;
+}
+
+.jwt-btn-primary {
+    background-color: #5a7fc7;
+    border-color: #6a8fd7;
+    color: #fff;
+}
+
+.jwt-btn-primary:hover {
+    background-color: #6a8fd7;
+    border-color: #7a9fe7;
+}
+
+/* ============================================================================
+   Token Display Section
+   ============================================================================ */
+
+.jwt-token-display {
+    background-color: #1a1a1a;
+    border-radius: 4px;
+    padding: 16px;
+}
+
+.jwt-token-type {
+    font-size: 11px;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.jwt-token-status {
+    margin-bottom: 12px;
+}
+
+.jwt-token-input {
+    width: 100%;
+    min-height: 120px;
+    background-color: #0d1117;
+    color: #e0e0e0;
+    border: 1px solid #3a3a3a;
+    border-radius: 4px;
+    padding: 12px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    resize: vertical;
+    word-break: break-all;
+}
+
+.jwt-token-input:focus {
+    outline: none;
+    border-color: #5a7fc7;
+}
+
+/* ============================================================================
+   Status Indicators
+   ============================================================================ */
+
+.jwt-status-valid {
+    display: inline-block;
+    padding: 4px 10px;
+    background-color: rgba(40, 167, 69, 0.15);
+    color: #5cb85c;
+    border: 1px solid rgba(92, 184, 92, 0.3);
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.jwt-status-invalid {
+    display: inline-block;
+    padding: 4px 10px;
+    background-color: rgba(220, 53, 69, 0.15);
+    color: #d9534f;
+    border: 1px solid rgba(217, 83, 79, 0.3);
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.jwt-status-verified {
+    display: inline-block;
+    padding: 4px 10px;
+    background-color: rgba(91, 192, 222, 0.15);
+    color: #5bc0de;
+    border: 1px solid rgba(91, 192, 222, 0.3);
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.jwt-status-error {
+    display: inline-block;
+    padding: 4px 10px;
+    background-color: rgba(220, 53, 69, 0.15);
+    color: #d9534f;
+    border: 1px solid rgba(217, 83, 79, 0.3);
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.jwt-status-pending {
+    display: inline-block;
+    padding: 4px 10px;
+    background-color: rgba(255, 193, 7, 0.15);
+    color: #f0ad4e;
+    border: 1px solid rgba(240, 173, 78, 0.3);
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+/* ============================================================================
+   Decoded Sections Layout
+   ============================================================================ */
+
+.jwt-decoded-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* ============================================================================
+   Tabs
+   ============================================================================ */
+
+.jwt-tabs {
+    display: flex;
+    gap: 4px;
+    background-color: #1a1a1a;
+    padding: 4px;
+    border-radius: 4px;
+}
+
+.jwt-tab {
+    padding: 6px 12px;
+    background-color: transparent;
+    color: #888;
+    border: none;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.jwt-tab:hover {
+    background-color: #2a2a2a;
+    color: #aaa;
+}
+
+.jwt-tab.active {
+    background-color: #3a3a3a;
+    color: #fff;
+}
+
+/* ============================================================================
+   Decoded Content
+   ============================================================================ */
+
+.jwt-decoded-content {
+    min-height: 200px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* JSON View */
+.jwt-json {
+    background-color: #0d1117;
+    color: #e0e0e0;
+    padding: 16px;
+    border-radius: 4px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    margin: 0;
+    overflow-x: auto;
+}
+
+.jwt-json-key {
+    color: #9cdcfe;
+}
+
+.jwt-json-string {
+    color: #ce9178;
+}
+
+.jwt-json-number {
+    color: #b5cea8;
+}
+
+.jwt-json-boolean {
+    color: #569cd6;
+}
+
+.jwt-json-null {
+    color: #569cd6;
+}
+
+/* Table View */
+.jwt-claims-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background-color: #0d1117;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.jwt-claims-table thead {
+    background-color: #1a1a1a;
+}
+
+.jwt-claims-table th {
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #aaa;
+    border-bottom: 2px solid #3a3a3a;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.jwt-claims-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #2a2a2a;
+    color: #e0e0e0;
+}
+
+.jwt-claims-table tbody tr:hover {
+    background-color: #1a1a1a;
+}
+
+.jwt-claim-key {
+    color: #9cdcfe;
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: 600;
+    width: 30%;
+}
+
+.jwt-claim-value {
+    color: #ce9178;
+    font-family: 'Courier New', Courier, monospace;
+    word-break: break-word;
+}
+
+/* ============================================================================
+   Signature Verification Section
+   ============================================================================ */
+
+.jwt-verify-section {
+    background-color: #1f2937;
+    border-color: #374151;
+}
+
+.jwt-verify-content {
+    padding: 4px 0;
+}
+
+.jwt-verify-description {
+    color: #9ca3af;
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+
+.jwt-verify-input-group {
+    margin-bottom: 16px;
+}
+
+.jwt-verify-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.jwt-verify-input-container {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.jwt-verify-input {
+    flex: 1;
+    padding: 10px 12px;
+    background-color: #0d1117;
+    color: #e0e0e0;
+    border: 1px solid #3a3a3a;
+    border-radius: 4px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 13px;
+}
+
+.jwt-verify-input:focus {
+    outline: none;
+    border-color: #5a7fc7;
+}
+
+.jwt-verify-input::placeholder {
+    color: #555;
+}
+
+.jwt-verify-status {
+    min-height: 24px;
+    margin-top: 8px;
+}
+
+.jwt-verify-format {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 12px;
+}
+
+.jwt-verify-format label {
+    font-size: 12px;
+    color: #888;
+}
+
+.jwt-verify-select {
+    padding: 6px 10px;
+    background-color: #3a3a3a;
+    color: #ddd;
+    border: 1px solid #4a4a4a;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.jwt-verify-select:focus {
+    outline: none;
+    border-color: #5a7fc7;
+}
+
+/* ============================================================================
+   Scrollbar Styling
+   ============================================================================ */
+
+.jwt-decoded-content::-webkit-scrollbar,
+.jwt-token-input::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.jwt-decoded-content::-webkit-scrollbar-track,
+.jwt-token-input::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+.jwt-decoded-content::-webkit-scrollbar-thumb,
+.jwt-token-input::-webkit-scrollbar-thumb {
+    background: #3a3a3a;
+    border-radius: 5px;
+}
+
+.jwt-decoded-content::-webkit-scrollbar-thumb:hover,
+.jwt-token-input::-webkit-scrollbar-thumb:hover {
+    background: #4a4a4a;
+}
+
+/* ============================================================================
+   Error Display
+   ============================================================================ */
+
+.viewer-error {
+    padding: 40px;
+    text-align: center;
+}
+
+.viewer-error-message {
+    font-size: 16px;
+    color: #d9534f;
+    background-color: rgba(220, 53, 69, 0.1);
+    padding: 20px;
+    border-radius: 6px;
+    border: 1px solid rgba(217, 83, 79, 0.3);
+}
