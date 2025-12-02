@@ -26,6 +26,11 @@ class JWTViewer extends BaseViewer {
         this.verificationStatus = null;
         this.headerViewMode = 'json'; // 'json' or 'table'
         this.payloadViewMode = 'json'; // 'json' or 'table'
+        this.mode = 'decode'; // 'decode' or 'encode'
+
+        // Default values for encode mode
+        this.defaultHeader = { "alg": "HS256", "typ": "JWT" };
+        this.defaultPayload = { "sub": "1234567890", "name": "John Doe", "iat": Math.floor(Date.now() / 1000) };
     }
 
     async open() {
@@ -121,6 +126,9 @@ class JWTViewer extends BaseViewer {
                             <span>JSON Web Token (JWT)</span>
                         </div>
                         <div class="viewer-controls">
+                            <button class="viewer-btn" id="${this.viewerId}-mode-toggle" title="Switch Mode">
+                                <span id="${this.viewerId}-mode-label">Encode</span>
+                            </button>
                             <button class="viewer-btn-close" title="Close (Esc)">✕</button>
                         </div>
                     </div>
@@ -234,6 +242,12 @@ class JWTViewer extends BaseViewer {
         /**
          * Setup UI event listeners
          */
+        // Mode toggle button
+        const modeToggleBtn = document.getElementById(`${this.viewerId}-mode-toggle`);
+        if (modeToggleBtn) {
+            modeToggleBtn.addEventListener('click', () => this.toggleMode());
+        }
+
         // Copy token button
         const copyTokenBtn = document.getElementById(`${this.viewerId}-copy-token`);
         if (copyTokenBtn) {
@@ -505,6 +519,199 @@ class JWTViewer extends BaseViewer {
 
         document.body.insertAdjacentHTML('beforeend', errorHtml);
         this.init();
+    }
+
+    toggleMode() {
+        /**
+         * Toggle between decode and encode modes
+         */
+        this.mode = this.mode === 'decode' ? 'encode' : 'decode';
+
+        const modeLabel = document.getElementById(`${this.viewerId}-mode-label`);
+        if (modeLabel) {
+            modeLabel.textContent = this.mode === 'decode' ? 'Encode' : 'Decode';
+        }
+
+        // Update UI based on mode
+        this.updateModeUI();
+    }
+
+    updateModeUI() {
+        /**
+         * Update UI elements based on current mode
+         */
+        const headerContent = document.getElementById(`${this.viewerId}-header-content`);
+        const payloadContent = document.getElementById(`${this.viewerId}-payload-content`);
+        const tokenInput = document.getElementById(`${this.viewerId}-token-input`);
+        const verifySection = document.querySelector(`#${this.viewerId}-container .jwt-verify-section`);
+
+        if (this.mode === 'encode') {
+            // Encode mode: Make header and payload editable
+            const headerData = this.header || this.defaultHeader;
+            const payloadData = this.payload || this.defaultPayload;
+
+            headerContent.innerHTML = `<textarea class="jwt-edit-textarea" id="${this.viewerId}-header-edit">${JSON.stringify(headerData, null, 2)}</textarea>`;
+            payloadContent.innerHTML = `<textarea class="jwt-edit-textarea" id="${this.viewerId}-payload-edit">${JSON.stringify(payloadData, null, 2)}</textarea>`;
+
+            // Change verify section to generate section
+            if (verifySection) {
+                const verifyContent = verifySection.querySelector('.jwt-section-content');
+                if (verifyContent) {
+                    verifyContent.innerHTML = `
+                        <div class="jwt-verify-content">
+                            <p class="jwt-verify-description">Enter the secret to sign the JWT token:</p>
+                            <div class="jwt-verify-input-group">
+                                <label class="jwt-verify-label">SECRET</label>
+                                <div class="jwt-verify-input-container">
+                                    <input type="text" class="jwt-verify-input" id="${this.viewerId}-encode-secret" placeholder="your-256-bit-secret">
+                                </div>
+                            </div>
+                            <button class="viewer-btn viewer-btn-primary" id="${this.viewerId}-generate-btn">
+                                Generate JWT
+                            </button>
+                            <div class="jwt-verify-format">
+                                <label>Algorithm</label>
+                                <select class="jwt-verify-select" id="${this.viewerId}-algorithm-select">
+                                    <option value="HS256">HS256</option>
+                                    <option value="HS384">HS384</option>
+                                    <option value="HS512">HS512</option>
+                                </select>
+                            </div>
+                        </div>
+                    `;
+
+                    // Add generate button event listener
+                    const generateBtn = document.getElementById(`${this.viewerId}-generate-btn`);
+                    if (generateBtn) {
+                        generateBtn.addEventListener('click', () => this.generateJWT());
+                    }
+                }
+            }
+
+            // Clear token input and show placeholder
+            if (tokenInput) {
+                tokenInput.value = '';
+                tokenInput.placeholder = 'Generated JWT will appear here...';
+                tokenInput.readOnly = true;
+            }
+
+        } else {
+            // Decode mode: Restore original display
+            this.renderSection('header', this.header);
+            this.renderSection('payload', this.payload);
+
+            // Restore verify section
+            if (verifySection) {
+                const verifyContent = verifySection.querySelector('.jwt-section-content');
+                if (verifyContent) {
+                    verifyContent.innerHTML = `
+                        <div class="jwt-verify-content">
+                            <p class="jwt-verify-description">Enter the secret used to sign the JWT below:</p>
+                            <div class="jwt-verify-input-group">
+                                <label class="jwt-verify-label">SECRET</label>
+                                <div class="jwt-verify-input-container">
+                                    <input type="text" class="jwt-verify-input" id="${this.viewerId}-secret-input" placeholder="a-string-secret-at-least-256-bits-long">
+                                    <button class="jwt-btn" id="${this.viewerId}-copy-secret">COPY</button>
+                                    <button class="jwt-btn" id="${this.viewerId}-clear-secret">CLEAR</button>
+                                </div>
+                                <div class="jwt-verify-status" id="${this.viewerId}-verify-status"></div>
+                            </div>
+                            <button class="jwt-btn jwt-btn-primary" id="${this.viewerId}-verify-btn">Verify Signature</button>
+                            <div class="jwt-verify-format">
+                                <label>Encoding Format</label>
+                                <select class="jwt-verify-select" id="${this.viewerId}-encoding-format">
+                                    <option value="utf8">UTF-8</option>
+                                    <option value="base64">Base64</option>
+                                    <option value="hex">Hex</option>
+                                </select>
+                            </div>
+                        </div>
+                    `;
+
+                    // Re-attach verify button listener
+                    const verifyBtn = document.getElementById(`${this.viewerId}-verify-btn`);
+                    if (verifyBtn) {
+                        verifyBtn.addEventListener('click', () => this.verifySignature());
+                    }
+                }
+            }
+
+            // Restore token input
+            if (tokenInput) {
+                tokenInput.value = this.rawToken;
+                tokenInput.placeholder = '';
+                tokenInput.readOnly = true;
+            }
+        }
+    }
+
+    async generateJWT() {
+        /**
+         * Generate JWT token from header and payload
+         */
+        const headerEdit = document.getElementById(`${this.viewerId}-header-edit`);
+        const payloadEdit = document.getElementById(`${this.viewerId}-payload-edit`);
+        const secretInput = document.getElementById(`${this.viewerId}-encode-secret`);
+        const algorithmSelect = document.getElementById(`${this.viewerId}-algorithm-select`);
+        const tokenInput = document.getElementById(`${this.viewerId}-token-input`);
+        const tokenStatus = document.getElementById(`${this.viewerId}-token-status`);
+
+        if (!headerEdit || !payloadEdit || !secretInput || !algorithmSelect || !tokenInput) {
+            console.error('Required elements not found');
+            return;
+        }
+
+        try {
+            // Parse header and payload JSON
+            const header = JSON.parse(headerEdit.value);
+            const payload = JSON.parse(payloadEdit.value);
+            const secret = secretInput.value.trim();
+            const algorithm = algorithmSelect.value;
+
+            if (!secret) {
+                tokenStatus.innerHTML = '<span class="jwt-status-error">Please enter a secret</span>';
+                return;
+            }
+
+            // Update algorithm in header
+            header.alg = algorithm;
+
+            tokenStatus.innerHTML = '<span class="jwt-status-pending">Generating...</span>';
+
+            // Call backend API to generate JWT
+            const response = await fetch('/api/jwt/encode', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    header: header,
+                    payload: payload,
+                    secret: secret,
+                    algorithm: algorithm
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.token) {
+                // Display generated token
+                tokenInput.value = result.token;
+                tokenStatus.innerHTML = '<span class="jwt-status-verified">JWT Generated Successfully</span>';
+
+                // Update internal state
+                this.rawToken = result.token;
+                this.header = header;
+                this.payload = payload;
+                this.isValidJWT = true;
+            } else {
+                tokenStatus.innerHTML = `<span class="jwt-status-error">✗ ${result.error || 'Generation failed'}</span>`;
+            }
+
+        } catch (error) {
+            console.error('Generation error:', error);
+            tokenStatus.innerHTML = `<span class="jwt-status-error">✗ ${error.message}</span>`;
+        }
     }
 }
 

@@ -470,6 +470,29 @@
 }
 
 /* ============================================================================
+   Encode Mode - Editable Textareas
+   ============================================================================ */
+
+.jwt-edit-textarea {
+    width: 100%;
+    min-height: 200px;
+    background-color: #0d1117;
+    color: #e0e0e0;
+    border: 1px solid #3a3a3a;
+    border-radius: 4px;
+    padding: 12px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    resize: vertical;
+}
+
+.jwt-edit-textarea:focus {
+    outline: none;
+    border-color: #5a7fc7;
+}
+
+/* ============================================================================
    Error Display
    ============================================================================ */
 

@@ -40,6 +40,20 @@ class VerifyJWTResponse(BaseModel):
     error: Optional[str] = None
 
 
+class EncodeJWTRequest(BaseModel):
+    """Request model for JWT encoding."""
+    header: dict = Field(..., description="JWT header (must include 'alg' and 'typ')")
+    payload: dict = Field(..., description="JWT payload (claims)")
+    secret: str = Field(..., description="Secret key for signing")
+    algorithm: str = Field('HS256', description="Signing algorithm (HS256, HS384, HS512, RS256, RS384, RS512)")
+
+
+class EncodeJWTResponse(BaseModel):
+    """Response model for JWT encoding."""
+    token: str
+    error: Optional[str] = None
+
+
 @router.post("/verify", response_model=VerifyJWTResponse)
 async def verify_jwt(request: VerifyJWTRequest):
     """Verify JWT signature using the provided secret.
@@ -124,6 +138,57 @@ async def verify_jwt(request: VerifyJWTRequest):
             verified=False,
             algorithm=None,
             error=f"Verification error: {str(e)}"
+        )
+
+
+@router.post("/encode", response_model=EncodeJWTResponse)
+async def encode_jwt(request: EncodeJWTRequest):
+    """Encode and sign a JWT token.
+
+    Args:
+        request: EncodeJWTRequest with header, payload, secret, and algorithm
+
+    Returns:
+        EncodeJWTResponse with generated token
+
+    Raises:
+        HTTPException: If encoding fails
+    """
+    try:
+        # Validate algorithm
+        valid_algorithms = ['HS256', 'HS384', 'HS512', 'RS256', 'RS384', 'RS512']
+        if request.algorithm not in valid_algorithms:
+            return EncodeJWTResponse(
+                token='',
+                error=f"Invalid algorithm. Supported: {', '.join(valid_algorithms)}"
+            )
+
+        # Ensure header has correct algorithm
+        header = request.header.copy()
+        header['alg'] = request.algorithm
+        if 'typ' not in header:
+            header['typ'] = 'JWT'
+
+        # Encode secret as bytes
+        secret_bytes = request.secret.encode('utf-8')
+
+        # Generate JWT token
+        token = jwt.encode(
+            request.payload,
+            secret_bytes,
+            algorithm=request.algorithm,
+            headers=header
+        )
+
+        return EncodeJWTResponse(
+            token=token,
+            error=None
+        )
+
+    except Exception as e:
+        return EncodeJWTResponse(
+            token='',
+            error=f"Encoding error: {str(e)}"
         )
 
 
