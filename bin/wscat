@@ -1,0 +1,100 @@
+#!/bin/bash
+
+# wscat - WebSocket client for jterm
+# Usage: wscat <websocket-url> [options]
+# Example: wscat ws://echo.websocket.org
+
+show_help() {
+    cat << EOF
+Usage: wscat <url> [options]
+
+WebSocket client for interactive communication
+
+Arguments:
+  url                WebSocket URL (ws:// or wss://)
+
+Options:
+  -H, --header       Add custom header (can be used multiple times)
+                     Example: -H "Authorization: Bearer token"
+  -p, --protocol     WebSocket subprotocol
+  -h, --help         Show this help message
+
+Examples:
+  wscat ws://echo.websocket.org
+  wscat wss://ws.vi-server.org/ws
+  wscat ws://localhost:8080/ws -H "Authorization: Bearer token"
+  wscat ws://example.com/ws -p "chat"
+
+EOF
+    exit 0
+}
+
+# Parse arguments
+url=""
+headers=()
+protocol=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help)
+            show_help
+            ;;
+        -H|--header)
+            if [[ -n "$2" && ! "$2" =~ ^- ]]; then
+                headers+=("$2")
+                shift 2
+            else
+                echo "Error: --header requires a value" >&2
+                exit 1
+            fi
+            ;;
+        -p|--protocol)
+            if [[ -n "$2" && ! "$2" =~ ^- ]]; then
+                protocol="$2"
+                shift 2
+            else
+                echo "Error: --protocol requires a value" >&2
+                exit 1
+            fi
+            ;;
+        -*)
+            echo "Error: Unknown option $1" >&2
+            echo "Use --help for usage information" >&2
+            exit 1
+            ;;
+        *)
+            if [[ -z "$url" ]]; then
+                url="$1"
+            else
+                echo "Error: Multiple URLs specified" >&2
+                exit 1
+            fi
+            shift
+            ;;
+    esac
+done
+
+# Validate URL
+if [[ -z "$url" ]]; then
+    echo "Error: WebSocket URL is required" >&2
+    echo "Use --help for usage information" >&2
+    exit 1
+fi
+
+if [[ ! "$url" =~ ^wss?:// ]]; then
+    echo "Error: URL must start with ws:// or wss://" >&2
+    exit 1
+fi
+
+# Build JSON payload
+json_payload=$(cat <<EOF
+{
+    "url": "$url",
+    "headers": $(printf '%s\n' "${headers[@]}" | jq -R . | jq -s .),
+    "protocol": "$protocol"
+}
+EOF
+)
+
+# Send OSC sequence to open WebSocket viewer
+printf '\033]1337;WebSocketConnect=%s\007' "$json_payload"

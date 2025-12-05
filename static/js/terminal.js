@@ -256,6 +256,9 @@ class WebTerminal {
                     case 'ViewJWT':
                         this.handleJWTViewer(payload);
                         return true;
+                    case 'WebSocketConnect':
+                        this.handleWSViewer(payload);
+                        return true;
                 }
             }
             return false;
@@ -1131,6 +1134,58 @@ class WebTerminal {
         } catch (error) {
             console.error('Error opening JWT viewer:', error);
             this.terminal.write(`\r\n\x1b[31mError opening JWT viewer: ${error.message}\x1b[0m\r\n`);
+        }
+    }
+
+    async handleWSViewer(payload) {
+        /**
+         * Handle WebSocket viewer OSC sequence.
+         * Called when user runs `wscat <url>` in terminal.
+         * Payload format: JSON with connection details
+         */
+        console.log('WebSocket viewer triggered:', payload);
+
+        try {
+            const params = JSON.parse(payload);
+
+            // Load CSS files if not already loaded
+            if (!document.querySelector('link[href="/static/css/ws-viewer.css"]')) {
+                console.log('Loading ws-viewer CSS...');
+                await this.loadCSS('/static/css/ws-viewer.css');
+            }
+
+            if (!document.querySelector('link[href="/static/css/shared-viewers.css"]')) {
+                console.log('Loading shared-viewers CSS...');
+                await this.loadCSS('/static/css/shared-viewers.css');
+            }
+
+            // Load BaseViewer first if not already loaded
+            if (typeof window.BaseViewer === 'undefined') {
+                console.log('Loading base-viewer.js...');
+                await this.loadScript('/static/js/base-viewer.js');
+            }
+
+            // Lazy-load ws-viewer.js if not already loaded
+            if (typeof window.WsViewer === 'undefined') {
+                console.log('Loading ws-viewer.js...');
+                await this.loadScript('/static/js/ws-viewer.js');
+                console.log('ws-viewer.js loaded. Checking window.WsViewer:', typeof window.WsViewer);
+            } else {
+                console.log('WsViewer already loaded');
+            }
+
+            // Initialize and show WebSocket viewer
+            if (window.WsViewer) {
+                console.log('Creating WsViewer instance with params:', params);
+                const viewer = new window.WsViewer(params);
+                await viewer.open();
+            } else {
+                throw new Error('WsViewer not available after loading');
+            }
+
+        } catch (error) {
+            console.error('Error opening WebSocket viewer:', error);
+            this.terminal.write(`\r\n\x1b[31mError opening WebSocket viewer: ${error.message}\x1b[0m\r\n`);
         }
     }
 
