@@ -319,6 +319,7 @@
     align-self: flex-start;
     background: var(--bg-tertiary, #2a2a2a);
     border: 1px solid var(--border-color, #444);
+    color: #e0e0e0;
 }
 
 .message-system {
@@ -327,6 +328,7 @@
     border: 1px solid var(--border-color, #444);
     max-width: 100%;
     font-size: 0.85rem;
+    color: #a0a0a0;
 }
 
 .message-system.message-error {
@@ -359,6 +361,18 @@
     font-family: 'Courier New', monospace;
     font-size: 0.9rem;
     line-height: 1.4;
+}
+
+.message-sent .message-body {
+    color: white;
+}
+
+.message-received .message-body {
+    color: #f0f0f0;
+}
+
+.message-system .message-body {
+    color: #b0b0b0;
 }
 
 /* Message Input */

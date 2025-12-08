@@ -628,3 +628,6 @@ class WsViewer extends BaseViewer {
         super.close();
     }
 }
+
+// Export to window object for use by terminal.js
+window.WsViewer = WsViewer;

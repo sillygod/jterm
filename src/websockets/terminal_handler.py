@@ -391,9 +391,12 @@ class TerminalWebSocketHandler:
             await asyncio.sleep(0.1)  # Small delay to let shell initialize
             welcome_msg = (
                 "\r\n\033[36m✨ Web Terminal Ready!\033[0m\r\n"
-                "\033[90mMedia commands available: \033[0m\033[33mimgcat\033[0m\033[90m, \033[0m"
+                "\033[90mAvailable commands: \033[0m\033[33mimgcat\033[0m\033[90m, \033[0m"
                 "\033[33mvidcat\033[0m\033[90m, \033[0m\033[33mmdcat\033[0m\033[90m, \033[0m"
-                "\033[33mhtmlcat\033[0m\033[90m, \033[0m\033[33mbookcat\033[0m\r\n\r\n"
+                "\033[33mhtmlcat\033[0m\033[90m, \033[0m\033[33mbookcat\033[0m\033[90m, \033[0m"
+                "\033[33mlogcat\033[0m\033[90m, \033[0m\033[33mcertcat\033[0m\033[90m, \033[0m"
+                "\033[33msqlcat\033[0m\033[90m, \033[0m\033[33mcurlcat\033[0m\033[90m, \033[0m"
+                "\033[33mjwtcat\033[0m\033[90m, \033[0m\033[33mwscat\033[0m\r\n\r\n"
             )
             await self._send_message(
                 connection_id,
