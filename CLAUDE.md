@@ -117,7 +117,6 @@ flake8 src/ tests/
   - Commands: `imgcat file.png`, `imgcat --clipboard`, `imgcat URL`, `imgcat --history`, `imgcat -e 2`
   - Libraries: Pillow (backend image processing), Fabric.js 5.3.0 (frontend canvas), aiohttp (URL loading)
 - 003-cat-commands: Added Python 3.11+ (backend), JavaScript ES2022 (frontend) + FastAPI, xterm.js, HTMX, WebSockets, Python PTY module
-- **002-enhance-and-implement** (2025-10-27): ✅ COMPLETE
   - Added ebook viewer (`bookcat` command) with PDF/EPUB support via foliate-js
   - Implemented recording playback responsive width scaling (80-200 columns)
   - **CPU optimization**: Reduced idle CPU from 78.6% to 0.08% (99.9% reduction!)

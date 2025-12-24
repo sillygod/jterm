@@ -340,3 +340,25 @@ static/css/xterm.css
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Rust/Tauri Desktop Application
+src-tauri/target/
+src-tauri/binaries/
+src-tauri/WixTools/
+*.rs.bk
+*.rlib
+*.prof*
+Cargo.lock
+
+# Desktop distribution
+dist/
+*.dmg
+*.pkg
+*.msi
+*.exe
+*.AppImage
+*.deb
+*.rpm
+
+# Tauri dev server
+.tauri/

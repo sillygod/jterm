@@ -3,15 +3,19 @@
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
-import os
 
-# Database configuration
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./webterminal.db")
+from src.config import get_settings
+
+# Get settings instance
+settings = get_settings()
+
+# Database configuration (supports desktop mode)
+DATABASE_URL = settings.database_url
 
 # Create async engine
 engine = create_async_engine(
     DATABASE_URL,
-    echo=os.getenv("TERMINAL_DEBUG", "false").lower() == "true",
+    echo=settings.TERMINAL_DEBUG,
     future=True,
 )
 

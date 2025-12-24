@@ -1,0 +1,29 @@
+{
+  "name": "jterm",
+  "version": "1.0.0",
+  "description": "Web-based terminal emulator with multimedia support, AI assistance, and session recording capabilities",
+  "main": "index.js",
+  "scripts": {
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "build": "echo 'No frontend build needed - using existing static files'"
+  },
+  "keywords": [
+    "terminal",
+    "emulator",
+    "desktop",
+    "tauri"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.0"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.9.0",
+    "@tauri-apps/plugin-dialog": "^2.0.0",
+    "@tauri-apps/plugin-clipboard-manager": "^2.0.0",
+    "@tauri-apps/plugin-shell": "^2.0.0"
+  }
+}

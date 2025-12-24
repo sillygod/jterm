@@ -19,7 +19,18 @@ class Settings:
     TERMINAL_PORT: int = int(os.getenv("TERMINAL_PORT", "8000"))
     TERMINAL_SECRET_KEY: str = os.getenv("TERMINAL_SECRET_KEY", "your-secret-key-change-in-production")
 
+    # Desktop mode detection
+    IS_DESKTOP_MODE: bool = os.getenv("JTERM_DESKTOP_MODE", "false").lower() == "true"
+    DESKTOP_DB_PATH: Optional[str] = os.getenv("JTERM_DESKTOP_DB_PATH")
+
     # Database
+    @property
+    def database_url(self) -> str:
+        """Get database URL with desktop mode support."""
+        if self.IS_DESKTOP_MODE and self.DESKTOP_DB_PATH:
+            return f"sqlite+aiosqlite:///{self.DESKTOP_DB_PATH}"
+        return os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./webterminal.db")
+
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./webterminal.db")
 
     # Security & Authentication

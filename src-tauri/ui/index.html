@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>jterm - Desktop Terminal</title>
+    <link rel="stylesheet" href="desktop.css">
+</head>
+<body>
+    <!-- Loading screen shown while Python backend starts -->
+    <div id="loading-screen">
+        <div class="loading-container">
+            <div class="spinner"></div>
+            <h2>Starting jterm...</h2>
+            <p id="loading-status">Initializing backend server...</p>
+        </div>
+    </div>
+
+    <!-- Error screen shown if backend fails to start -->
+    <div id="error-screen" style="display: none;">
+        <div class="error-container">
+            <h2>Failed to Start</h2>
+            <p id="error-message">Unable to start the backend server.</p>
+            <button id="retry-button">Retry</button>
+            <button id="quit-button">Quit</button>
+        </div>
+    </div>
+
+    <!-- Main iframe that loads the Python backend UI -->
+    <iframe
+        id="main-frame"
+        style="display: none; width: 100%; height: 100%; border: none;"
+        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"
+    ></iframe>
+
+    <!-- Desktop-specific JavaScript -->
+    <script src="desktop.js"></script>
+</body>
+</html>
