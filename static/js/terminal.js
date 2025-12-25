@@ -307,14 +307,19 @@ class WebTerminal {
         });
     }
 
-    connectWebSocket() {
+    connectWebSocket(retryCount = 0) {
+        const MAX_RETRIES = 5;
+        const RETRY_DELAY = 2000; // 2 seconds
+
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/ws/terminal`;
+
+        console.log(`[WebSocket] Connection attempt ${retryCount + 1}/${MAX_RETRIES + 1} to ${wsUrl}`);
 
         this.websocket = new WebSocket(wsUrl);
 
         this.websocket.onopen = (event) => {
-            console.log('WebSocket connected');
+            console.log('[WebSocket] ✅ Connected successfully!');
             this.isConnected = true;
             this.updateConnectionStatus('connected');
 
@@ -339,21 +344,33 @@ class WebTerminal {
         };
 
         this.websocket.onclose = (event) => {
-            console.log('WebSocket disconnected:', event.code, event.reason);
+            console.log('[WebSocket] Disconnected:', event.code, event.reason, 'wasClean:', event.wasClean);
             this.isConnected = false;
-            this.updateConnectionStatus('disconnected');
 
-            // Attempt to reconnect after delay
-            setTimeout(() => {
-                if (!this.isConnected) {
-                    this.connectWebSocket();
+            // Retry connection if not at max retries and connection wasn't clean
+            if (retryCount < MAX_RETRIES && !event.wasClean) {
+                console.log(`[WebSocket] Will retry in ${RETRY_DELAY}ms...`);
+                this.updateConnectionStatus('connecting');
+                setTimeout(() => {
+                    this.connectWebSocket(retryCount + 1);
+                }, RETRY_DELAY);
+            } else {
+                this.updateConnectionStatus('disconnected');
+                if (retryCount >= MAX_RETRIES) {
+                    console.error('[WebSocket] Max retries reached. Please check backend status.');
                 }
-            }, 3000);
+            }
         };
 
         this.websocket.onerror = (event) => {
-            console.error('WebSocket error:', event);
-            this.updateConnectionStatus('error');
+            console.error('[WebSocket] Error:', event);
+
+            // Don't update status to 'error' immediately during initial connection attempts
+            if (retryCount >= MAX_RETRIES) {
+                this.updateConnectionStatus('error');
+            } else {
+                console.log('[WebSocket] Error occurred, will retry...');
+            }
         };
     }
 
@@ -483,8 +500,12 @@ class WebTerminal {
     updateConnectionStatus(status) {
         const statusElement = document.getElementById('connection-status');
         if (statusElement) {
-            statusElement.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+            const displayText = status.charAt(0).toUpperCase() + status.slice(1);
+            statusElement.textContent = displayText;
             statusElement.className = `connection-status ${status}`;
+            console.log(`[Status] Updated to: ${displayText}`);
+        } else {
+            console.error('[Status] Could not find connection-status element!');
         }
     }
 

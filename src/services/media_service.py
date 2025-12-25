@@ -157,11 +157,17 @@ class MediaValidator:
 
     @classmethod
     async def _scan_file_content(cls, file_path: Path, media_type: MediaType) -> SecurityStatus:
-        """Scan file content for dangerous patterns."""
+        """Scan file content for dangerous patterns asynchronously."""
         try:
-            # Read first 8KB for pattern matching
-            with open(file_path, 'rb') as f:
-                content = f.read(8192)
+            # Run blocking file read in thread pool to avoid blocking event loop
+            def _read_file_header():
+                with open(file_path, 'rb') as f:
+                    return f.read(8192)
+
+            import concurrent.futures
+            loop = asyncio.get_event_loop()
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                content = await loop.run_in_executor(executor, _read_file_header)
 
             # Check for dangerous patterns
             content_lower = content.lower()
@@ -186,18 +192,27 @@ class MediaValidator:
 
     @classmethod
     async def _validate_image_content(cls, file_path: Path) -> SecurityStatus:
-        """Validate image file content."""
+        """Validate image file content asynchronously."""
         if not PILLOW_AVAILABLE:
             return SecurityStatus.SAFE
 
-        try:
-            with Image.open(file_path) as img:
-                # Verify it's a valid image
-                img.verify()
-                return SecurityStatus.SAFE
-        except Exception as e:
-            logger.warning(f"Invalid image file {file_path}: {e}")
-            return SecurityStatus.SUSPICIOUS
+        # Run blocking PIL operations in thread pool to avoid blocking event loop
+        def _validate_image():
+            try:
+                with Image.open(file_path) as img:
+                    # Verify it's a valid image
+                    img.verify()
+                    return SecurityStatus.SAFE
+            except Exception as e:
+                logger.warning(f"Invalid image file {file_path}: {e}")
+                return SecurityStatus.SUSPICIOUS
+
+        import concurrent.futures
+        loop = asyncio.get_event_loop()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            result = await loop.run_in_executor(executor, _validate_image)
+
+        return result
 
     @classmethod
     async def _validate_video_content(cls, file_path: Path) -> SecurityStatus:
@@ -232,43 +247,52 @@ class MediaValidator:
 
     @classmethod
     async def _validate_html_content(cls, file_path: Path) -> SecurityStatus:
-        """Validate HTML content for security."""
-        try:
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read(50000)  # Read first 50KB
+        """Validate HTML content for security asynchronously."""
+        # Run blocking file read in thread pool to avoid blocking event loop
+        def _validate_html():
+            try:
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read(50000)  # Read first 50KB
 
-            content_lower = content.lower()
+                content_lower = content.lower()
 
-            # Enhanced dangerous pattern check for HTML
-            html_dangerous_patterns = [
-                '<script',
-                'javascript:',
-                'vbscript:',
-                'onload=',
-                'onerror=',
-                'onclick=',
-                'onmouseover=',
-                '<iframe',
-                '<object',
-                '<embed',
-                '<form',
-                'document.cookie',
-                'document.write',
-                'eval(',
-                'setinterval(',
-                'settimeout('
-            ]
+                # Enhanced dangerous pattern check for HTML
+                html_dangerous_patterns = [
+                    '<script',
+                    'javascript:',
+                    'vbscript:',
+                    'onload=',
+                    'onerror=',
+                    'onclick=',
+                    'onmouseover=',
+                    '<iframe',
+                    '<object',
+                    '<embed',
+                    '<form',
+                    'document.cookie',
+                    'document.write',
+                    'eval(',
+                    'setinterval(',
+                    'settimeout('
+                ]
 
-            for pattern in html_dangerous_patterns:
-                if pattern in content_lower:
-                    logger.warning(f"Dangerous HTML pattern found: {pattern}")
-                    return SecurityStatus.MALICIOUS
+                for pattern in html_dangerous_patterns:
+                    if pattern in content_lower:
+                        logger.warning(f"Dangerous HTML pattern found: {pattern}")
+                        return SecurityStatus.MALICIOUS
 
-            return SecurityStatus.SAFE
+                return SecurityStatus.SAFE
 
-        except Exception as e:
-            logger.error(f"Error validating HTML content: {e}")
-            return SecurityStatus.ERROR
+            except Exception as e:
+                logger.error(f"Error validating HTML content: {e}")
+                return SecurityStatus.ERROR
+
+        import concurrent.futures
+        loop = asyncio.get_event_loop()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            result = await loop.run_in_executor(executor, _validate_html)
+
+        return result
 
 
 class ThumbnailGenerator:
@@ -278,29 +302,38 @@ class ThumbnailGenerator:
     async def generate_image_thumbnail(source_path: Path, output_path: Path,
                                      size: Tuple[int, int] = (200, 200),
                                      quality: int = 85) -> bool:
-        """Generate thumbnail for image files."""
+        """Generate thumbnail for image files asynchronously."""
         if not PILLOW_AVAILABLE:
             return False
 
-        try:
-            with Image.open(source_path) as img:
-                # Convert to RGB if necessary
-                if img.mode in ('RGBA', 'LA', 'P'):
-                    background = Image.new('RGB', img.size, (255, 255, 255))
-                    if img.mode == 'P':
-                        img = img.convert('RGBA')
-                    background.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
-                    img = background
+        # Run blocking PIL operations in thread pool to avoid blocking event loop
+        def _generate_thumbnail():
+            try:
+                with Image.open(source_path) as img:
+                    # Convert to RGB if necessary
+                    if img.mode in ('RGBA', 'LA', 'P'):
+                        background = Image.new('RGB', img.size, (255, 255, 255))
+                        if img.mode == 'P':
+                            img = img.convert('RGBA')
+                        background.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
+                        img = background
 
-                # Generate thumbnail
-                img.thumbnail(size, Image.Resampling.LANCZOS)
-                img.save(output_path, 'JPEG', quality=quality, optimize=True)
+                    # Generate thumbnail
+                    img.thumbnail(size, Image.Resampling.LANCZOS)
+                    img.save(output_path, 'JPEG', quality=quality, optimize=True)
 
-            return True
+                return True
 
-        except Exception as e:
-            logger.error(f"Error generating image thumbnail: {e}")
-            return False
+            except Exception as e:
+                logger.error(f"Error generating image thumbnail: {e}")
+                return False
+
+        import concurrent.futures
+        loop = asyncio.get_event_loop()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            result = await loop.run_in_executor(executor, _generate_thumbnail)
+
+        return result
 
     @staticmethod
     async def generate_video_thumbnail(source_path: Path, output_path: Path,
@@ -344,37 +377,45 @@ class MediaMetadataExtractor:
 
     @staticmethod
     async def extract_image_metadata(file_path: Path) -> Dict[str, Any]:
-        """Extract metadata from image files."""
-        metadata = {}
-
+        """Extract metadata from image files asynchronously."""
         if not PILLOW_AVAILABLE:
+            return {}
+
+        # Run blocking PIL operations in thread pool to avoid blocking event loop
+        def _extract_metadata():
+            metadata = {}
+            try:
+                with Image.open(file_path) as img:
+                    metadata.update({
+                        'width': img.width,
+                        'height': img.height,
+                        'format': img.format,
+                        'mode': img.mode
+                    })
+
+                    # Extract EXIF data if available
+                    if hasattr(img, '_getexif'):
+                        exif = img._getexif()
+                        if exif:
+                            # Basic EXIF data (be careful about privacy)
+                            safe_exif = {}
+                            for tag_id in [0x0112, 0x0132, 0x010f, 0x0110]:  # Orientation, DateTime, Make, Model
+                                if tag_id in exif:
+                                    safe_exif[str(tag_id)] = str(exif[tag_id])
+                            if safe_exif:
+                                metadata['exif'] = safe_exif
+
+            except Exception as e:
+                logger.error(f"Error extracting image metadata: {e}")
+
             return metadata
 
-        try:
-            with Image.open(file_path) as img:
-                metadata.update({
-                    'width': img.width,
-                    'height': img.height,
-                    'format': img.format,
-                    'mode': img.mode
-                })
+        import concurrent.futures
+        loop = asyncio.get_event_loop()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            result = await loop.run_in_executor(executor, _extract_metadata)
 
-                # Extract EXIF data if available
-                if hasattr(img, '_getexif'):
-                    exif = img._getexif()
-                    if exif:
-                        # Basic EXIF data (be careful about privacy)
-                        safe_exif = {}
-                        for tag_id in [0x0112, 0x0132, 0x010f, 0x0110]:  # Orientation, DateTime, Make, Model
-                            if tag_id in exif:
-                                safe_exif[str(tag_id)] = str(exif[tag_id])
-                        if safe_exif:
-                            metadata['exif'] = safe_exif
-
-        except Exception as e:
-            logger.error(f"Error extracting image metadata: {e}")
-
-        return metadata
+        return result
 
     @staticmethod
     async def extract_video_metadata(file_path: Path) -> Dict[str, Any]:
@@ -653,14 +694,22 @@ class MediaService:
             raise MediaSizeError(f"File size {file_size} exceeds limit {limit} for {media_type}")
 
     async def _create_temp_file(self, file_data: bytes, filename: str) -> Path:
-        """Create temporary file from uploaded data."""
+        """Create temporary file from uploaded data asynchronously."""
         suffix = Path(filename).suffix
         temp_file = Path(self.config.temp_dir) / f"upload_{int(time.time())}_{hash(filename) % 10000}{suffix}"
 
-        with open(temp_file, 'wb') as f:
-            f.write(file_data)
+        # Run blocking file write in thread pool to avoid blocking event loop
+        def _write_file():
+            with open(temp_file, 'wb') as f:
+                f.write(file_data)
+            return temp_file
 
-        return temp_file
+        import concurrent.futures
+        loop = asyncio.get_event_loop()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            result = await loop.run_in_executor(executor, _write_file)
+
+        return result
 
     async def _extract_metadata(self, file_path: Path, media_type: MediaType) -> Dict[str, Any]:
         """Extract metadata from media file."""

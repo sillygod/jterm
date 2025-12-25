@@ -2,10 +2,12 @@ mod commands;
 mod python;
 mod utils;
 
+use commands::MenuState;
 use log::{error, info};
 use python::launcher::PythonBackend;
 use std::sync::Arc;
-use tauri::Manager;
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::{Emitter, Manager};
 use tokio::sync::Mutex;
 use utils::logging::DesktopLogger;
 
@@ -13,6 +15,97 @@ use utils::logging::DesktopLogger;
 pub struct AppState {
     python_backend: Arc<Mutex<Option<PythonBackend>>>,
     logger: Arc<DesktopLogger>,
+}
+
+/// Build platform-specific application menu
+fn build_menu(app: &tauri::AppHandle) -> Result<Menu<tauri::Wry>, tauri::Error> {
+    let menu = Menu::new(app)?;
+
+    // Detect platform for platform-specific menus
+    #[cfg(target_os = "macos")]
+    {
+        // macOS Application Menu (jterm)
+        let app_menu = Submenu::new(
+            app,
+            "jterm",
+            true,
+        )?;
+
+        app_menu.append(&PredefinedMenuItem::about(app, None, None)?)?;
+        app_menu.append(&PredefinedMenuItem::separator(app)?)?;
+        app_menu.append(&MenuItem::with_id(app, "preferences", "Preferences...", true, Some("Cmd+,"))?)?;
+        app_menu.append(&PredefinedMenuItem::separator(app)?)?;
+        app_menu.append(&PredefinedMenuItem::hide(app, None)?)?;
+        app_menu.append(&PredefinedMenuItem::hide_others(app, None)?)?;
+        app_menu.append(&PredefinedMenuItem::show_all(app, None)?)?;
+        app_menu.append(&PredefinedMenuItem::separator(app)?)?;
+        app_menu.append(&PredefinedMenuItem::quit(app, None)?)?;
+
+        menu.append(&app_menu)?;
+    }
+
+    // File Menu (all platforms)
+    let file_menu = Submenu::new(app, "File", true)?;
+
+    #[cfg(target_os = "macos")]
+    let new_tab_shortcut = Some("Cmd+N");
+    #[cfg(not(target_os = "macos"))]
+    let new_tab_shortcut = Some("Ctrl+N");
+
+    #[cfg(target_os = "macos")]
+    let close_tab_shortcut = Some("Cmd+W");
+    #[cfg(not(target_os = "macos"))]
+    let close_tab_shortcut = Some("Ctrl+W");
+
+    file_menu.append(&MenuItem::with_id(app, "new_tab", "New Tab", true, new_tab_shortcut)?)?;
+    file_menu.append(&MenuItem::with_id(app, "close_tab", "Close Tab", true, close_tab_shortcut)?)?;
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        file_menu.append(&PredefinedMenuItem::separator(app)?)?;
+        file_menu.append(&PredefinedMenuItem::quit(app, None)?)?;
+    }
+
+    menu.append(&file_menu)?;
+
+    // Edit Menu (all platforms)
+    let edit_menu = Submenu::new(app, "Edit", true)?;
+
+    #[cfg(target_os = "macos")]
+    let copy_shortcut = Some("Cmd+C");
+    #[cfg(not(target_os = "macos"))]
+    let copy_shortcut = Some("Ctrl+C");
+
+    #[cfg(target_os = "macos")]
+    let paste_shortcut = Some("Cmd+V");
+    #[cfg(not(target_os = "macos"))]
+    let paste_shortcut = Some("Ctrl+V");
+
+    edit_menu.append(&MenuItem::with_id(app, "copy", "Copy", true, copy_shortcut)?)?;
+    edit_menu.append(&MenuItem::with_id(app, "paste", "Paste", true, paste_shortcut)?)?;
+    edit_menu.append(&PredefinedMenuItem::separator(app)?)?;
+    edit_menu.append(&MenuItem::with_id(app, "clear", "Clear", true, None::<&str>)?)?;
+
+    menu.append(&edit_menu)?;
+
+    // View Menu (all platforms)
+    let view_menu = Submenu::new(app, "View", true)?;
+
+    view_menu.append(&MenuItem::with_id(app, "show_recording_controls", "Recording Controls", true, None::<&str>)?)?;
+    view_menu.append(&MenuItem::with_id(app, "show_performance_monitor", "Performance Monitor", true, None::<&str>)?)?;
+    view_menu.append(&MenuItem::with_id(app, "show_ai_assistant", "AI Assistant", true, None::<&str>)?)?;
+
+    menu.append(&view_menu)?;
+
+    // Help Menu (Windows/Linux only - macOS uses app menu)
+    #[cfg(not(target_os = "macos"))]
+    {
+        let help_menu = Submenu::new(app, "Help", true)?;
+        help_menu.append(&PredefinedMenuItem::about(app, None, None)?)?;
+        menu.append(&help_menu)?;
+    }
+
+    Ok(menu)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -23,9 +116,13 @@ pub fn run() {
                 .level(log::LevelFilter::Info)
                 .build(),
         )
+        .plugin(tauri_plugin_clipboard_manager::init())
         .invoke_handler(tauri::generate_handler![
             commands::system::app_ready,
             commands::system::quit_app,
+            commands::menu::update_menu_item,
+            commands::menu::show_context_menu,
+            commands::menu::get_platform_info,
         ])
         .setup(|app| {
             info!("jterm desktop application initializing...");
@@ -49,6 +146,21 @@ pub fn run() {
 
             app.manage(app_state);
 
+            // Initialize menu state
+            app.manage(MenuState::new());
+
+            // Build and set application menu
+            match build_menu(&app.handle()) {
+                Ok(menu) => {
+                    if let Err(e) = app.set_menu(menu) {
+                        error!("Failed to set application menu: {}", e);
+                    }
+                }
+                Err(e) => {
+                    error!("Failed to build application menu: {}", e);
+                }
+            }
+
             // Launch Python backend asynchronously
             let app_handle = app.handle().clone();
             let backend_mutex = app.state::<AppState>().python_backend.clone();
@@ -65,13 +177,14 @@ pub fn run() {
                         let mut backend_guard = backend_mutex.lock().await;
                         *backend_guard = Some(backend);
 
-                        // Update window URL to point to Python backend
+                        // Notify frontend that backend is ready
+                        // The desktop.js will load it in the iframe
                         if let Some(window) = app_handle.get_webview_window("main") {
-                            if let Err(e) = window.eval(&format!(
-                                "window.location.href = '{}';",
-                                base_url
-                            )) {
-                                error!("Failed to navigate to backend URL: {}", e);
+                            if let Err(e) = window.emit("backend-ready", serde_json::json!({
+                                "port": port,
+                                "url": base_url
+                            })) {
+                                error!("Failed to emit backend-ready event: {}", e);
                             }
                         }
                     }
@@ -87,6 +200,23 @@ pub fn run() {
             });
 
             Ok(())
+        })
+        .on_menu_event(|app, event| {
+            let event_id = event.id().as_ref();
+            info!("Menu event: {}", event_id);
+
+            // Get the main window to send events to frontend
+            if let Some(window) = app.get_webview_window("main") {
+                // Emit menu event to frontend
+                let payload = serde_json::json!({
+                    "event": "menu_item_click",
+                    "id": event_id,
+                });
+
+                if let Err(e) = window.emit("menu-event", payload) {
+                    error!("Failed to emit menu event: {}", e);
+                }
+            }
         })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {

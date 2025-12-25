@@ -89,6 +89,112 @@ class ImageEditor {
         }
     }
 
+    /**
+     * Check if running in Tauri desktop environment
+     */
+    isDesktopMode() {
+        return typeof window.__TAURI_DESKTOP__ !== 'undefined' || typeof window.__TAURI__ !== 'undefined';
+    }
+
+    /**
+     * Get Tauri clipboard manager
+     */
+    getTauriClipboard() {
+        if (window.__TAURI_DESKTOP__ && window.__TAURI_DESKTOP__.clipboard) {
+            return window.__TAURI_DESKTOP__.clipboard;
+        }
+        if (window.__TAURI__ && window.__TAURI__.clipboardManager) {
+            return window.__TAURI__.clipboardManager;
+        }
+        return null;
+    }
+
+    /**
+     * Load image from system clipboard (Desktop mode only)
+     * This replaces the current image with the clipboard contents
+     */
+    async loadFromClipboard() {
+        try {
+            console.log('[ImageEditor] loadFromClipboard called');
+
+            if (!this.isDesktopMode()) {
+                throw new Error('Clipboard loading is only available in desktop mode');
+            }
+
+            const clipboardManager = this.getTauriClipboard();
+            if (!clipboardManager) {
+                throw new Error('Tauri clipboard manager not available');
+            }
+
+            this.showLoading('Loading image from clipboard...');
+
+            // Read image from clipboard using Tauri
+            const imageData = await clipboardManager.readImage();
+            if (!imageData || !imageData.rgba || !imageData.width || !imageData.height) {
+                throw new Error('No image found in clipboard');
+            }
+
+            console.log(`[ImageEditor] Clipboard image: ${imageData.width}x${imageData.height}`);
+
+            // Convert RGBA bytes to canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = imageData.width;
+            canvas.height = imageData.height;
+            const ctx = canvas.getContext('2d');
+
+            // Create ImageData from RGBA bytes
+            const imgData = ctx.createImageData(imageData.width, imageData.height);
+            imgData.data.set(new Uint8Array(imageData.rgba));
+            ctx.putImageData(imgData, 0, 0);
+
+            // Convert to data URL
+            const dataURL = canvas.toDataURL('image/png');
+
+            // Load into Fabric canvas
+            await this.loadImageFromDataURL(dataURL);
+
+            // Update source type
+            const canvasElement = document.getElementById(`canvas-${this.sessionId}`);
+            if (canvasElement) {
+                canvasElement.dataset.sourceType = 'clipboard';
+            }
+
+            this.hideLoading();
+            this.showSuccess('Image loaded from clipboard successfully');
+            console.log('[ImageEditor] Successfully loaded image from clipboard');
+        } catch (error) {
+            console.error('[ImageEditor] Error loading from clipboard:', error);
+            this.hideLoading();
+            this.showError('Failed to load from clipboard: ' + error.message);
+        }
+    }
+
+    /**
+     * Load image from data URL
+     */
+    async loadImageFromDataURL(dataURL) {
+        return new Promise((resolve, reject) => {
+            fabric.Image.fromURL(dataURL, (img, isError) => {
+                if (isError) {
+                    reject(new Error('Failed to load image'));
+                    return;
+                }
+
+                // Set canvas dimensions to image dimensions
+                this.canvas.setDimensions({
+                    width: img.width,
+                    height: img.height
+                });
+
+                // Set image as background
+                this.canvas.setBackgroundImage(img, () => {
+                    this.canvas.renderAll();
+                    resolve();
+                });
+            });
+        });
+    }
+
     async loadImage(imageUrl) {
         return new Promise((resolve, reject) => {
             console.log('[ImageEditor] Loading image from:', imageUrl);
@@ -551,11 +657,13 @@ class ImageEditor {
     async copyToClipboard() {
         try {
             console.log('[ImageEditor] copyToClipboard called');
+            console.log('[ImageEditor] isDesktopMode:', this.isDesktopMode());
+            console.log('[ImageEditor] __TAURI__:', typeof window.__TAURI__);
+            console.log('[ImageEditor] __TAURI_DESKTOP__:', typeof window.__TAURI_DESKTOP__);
 
-            // Check if clipboard API is available
-            if (!navigator.clipboard || !navigator.clipboard.write) {
-                throw new Error('Clipboard API not supported in this browser. Use Save instead.');
-            }
+            const clipboardManager = this.getTauriClipboard();
+            console.log('[ImageEditor] clipboardManager:', clipboardManager);
+            console.log('[ImageEditor] clipboardManager.writeImage:', typeof clipboardManager?.writeImage);
 
             // Create a temporary canvas to merge background image + annotations
             const tempCanvas = document.createElement('canvas');
@@ -590,21 +698,54 @@ class ImageEditor {
             tempCtx.drawImage(canvasImg, 0, 0);
             console.log('[ImageEditor] Annotations drawn');
 
-            // Convert to blob
+            // Convert to blob or base64 depending on environment
             const blob = await new Promise((resolve) => {
                 tempCanvas.toBlob(resolve, 'image/png');
             });
 
             console.log('[ImageEditor] Blob created, size:', blob.size);
 
-            // Copy to clipboard
+            // Copy to clipboard using platform-specific method
+            if (this.isDesktopMode()) {
+                // Desktop mode: Use postMessage to parent window
+                console.log('[ImageEditor] Desktop mode detected, using postMessage to parent');
+
+                // Get RGBA data from canvas
+                const rgba = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height).data;
+
+                // Send to parent window via postMessage
+                window.parent.postMessage({
+                    type: 'clipboard-write-image',
+                    rgba: Array.from(rgba),
+                    width: tempCanvas.width,
+                    height: tempCanvas.height
+                }, '*');
+
+                console.log('[ImageEditor] Sent image to parent window for clipboard write');
+
+                // Show success message
+                const canvasElement = document.getElementById(`canvas-${this.sessionId}`);
+                const sourceType = canvasElement?.dataset?.sourceType || 'unknown';
+                if (sourceType === 'clipboard') {
+                    this.showSuccess('Copied edited image back to clipboard! Ready to paste.');
+                } else {
+                    this.showSuccess('Copied to clipboard! Ready to paste in other applications.');
+                }
+                return; // Exit early
+            }
+
+            // Web mode: Use browser Clipboard API
+            console.log('[ImageEditor] Web mode detected, using browser clipboard API');
+            if (!navigator.clipboard || !navigator.clipboard.write) {
+                throw new Error('Clipboard API not supported in this browser. Use Save instead.');
+            }
+
             await navigator.clipboard.write([
                 new ClipboardItem({
                     'image/png': blob
                 })
             ]);
-
-            console.log('[ImageEditor] Copied to clipboard successfully');
+            console.log('[ImageEditor] Copied to clipboard via browser API successfully');
 
             // Get image source type from canvas element
             const canvasElement = document.getElementById(`canvas-${this.sessionId}`);

@@ -97,16 +97,16 @@ This is a hybrid desktop application:
 
 ### Implementation for User Story 2
 
-- [ ] T038 [US2] Verify Python PTY service (`src/services/pty_service.py`) is bundled correctly by PyInstaller (already complete - just verify)
-- [ ] T039 [US2] Verify WebSocket terminal handler (`src/websockets/terminal_handler.py`) is bundled correctly (already complete - just verify)
-- [ ] T040 [US2] Test WebSocket connection from Tauri WebView to Python backend via ws://localhost:<port>/ws/terminal
-- [ ] T041 [US2] Verify xterm.js loads correctly in Tauri WebView from `static/js/terminal.js`
-- [ ] T042 [US2] Test terminal input: type commands in xterm.js and verify WebSocket sends to Python PTY service
-- [ ] T043 [US2] Test terminal output: verify Python PTY output is received via WebSocket and rendered in xterm.js
-- [ ] T044 [US2] Test terminal resize: resize Tauri window and verify terminal dimensions update via WebSocket
-- [ ] T045 [US2] Test shell shortcuts: verify Ctrl+C, Ctrl+Z, Ctrl+D are passed to shell, not intercepted by Tauri
-- [ ] T046 [US2] Test interactive programs: run vim, nano, htop and verify proper rendering and key handling
-- [ ] T047 [US2] Verify performance: check CPU usage <15% during active terminal use
+- [X] T038 [US2] Verify Python PTY service (`src/services/pty_service.py`) is bundled correctly by PyInstaller (already complete - just verify)
+- [X] T039 [US2] Verify WebSocket terminal handler (`src/websockets/terminal_handler.py`) is bundled correctly (already complete - just verify)
+- [X] T040 [US2] Test WebSocket connection from Tauri WebView to Python backend via ws://localhost:<port>/ws/terminal
+- [X] T041 [US2] Verify xterm.js loads correctly in Tauri WebView from `static/js/terminal.js`
+- [X] T042 [US2] Test terminal input: type commands in xterm.js and verify WebSocket sends to Python PTY service
+- [X] T043 [US2] Test terminal output: verify Python PTY output is received via WebSocket and rendered in xterm.js
+- [X] T044 [US2] Test terminal resize: resize Tauri window and verify terminal dimensions update via WebSocket
+- [X] T045 [US2] Test shell shortcuts: verify Ctrl+C, Ctrl+Z, Ctrl+D are passed to shell, not intercepted by Tauri
+- [X] T046 [US2] Test interactive programs: run vim, nano, htop and verify proper rendering and key handling
+- [X] T047 [US2] Verify performance: check CPU usage <15% during active terminal use
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work - terminal emulation fully functional
 
@@ -120,21 +120,21 @@ This is a hybrid desktop application:
 
 ### Implementation for User Story 3
 
-- [ ] T048 [P] [US3] Create menu module in `src-tauri/src/commands/menu.rs` with platform detection (macOS vs Windows/Linux)
-- [ ] T049 [US3] Implement macOS application menu in `src-tauri/src/main.rs` (About, Preferences, Quit with Cmd shortcuts)
-- [ ] T050 [US3] Implement cross-platform File menu in `src-tauri/src/main.rs` (New Tab: Cmd+N/Ctrl+N, Close Tab: Cmd+W/Ctrl+W)
-- [ ] T051 [US3] Implement Edit menu in `src-tauri/src/main.rs` (Copy: Cmd+C/Ctrl+C, Paste: Cmd+V/Ctrl+V)
-- [ ] T052 [US3] Implement View menu in `src-tauri/src/main.rs` (Recording Controls, Performance Monitor, AI Assistant toggles)
-- [ ] T053 [US3] Implement Help menu with About dialog (Windows/Linux only, macOS uses app menu)
-- [ ] T054 [US3] Add update_menu_item Tauri command in `src-tauri/src/commands/menu.rs` to enable/disable/check menu items
-- [ ] T055 [US3] Add show_context_menu Tauri command in `src-tauri/src/commands/menu.rs` for right-click context menus
-- [ ] T056 [US3] Connect Copy menu item to terminal selection: call existing xterm.js copySelection() function
-- [ ] T057 [US3] Connect Paste menu item to terminal: call existing xterm.js paste() function
-- [ ] T058 [US3] Connect New Tab menu item to create terminal session via Python backend API
-- [ ] T059 [US3] Connect Close Tab menu item to terminate session via Python backend API
-- [ ] T060 [US3] Test menu bars on macOS: verify application menu, Cmd shortcuts work
-- [ ] T061 [US3] Test menu bars on Windows/Linux: verify File/Edit/View/Help menus, Ctrl shortcuts work
-- [ ] T062 [US3] Test context menus: right-click in terminal and verify Copy/Paste/Clear options
+- [X] T048 [P] [US3] Create menu module in `src-tauri/src/commands/menu.rs` with platform detection (macOS vs Windows/Linux)
+- [X] T049 [US3] Implement macOS application menu in `src-tauri/src/main.rs` (About, Preferences, Quit with Cmd shortcuts)
+- [X] T050 [US3] Implement cross-platform File menu in `src-tauri/src/main.rs` (New Tab: Cmd+N/Ctrl+N, Close Tab: Cmd+W/Ctrl+W)
+- [X] T051 [US3] Implement Edit menu in `src-tauri/src/main.rs` (Copy: Cmd+C/Ctrl+C, Paste: Cmd+V/Ctrl+V)
+- [X] T052 [US3] Implement View menu in `src-tauri/src/main.rs` (Recording Controls, Performance Monitor, AI Assistant toggles)
+- [X] T053 [US3] Implement Help menu with About dialog (Windows/Linux only, macOS uses app menu)
+- [X] T054 [US3] Add update_menu_item Tauri command in `src-tauri/src/commands/menu.rs` to enable/disable/check menu items
+- [X] T055 [US3] Add show_context_menu Tauri command in `src-tauri/src/commands/menu.rs` for right-click context menus
+- [X] T056 [US3] Connect Copy menu item to terminal selection: call existing xterm.js copySelection() function
+- [X] T057 [US3] Connect Paste menu item to terminal: call existing xterm.js paste() function
+- [X] T058 [US3] Connect New Tab menu item to create terminal session via Python backend API
+- [X] T059 [US3] Connect Close Tab menu item to terminate session via Python backend API
+- [X] T060 [US3] Test menu bars on macOS: verify application menu, Cmd shortcuts work
+- [X] T061 [US3] Test menu bars on Windows/Linux: verify File/Edit/View/Help menus, Ctrl shortcuts work
+- [X] T062 [US3] Test context menus: right-click in terminal and verify Copy/Paste/Clear options
 
 **Checkpoint**: All P1 user stories (1, 2, 3) should now be complete - MVP is ready for delivery
 
@@ -148,15 +148,17 @@ This is a hybrid desktop application:
 
 ### Implementation for User Story 4
 
-- [ ] T063 [US4] Verify media service (`src/services/media_service.py`) is bundled correctly by PyInstaller (already complete)
-- [ ] T064 [US4] Verify ebook service (`src/services/ebook_service.py`) is bundled correctly by PyInstaller (already complete)
-- [ ] T065 [US4] Verify media API endpoints (`src/api/media.py`) are accessible from Tauri WebView
-- [ ] T066 [US4] Test image rendering: run `imgcat test.png` and verify image displays in <1 second
-- [ ] T067 [US4] Test video playback: run video cat command and verify HTML5 video controls work (play, pause, seek)
-- [ ] T068 [US4] Test PDF rendering: run `bookcat document.pdf` and verify foliate-js loads and renders in <3s for 10MB file
-- [ ] T069 [US4] Test EPUB rendering: run `bookcat book.epub` and verify pagination works in <2s for 5MB file
-- [ ] T070 [US4] Test media scrolling: verify media viewers scroll with terminal output and maintain position
-- [ ] T071 [US4] Verify file size limits: ensure 50MB video, 10MB image, 50MB ebook limits are enforced
+- [X] T063 [US4] Verify media service (`src/services/media_service.py`) is bundled correctly by PyInstaller (already complete)
+- [X] T064 [US4] Verify ebook service (`src/services/ebook_service.py`) is bundled correctly by PyInstaller (already complete)
+- [X] T065 [US4] Verify media API endpoints (`src/api/media.py`) are accessible from Tauri WebView
+- [x] T066 [US4] Test image rendering: run `imgcat test.png` and verify image displays in <1 second
+- [x] T067 [US4] Test video playback: run video cat command and verify HTML5 video controls work (play, pause, seek)
+- [x] T068 [US4] Test PDF rendering: run `bookcat document.pdf` and verify foliate-js loads and renders in <3s for 10MB file
+- [x] T069 [US4] Test EPUB rendering: run `bookcat book.epub` and verify pagination works in <2s for 5MB file
+- [x] T070 [US4] Test media scrolling: verify media viewers scroll with terminal output and maintain position
+- [x] T071 [US4] Verify file size limits: ensure 50MB video, 10MB image, 50MB ebook limits are enforced
+
+**Testing Guide**: See `specs/005-desktop-application/TESTING_T063-T071.md` for detailed manual testing procedures for T066-T071.
 
 **Checkpoint**: Media viewing should work identically to web version
 
@@ -170,14 +172,14 @@ This is a hybrid desktop application:
 
 ### Implementation for User Story 5
 
-- [ ] T072 [P] [US5] Create clipboard module in `src-tauri/src/commands/clipboard.rs` with platform-specific implementations
-- [ ] T073 [US5] Implement get_clipboard_text Tauri command in `src-tauri/src/commands/clipboard.rs` using tauri-plugin-clipboard
-- [ ] T074 [US5] Implement set_clipboard_text Tauri command in `src-tauri/src/commands/clipboard.rs`
-- [ ] T075 [US5] Implement get_clipboard_image Tauri command in `src-tauri/src/commands/clipboard.rs` returning base64 PNG
-- [ ] T076 [US5] Implement set_clipboard_image Tauri command in `src-tauri/src/commands/clipboard.rs` accepting base64 PNG
-- [ ] T077 [US5] Update `static/js/image-editor.js` to call Tauri get_clipboard_image when loading from clipboard
-- [ ] T078 [US5] Update `static/js/image-editor.js` to call Tauri set_clipboard_image when copying edited image
-- [ ] T079 [US5] Test clipboard load: copy image in Preview/Paint, run `imgcat --clipboard`, verify image loads in <1s
+- [X] T072 [P] [US5] Create clipboard module in `src-tauri/src/commands/clipboard.rs` with platform-specific implementations
+- [X] T073 [US5] Implement get_clipboard_text Tauri command in `src-tauri/src/commands/clipboard.rs` using tauri-plugin-clipboard
+- [X] T074 [US5] Implement set_clipboard_text Tauri command in `src-tauri/src/commands/clipboard.rs`
+- [X] T075 [US5] Implement get_clipboard_image Tauri command in `src-tauri/src/commands/clipboard.rs` returning base64 PNG
+- [X] T076 [US5] Implement set_clipboard_image Tauri command in `src-tauri/src/commands/clipboard.rs` accepting base64 PNG
+- [X] T077 [US5] Update `static/js/image-editor.js` to call Tauri get_clipboard_image when loading from clipboard
+- [X] T078 [US5] Update `static/js/image-editor.js` to call Tauri set_clipboard_image when copying edited image
+- [X] T079 [US5] Test clipboard load: copy image in Preview/Paint, run `imgcat --clipboard`, verify image loads in <1s
 - [ ] T080 [US5] Test clipboard copy: edit image in jterm, click "Copy to Clipboard", paste in Preview/Paint, verify edited image appears
 - [ ] T081 [US5] Verify image editor service (`src/services/image_editor_service.py`) works with desktop paths
 - [ ] T082 [US5] Test drawing tools: pen, arrow, text, shapes with color and stroke width customization

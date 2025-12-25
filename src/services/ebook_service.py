@@ -164,9 +164,9 @@ class EbookService:
             logger.error(f"Error reading file magic bytes: {e}")
             return False, f"Error reading file: {str(e)}"
 
-    def calculate_file_hash(self, file_path: str) -> str:
+    async def calculate_file_hash(self, file_path: str) -> str:
         """
-        Calculate SHA-256 hash of file content.
+        Calculate SHA-256 hash of file content asynchronously.
 
         Args:
             file_path: Path to the file
@@ -176,12 +176,21 @@ class EbookService:
         """
         sha256 = hashlib.sha256()
 
-        with open(file_path, 'rb') as f:
-            # Read in chunks to handle large files efficiently
-            for chunk in iter(lambda: f.read(8192), b''):
-                sha256.update(chunk)
+        # Run blocking I/O in thread pool to avoid blocking event loop
+        def _hash_file():
+            with open(file_path, 'rb') as f:
+                # Read in chunks to handle large files efficiently
+                for chunk in iter(lambda: f.read(8192), b''):
+                    sha256.update(chunk)
+            return sha256.hexdigest()
 
-        return sha256.hexdigest()
+        # Execute in thread pool (prevents blocking async event loop)
+        import concurrent.futures
+        loop = asyncio.get_event_loop()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            file_hash = await loop.run_in_executor(executor, _hash_file)
+
+        return file_hash
 
     def detect_file_type(self, file_path: str) -> EbookFileType:
         """
@@ -208,7 +217,7 @@ class EbookService:
 
     async def extract_pdf_metadata(self, file_path: str) -> Dict[str, Any]:
         """
-        Extract metadata from PDF file using PyPDF2.
+        Extract metadata from PDF file using PyPDF2 asynchronously.
 
         Args:
             file_path: Path to the PDF file
@@ -222,93 +231,103 @@ class EbookService:
         if not PYPDF2_AVAILABLE:
             raise EbookProcessingError("PyPDF2 not available")
 
-        try:
-            # Use strict=False to handle malformed PDFs more gracefully
-            reader = PdfReader(file_path, strict=False)
-
-            # Check if encrypted first (before trying to access pages)
-            is_encrypted = False
+        # Wrap blocking PyPDF2 operations in thread pool to avoid blocking event loop
+        def _extract_pdf_metadata_sync():
             try:
-                is_encrypted = reader.is_encrypted
-            except Exception as e:
-                logger.warning(f"Error checking encryption status: {e}")
-                # Assume not encrypted if we can't check
-                is_encrypted = False
+                # Use strict=False to handle malformed PDFs more gracefully
+                reader = PdfReader(file_path, strict=False)
 
-            if is_encrypted:
-                # For encrypted PDFs, return minimal metadata
-                # Don't try to access pages or metadata until decrypted
+                # Check if encrypted first (before trying to access pages)
+                is_encrypted = False
+                try:
+                    is_encrypted = reader.is_encrypted
+                except Exception as e:
+                    logger.warning(f"Error checking encryption status: {e}")
+                    # Assume not encrypted if we can't check
+                    is_encrypted = False
+
+                if is_encrypted:
+                    # For encrypted PDFs, return minimal metadata
+                    # Don't try to access pages or metadata until decrypted
+                    metadata = {
+                        'title': None,
+                        'author': None,
+                        'total_pages': None,  # Unknown until decrypted
+                        'is_encrypted': True
+                    }
+                    logger.info(f"PDF is encrypted: {file_path}")
+                    return metadata
+
+                # For non-encrypted PDFs, extract full metadata
                 metadata = {
                     'title': None,
                     'author': None,
-                    'total_pages': None,  # Unknown until decrypted
-                    'is_encrypted': True
+                    'total_pages': None,
+                    'is_encrypted': False
                 }
-                logger.info(f"PDF is encrypted: {file_path}")
+
+                # Try to get page count
+                try:
+                    metadata['total_pages'] = len(reader.pages)
+                except Exception as e:
+                    logger.warning(f"Error getting page count: {e}")
+
+                # Try to extract metadata if available (handle encoding errors)
+                try:
+                    if reader.metadata:
+                        # Get title with encoding fallback
+                        try:
+                            title = reader.metadata.get('/Title')
+                            if title:
+                                # Try to decode if it's bytes
+                                if isinstance(title, bytes):
+                                    try:
+                                        title = title.decode('utf-8')
+                                    except UnicodeDecodeError:
+                                        try:
+                                            title = title.decode('latin-1')
+                                        except:
+                                            title = None
+                                metadata['title'] = title
+                        except Exception as e:
+                            logger.warning(f"Error extracting title: {e}")
+
+                        # Get author with encoding fallback
+                        try:
+                            author = reader.metadata.get('/Author')
+                            if author:
+                                # Try to decode if it's bytes
+                                if isinstance(author, bytes):
+                                    try:
+                                        author = author.decode('utf-8')
+                                    except UnicodeDecodeError:
+                                        try:
+                                            author = author.decode('latin-1')
+                                        except:
+                                            author = None
+                                metadata['author'] = author
+                        except Exception as e:
+                            logger.warning(f"Error extracting author: {e}")
+                except Exception as e:
+                    logger.warning(f"Error extracting metadata: {e}")
+
                 return metadata
 
-            # For non-encrypted PDFs, extract full metadata
-            metadata = {
-                'title': None,
-                'author': None,
-                'total_pages': None,
-                'is_encrypted': False
-            }
-
-            # Try to get page count
-            try:
-                metadata['total_pages'] = len(reader.pages)
             except Exception as e:
-                logger.warning(f"Error getting page count: {e}")
+                logger.error(f"Error extracting PDF metadata: {e}")
+                raise EbookProcessingError(f"Failed to read PDF: {str(e)}")
 
-            # Try to extract metadata if available (handle encoding errors)
-            try:
-                if reader.metadata:
-                    # Get title with encoding fallback
-                    try:
-                        title = reader.metadata.get('/Title')
-                        if title:
-                            # Try to decode if it's bytes
-                            if isinstance(title, bytes):
-                                try:
-                                    title = title.decode('utf-8')
-                                except UnicodeDecodeError:
-                                    try:
-                                        title = title.decode('latin-1')
-                                    except:
-                                        title = None
-                            metadata['title'] = title
-                    except Exception as e:
-                        logger.warning(f"Error extracting title: {e}")
+        # Execute in thread pool (prevents blocking async event loop)
+        import concurrent.futures
+        loop = asyncio.get_event_loop()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            metadata = await loop.run_in_executor(executor, _extract_pdf_metadata_sync)
 
-                    # Get author with encoding fallback
-                    try:
-                        author = reader.metadata.get('/Author')
-                        if author:
-                            # Try to decode if it's bytes
-                            if isinstance(author, bytes):
-                                try:
-                                    author = author.decode('utf-8')
-                                except UnicodeDecodeError:
-                                    try:
-                                        author = author.decode('latin-1')
-                                    except:
-                                        author = None
-                            metadata['author'] = author
-                    except Exception as e:
-                        logger.warning(f"Error extracting author: {e}")
-            except Exception as e:
-                logger.warning(f"Error extracting metadata: {e}")
-
-            return metadata
-
-        except Exception as e:
-            logger.error(f"Error extracting PDF metadata: {e}")
-            raise EbookProcessingError(f"Failed to read PDF: {str(e)}")
+        return metadata
 
     async def extract_epub_metadata(self, file_path: str) -> Dict[str, Any]:
         """
-        Extract metadata from EPUB file using ebooklib.
+        Extract metadata from EPUB file using ebooklib asynchronously.
 
         Args:
             file_path: Path to the EPUB file
@@ -322,30 +341,40 @@ class EbookService:
         if not EBOOKLIB_AVAILABLE:
             raise EbookProcessingError("ebooklib not available")
 
-        try:
-            book = epub.read_epub(file_path)
+        # Wrap blocking ebooklib operations in thread pool to avoid blocking event loop
+        def _extract_epub_metadata_sync():
+            try:
+                book = epub.read_epub(file_path)
 
-            metadata = {
-                'title': None,
-                'author': None,
-                'total_pages': None,  # EPUB doesn't have fixed pages
-                'is_encrypted': False  # EPUB encryption not commonly used
-            }
+                metadata = {
+                    'title': None,
+                    'author': None,
+                    'total_pages': None,  # EPUB doesn't have fixed pages
+                    'is_encrypted': False  # EPUB encryption not commonly used
+                }
 
-            # Extract metadata
-            metadata['title'] = book.get_metadata('DC', 'title')
-            if metadata['title']:
-                metadata['title'] = metadata['title'][0][0] if metadata['title'] else None
+                # Extract metadata
+                metadata['title'] = book.get_metadata('DC', 'title')
+                if metadata['title']:
+                    metadata['title'] = metadata['title'][0][0] if metadata['title'] else None
 
-            metadata['author'] = book.get_metadata('DC', 'creator')
-            if metadata['author']:
-                metadata['author'] = metadata['author'][0][0] if metadata['author'] else None
+                metadata['author'] = book.get_metadata('DC', 'creator')
+                if metadata['author']:
+                    metadata['author'] = metadata['author'][0][0] if metadata['author'] else None
 
-            return metadata
+                return metadata
 
-        except Exception as e:
-            logger.error(f"Error extracting EPUB metadata: {e}")
-            raise EbookProcessingError(f"Failed to read EPUB: {str(e)}")
+            except Exception as e:
+                logger.error(f"Error extracting EPUB metadata: {e}")
+                raise EbookProcessingError(f"Failed to read EPUB: {str(e)}")
+
+        # Execute in thread pool (prevents blocking async event loop)
+        import concurrent.futures
+        loop = asyncio.get_event_loop()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            metadata = await loop.run_in_executor(executor, _extract_epub_metadata_sync)
+
+        return metadata
 
     async def decrypt_pdf(self, ebook_id: str, file_path: str, password: str) -> bool:
         """
@@ -502,8 +531,8 @@ class EbookService:
         if not is_valid:
             raise EbookValidationError(error_msg)
 
-        # Step 2: Calculate hash
-        file_hash = self.calculate_file_hash(file_path)
+        # Step 2: Calculate hash (async to avoid blocking event loop)
+        file_hash = await self.calculate_file_hash(file_path)
 
         # Use provided session or create new one
         close_session = False

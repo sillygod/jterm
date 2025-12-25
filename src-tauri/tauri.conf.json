@@ -26,7 +26,8 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:*; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: http://localhost:* https:; media-src 'self' http://localhost:*; font-src 'self' data:;"
+      "csp": "default-src 'self'; connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:*; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: http://localhost:* https:; media-src 'self' http://localhost:*; font-src 'self' data:;",
+      "capabilities": ["default"]
     },
     "withGlobalTauri": true
   },
@@ -57,11 +58,6 @@
         "$HOME/.local/share/jterm/**",
         "$HOME/Library/Application Support/jterm/**"
       ]
-    },
-    "clipboard": {
-      "all": true,
-      "readText": true,
-      "writeText": true
     }
   },
   "bundle": {

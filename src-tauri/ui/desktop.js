@@ -40,47 +40,21 @@ function showError(message) {
 }
 
 /**
- * Connect to Python backend
+ * Handle backend ready event
  */
-async function connectToBackend() {
+async function onBackendReady(event) {
     try {
-        // Get app info from Tauri backend
-        updateLoadingStatus('Getting app info...');
-        const appInfo = await invoke('app_ready');
+        const { port, url } = event.payload;
+        console.log('[Desktop] Backend ready:', { port, url });
 
-        console.log('[Desktop] App info:', appInfo);
-        backendPort = appInfo.backend_port;
-
-        if (!backendPort) {
-            throw new Error('Backend port not available');
-        }
-
-        // Check backend health
-        updateLoadingStatus(`Connecting to backend on port ${backendPort}...`);
-        const backendUrl = `http://localhost:${backendPort}`;
-
-        const response = await fetch(`${backendUrl}/health`);
-        if (!response.ok) {
-            throw new Error(`Backend health check failed: ${response.status}`);
-        }
-
-        const healthData = await response.json();
-        console.log('[Desktop] Backend health check:', healthData);
-
-        // Backend is ready, load the UI
+        backendPort = port;
         backendReady = true;
+
+        // Load backend UI in iframe
         loadBackendUI();
-
     } catch (error) {
-        console.error('[Desktop] Connection error:', error);
-
-        retryCount++;
-        if (retryCount < MAX_RETRIES) {
-            updateLoadingStatus(`Waiting for backend... (attempt ${retryCount}/${MAX_RETRIES})`);
-            setTimeout(connectToBackend, RETRY_INTERVAL);
-        } else {
-            showError('Failed to connect to backend server after multiple attempts. Please try restarting the application.');
-        }
+        console.error('[Desktop] Error handling backend ready:', error);
+        showError('Failed to load backend UI: ' + error.message);
     }
 }
 
@@ -111,6 +85,15 @@ function loadBackendUI() {
 
         // Inject desktop-specific enhancements into iframe
         injectDesktopEnhancements();
+
+        // Test postMessage communication
+        setTimeout(() => {
+            console.log('[Desktop] Testing postMessage to iframe...');
+            iframe.contentWindow.postMessage({
+                type: 'desktop-menu-event',
+                menuId: 'test'
+            }, '*');
+        }, 1000);
     };
 
     iframe.onerror = function() {
@@ -131,6 +114,7 @@ function injectDesktopEnhancements() {
             invoke: invoke,
             isDesktop: true,
             platform: navigator.platform,
+            clipboardManager: window.__TAURI__.clipboardManager,
         };
 
         console.log('[Desktop] Desktop enhancements injected');
@@ -178,8 +162,107 @@ async function initDesktop() {
         return;
     }
 
-    // Start connecting to backend
-    connectToBackend();
+    const { listen } = window.__TAURI__.event;
+
+    // Setup menu event listeners
+    await setupMenuListeners();
+
+    // Listen for backend ready event
+    await listen('backend-ready', onBackendReady);
+    console.log('[Desktop] Waiting for backend to start...');
+
+    // Listen for messages from iframe (for copy operation)
+    window.addEventListener('message', async (event) => {
+        if (event.data?.type === 'clipboard-write' && event.data?.text) {
+            try {
+                const clipboardManager = window.__TAURI__.clipboardManager;
+                await clipboardManager.writeText(event.data.text);
+                console.log('[Desktop] Wrote', event.data.text.length, 'chars to clipboard');
+            } catch (error) {
+                console.error('[Desktop] Failed to write to clipboard:', error);
+            }
+        } else if (event.data?.type === 'clipboard-write-image' && event.data?.rgba) {
+            try {
+                const clipboardManager = window.__TAURI__.clipboardManager;
+                const { rgba, width, height } = event.data;
+                console.log('[Desktop] Writing image to clipboard:', width, 'x', height, 'pixels');
+
+                // Write image to clipboard using Tauri
+                // The API expects {rgba: number[], width: number, height: number}
+                await clipboardManager.writeImage({
+                    rgba: rgba,
+                    width: width,
+                    height: height
+                });
+
+                console.log('[Desktop] Successfully wrote image to clipboard');
+            } catch (error) {
+                console.error('[Desktop] Failed to write image to clipboard:', error);
+                console.error('[Desktop] Error details:', error.message);
+            }
+        }
+    });
+
+    updateLoadingStatus('Starting Python backend...');
+}
+
+/**
+ * Handle menu events from native menu bar
+ */
+async function handleMenuEvent(event) {
+    console.log('[Desktop] handleMenuEvent called with:', event);
+    const { id } = event.payload;
+    console.log('[Desktop] Menu event ID:', id);
+
+    // Get iframe for postMessage communication
+    const iframe = document.getElementById('main-frame');
+    if (!iframe || !iframe.contentWindow) {
+        console.warn('[Desktop] Cannot handle menu event - iframe not loaded');
+        return;
+    }
+
+    // Handle clipboard operations using Tauri's native API
+    if (id === 'paste' && window.__TAURI__) {
+        try {
+            // Tauri 2.x clipboard-manager plugin API
+            const clipboardManager = window.__TAURI__.clipboardManager;
+            const text = await clipboardManager.readText();
+            console.log('[Desktop] Read from native clipboard:', text?.length, 'chars');
+
+            // Send paste command with the text
+            iframe.contentWindow.postMessage({
+                type: 'desktop-menu-event',
+                menuId: 'paste',
+                clipboardText: text
+            }, '*');
+            return;
+        } catch (error) {
+            console.error('[Desktop] Failed to read from native clipboard:', error);
+            console.log('[Desktop] Error details:', error);
+        }
+    }
+
+    // For other menu items, just forward the event
+    iframe.contentWindow.postMessage({
+        type: 'desktop-menu-event',
+        menuId: id
+    }, '*');
+
+    console.log('[Desktop] Posted message to iframe:', id);
+}
+
+/**
+ * Setup menu event listeners
+ */
+async function setupMenuListeners() {
+    if (!window.__TAURI__) return;
+
+    const { listen } = window.__TAURI__.event;
+
+    // Listen for menu events from Tauri
+    await listen('menu-event', handleMenuEvent);
+
+    console.log('[Desktop] Menu event listeners registered');
 }
 
 // Start initialization when DOM is ready
