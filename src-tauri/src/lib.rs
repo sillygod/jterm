@@ -7,7 +7,7 @@ use log::{error, info};
 use python::launcher::PythonBackend;
 use std::sync::Arc;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
-use tauri::{Emitter, Manager};
+use tauri::Manager;
 use tokio::sync::Mutex;
 use utils::logging::DesktopLogger;
 
@@ -123,6 +123,10 @@ pub fn run() {
             commands::menu::update_menu_item,
             commands::menu::show_context_menu,
             commands::menu::get_platform_info,
+            commands::clipboard::get_clipboard_image,
+            commands::clipboard::set_clipboard_image,
+            commands::clipboard::get_clipboard_text,
+            commands::clipboard::set_clipboard_text,
         ])
         .setup(|app| {
             info!("jterm desktop application initializing...");
@@ -167,6 +171,8 @@ pub fn run() {
             let logger_clone = logger.clone();
 
             tauri::async_runtime::spawn(async move {
+                info!("Starting Python backend...");
+
                 match PythonBackend::launch(&app_handle).await {
                     Ok(backend) => {
                         let port = backend.port();
@@ -177,20 +183,56 @@ pub fn run() {
                         let mut backend_guard = backend_mutex.lock().await;
                         *backend_guard = Some(backend);
 
-                        // Notify frontend that backend is ready
-                        // The desktop.js will load it in the iframe
+                        info!("Python backend ready at {}", base_url);
+
+                        // Navigate main window directly to Python backend
                         if let Some(window) = app_handle.get_webview_window("main") {
-                            if let Err(e) = window.emit("backend-ready", serde_json::json!({
-                                "port": port,
-                                "url": base_url
-                            })) {
-                                error!("Failed to emit backend-ready event: {}", e);
+                            info!("Navigating to Python backend URL: {}", base_url);
+
+                            match window.navigate(tauri::Url::parse(&base_url).unwrap()) {
+                                Ok(_) => {
+                                    info!("Successfully navigated to backend");
+
+                                    // Show window after navigation
+                                    if let Err(e) = window.show() {
+                                        error!("Failed to show window: {}", e);
+                                    }
+
+                                    // Inject initialization script to expose Tauri APIs for remote URLs
+                                    // Tauri v2 doesn't automatically expose __TAURI__ for remote URLs
+                                    let init_script = r#"
+                                        (function() {
+                                            console.log('[Tauri] Initializing Tauri API for remote URL');
+                                            console.log('[Tauri] window.__TAURI__ available:', typeof window.__TAURI__ !== 'undefined');
+                                            if (typeof window.__TAURI__ !== 'undefined') {
+                                                console.log('[Tauri] __TAURI__ keys:', Object.keys(window.__TAURI__));
+                                            }
+                                        })();
+                                    "#;
+
+                                    if let Err(e) = window.eval(init_script) {
+                                        error!("Failed to run initialization script: {}", e);
+                                    }
+
+                                    info!("Tauri APIs should be available at window.__TAURI__");
+                                }
+                                Err(e) => {
+                                    error!("Failed to navigate to backend: {}", e);
+                                }
                             }
                         }
                     }
                     Err(e) => {
                         error!("Failed to launch Python backend: {}", e);
                         logger_clone.log_error(&format!("Failed to launch Python backend: {}", e));
+
+                        // Show error dialog
+                        if let Some(window) = app_handle.get_webview_window("main") {
+                            let _ = window.eval(&format!(
+                                r#"alert('Failed to start jterm backend:\n\n{}');"#,
+                                e.to_string().replace("'", "\\'")
+                            ));
+                        }
 
                         // Exit application with error
                         eprintln!("FATAL: Failed to start jterm backend: {}", e);
@@ -207,36 +249,70 @@ pub fn run() {
 
             // Get the main window to send events to frontend
             if let Some(window) = app.get_webview_window("main") {
-                // Emit menu event to frontend
-                let payload = serde_json::json!({
-                    "event": "menu_item_click",
-                    "id": event_id,
-                });
+                // Use eval to dispatch a custom DOM event instead of Tauri event
+                // This works with remote URLs like http://localhost:8000
+                let script = format!(
+                    r#"
+                    (function() {{
+                        const event = new CustomEvent('tauri-menu-event', {{
+                            detail: {{ id: '{}' }}
+                        }});
+                        window.dispatchEvent(event);
+                        console.log('[Tauri] Dispatched menu event:', '{}');
+                    }})();
+                    "#,
+                    event_id, event_id
+                );
 
-                if let Err(e) = window.emit("menu-event", payload) {
-                    error!("Failed to emit menu event: {}", e);
+                if let Err(e) = window.eval(&script) {
+                    error!("Failed to dispatch menu event: {}", e);
                 }
             }
         })
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
-                info!("Window close requested, shutting down...");
+            match event {
+                tauri::WindowEvent::CloseRequested { .. } => {
+                    info!("Window close requested, shutting down...");
 
-                // Shutdown Python backend
-                let app_state = window.state::<AppState>();
-                let backend_mutex = app_state.python_backend.clone();
-                let logger = app_state.logger.clone();
+                    // Shutdown Python backend
+                    let app_state = window.state::<AppState>();
+                    let backend_mutex = app_state.python_backend.clone();
+                    let logger = app_state.logger.clone();
 
-                tauri::async_runtime::block_on(async move {
-                    let mut backend_guard = backend_mutex.lock().await;
-                    if let Some(mut backend) = backend_guard.take() {
-                        if let Err(e) = backend.shutdown() {
-                            error!("Error shutting down Python backend: {}", e);
+                    tauri::async_runtime::block_on(async move {
+                        let mut backend_guard = backend_mutex.lock().await;
+                        if let Some(mut backend) = backend_guard.take() {
+                            if let Err(e) = backend.shutdown() {
+                                error!("Error shutting down Python backend: {}", e);
+                            }
+                        }
+                    });
+
+                    logger.log_shutdown();
+                }
+                _ => {}
+            }
+        })
+        .on_page_load(|webview, _payload| {
+            // Inject debug script to verify Tauri API availability
+            let script = r#"
+                console.log('[Tauri Page Load] Checking API availability...');
+                console.log('[Tauri Page Load] window.__TAURI__:', typeof window.__TAURI__);
+                if (typeof window.__TAURI__ !== 'undefined') {
+                    console.log('[Tauri Page Load] __TAURI__ keys:', Object.keys(window.__TAURI__));
+
+                    // Log available namespaces
+                    for (const key in window.__TAURI__) {
+                        console.log('[Tauri Page Load] __TAURI__.' + key + ':', typeof window.__TAURI__[key]);
+                        if (typeof window.__TAURI__[key] === 'object' && window.__TAURI__[key] !== null) {
+                            console.log('[Tauri Page Load]   -> keys:', Object.keys(window.__TAURI__[key]));
                         }
                     }
-                });
+                }
+            "#;
 
-                logger.log_shutdown();
+            if let Err(e) = webview.eval(script) {
+                error!("Failed to run page load debug script: {}", e);
             }
         })
         .run(tauri::generate_context!())

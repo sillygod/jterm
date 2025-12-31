@@ -1,6 +1,7 @@
 // Tauri commands module
 // Exports all command handlers for the application
 
+pub mod clipboard;
 pub mod menu;
 pub mod system;
 

@@ -84,9 +84,9 @@
     {% include 'components/image_editor.html' %}
 
     <!-- Load drawing tools and editor JavaScript -->
-    <script src="/static/js/drawing-tools.js"></script>
-    <script src="/static/js/filter-engine.js"></script>
-    <script src="/static/js/image-editor.js"></script>
+    <script src="/static/js/drawing-tools.js?v={{ timestamp }}"></script>
+    <script src="/static/js/filter-engine.js?v={{ timestamp }}"></script>
+    <script src="/static/js/image-editor.js?v={{ timestamp }}"></script>
 
     <!-- Initialize editor -->
     <script>

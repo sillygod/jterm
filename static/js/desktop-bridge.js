@@ -1,8 +1,8 @@
 /**
- * Desktop Bridge - Handles communication between Tauri desktop app and web UI
+ * Desktop Bridge - Handles Tauri desktop app integration
  *
- * This script runs inside the iframe (Python backend UI) and receives
- * postMessage events from the parent window (Tauri desktop wrapper).
+ * This script runs in the Python backend UI and integrates with Tauri APIs.
+ * No iframe or postMessage needed - direct access to window.__TAURI__
  */
 
 (function() {
@@ -10,55 +10,57 @@
 
     console.log('[DesktopBridge] Initializing...');
 
-    // Always set up the message handler - it's harmless if we're not in an iframe
-    // (messages just won't arrive, and there's no performance cost)
+    // Check if running in Tauri desktop environment
+    const isDesktop = typeof window.__TAURI__ !== 'undefined';
+    console.log('[DesktopBridge] Running in desktop mode:', isDesktop);
+
+    if (!isDesktop) {
+        console.log('[DesktopBridge] Not in desktop mode, skipping initialization');
+        return;
+    }
 
     /**
-     * Handle messages from the desktop wrapper
+     * Listen for menu events from Tauri (via DOM CustomEvent)
+     *
+     * We use DOM events instead of Tauri's event.listen because
+     * event.listen is restricted to local files, not remote URLs
+     * like http://localhost:8000
      */
-    window.addEventListener('message', async (event) => {
-        // Log all messages for debugging
-        console.log('[DesktopBridge] Received postMessage:', event.data);
+    function initializeMenuListeners() {
+        window.addEventListener('tauri-menu-event', async (event) => {
+            console.log('[DesktopBridge] Menu event received:', event.detail);
+            const menuId = event.detail.id;
 
-        // Verify message structure
-        if (!event.data || event.data.type !== 'desktop-menu-event') {
-            console.log('[DesktopBridge] Ignoring message - not a desktop menu event');
-            return;
-        }
+            try {
+                await handleMenuAction(menuId);
+            } catch (error) {
+                console.error('[DesktopBridge] Error handling menu action:', error);
+            }
+        });
 
-        const menuId = event.data.menuId;
-        const clipboardText = event.data.clipboardText;
-        console.log('[DesktopBridge] Processing menu event:', menuId);
-
-        try {
-            await handleMenuAction(menuId, clipboardText);
-        } catch (error) {
-            console.error('[DesktopBridge] Error handling menu action:', error);
-        }
-    });
+        console.log('[DesktopBridge] Menu event listeners registered (DOM events)');
+    }
 
     /**
      * Handle menu actions
      */
-    async function handleMenuAction(menuId, clipboardText) {
+    async function handleMenuAction(menuId) {
         // Get terminal instance (assumes WebTerminal is available)
         const terminal = window.webTerminal?.terminal;
+        const clipboardManager = window.__TAURI__?.clipboardManager;
 
         switch (menuId) {
             case 'copy':
                 console.log('[DesktopBridge] Copy action');
-                if (terminal) {
+                if (terminal && clipboardManager) {
                     try {
                         // Get selected text from terminal
                         const selection = terminal.getSelection();
                         if (selection) {
-                            console.log('[DesktopBridge] Sending', selection.length, 'chars to parent for clipboard');
-                            // Send to parent window to use native clipboard
-                            window.parent.postMessage({
-                                type: 'clipboard-write',
-                                text: selection
-                            }, '*');
-                            console.log('[DesktopBridge] Copy request sent to parent');
+                            console.log('[DesktopBridge] Copying', selection.length, 'chars to clipboard');
+                            // Write directly to native clipboard
+                            await clipboardManager.writeText(selection);
+                            console.log('[DesktopBridge] Copy successful');
                         } else {
                             console.warn('[DesktopBridge] No text selected');
                         }
@@ -66,33 +68,39 @@
                         console.error('[DesktopBridge] Copy failed:', error);
                     }
                 } else {
-                    console.warn('[DesktopBridge] Terminal not available for copy');
+                    console.warn('[DesktopBridge] Terminal or clipboard not available');
                 }
                 break;
 
             case 'paste':
-                console.log('[DesktopBridge] Paste action, text length:', clipboardText?.length);
-                if (clipboardText && window.webTerminal) {
+                console.log('[DesktopBridge] Paste action');
+                if (clipboardManager && window.webTerminal) {
                     try {
-                        // Send text to terminal websocket with session ID
-                        if (window.webTerminal.websocket?.readyState === WebSocket.OPEN && window.webTerminal.sessionId) {
-                            window.webTerminal.websocket.send(JSON.stringify({
-                                type: 'input',
-                                sessionId: window.webTerminal.sessionId,
-                                data: clipboardText,
-                                timestamp: new Date().toISOString()
-                            }));
-                            console.log('[DesktopBridge] Paste executed successfully');
+                        // Read from native clipboard
+                        const clipboardText = await clipboardManager.readText();
+                        console.log('[DesktopBridge] Read', clipboardText?.length, 'chars from clipboard');
+
+                        if (clipboardText) {
+                            // Send text to terminal websocket with session ID
+                            if (window.webTerminal.websocket?.readyState === WebSocket.OPEN && window.webTerminal.sessionId) {
+                                window.webTerminal.websocket.send(JSON.stringify({
+                                    type: 'input',
+                                    sessionId: window.webTerminal.sessionId,
+                                    data: clipboardText,
+                                    timestamp: new Date().toISOString()
+                                }));
+                                console.log('[DesktopBridge] Paste executed successfully');
+                            } else {
+                                console.warn('[DesktopBridge] WebSocket not ready or session not created');
+                            }
                         } else {
-                            console.warn('[DesktopBridge] WebSocket not ready or session not created');
+                            console.warn('[DesktopBridge] Clipboard is empty');
                         }
                     } catch (error) {
                         console.error('[DesktopBridge] Paste failed:', error);
                     }
-                } else if (!clipboardText) {
-                    console.warn('[DesktopBridge] No clipboard text provided');
                 } else {
-                    console.warn('[DesktopBridge] Terminal not available for paste');
+                    console.warn('[DesktopBridge] Clipboard or terminal not available');
                 }
                 break;
 
@@ -139,10 +147,6 @@
                 alert('Preferences: Not yet implemented');
                 break;
 
-            case 'test':
-                console.log('[DesktopBridge] ✅ TEST MESSAGE RECEIVED! PostMessage is working!');
-                break;
-
             default:
                 console.warn('[DesktopBridge] Unknown menu action:', menuId);
         }
@@ -162,5 +166,10 @@
         }
     }
 
-    console.log('[DesktopBridge] Message handler registered');
+    // Initialize menu listeners when running in desktop mode
+    if (isDesktop) {
+        initializeMenuListeners();
+    }
+
+    console.log('[DesktopBridge] Initialized');
 })();

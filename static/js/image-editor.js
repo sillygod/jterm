@@ -93,20 +93,78 @@ class ImageEditor {
      * Check if running in Tauri desktop environment
      */
     isDesktopMode() {
-        return typeof window.__TAURI_DESKTOP__ !== 'undefined' || typeof window.__TAURI__ !== 'undefined';
+        return typeof window.__TAURI__ !== 'undefined';
     }
 
     /**
-     * Get Tauri clipboard manager
+     * Invoke Tauri command (Tauri v2 API)
      */
-    getTauriClipboard() {
-        if (window.__TAURI_DESKTOP__ && window.__TAURI_DESKTOP__.clipboard) {
-            return window.__TAURI_DESKTOP__.clipboard;
+    async invokeTauri(command, args = {}) {
+        console.log('[ImageEditor] Checking Tauri API availability...');
+        console.log('[ImageEditor] window.__TAURI__:', typeof window.__TAURI__);
+
+        // Deep inspection of __TAURI__ structure
+        if (window.__TAURI__) {
+            const keys = Object.keys(window.__TAURI__);
+            console.log('[ImageEditor] __TAURI__ keys:', keys);
+            console.log('[ImageEditor] Full __TAURI__ object:', window.__TAURI__);
+
+            // Log each property
+            keys.forEach(key => {
+                const value = window.__TAURI__[key];
+                console.log(`[ImageEditor] __TAURI__.${key}:`, typeof value, value);
+                if (typeof value === 'object' && value !== null) {
+                    const subKeys = Object.keys(value);
+                    console.log(`[ImageEditor]   → __TAURI__.${key} has ${subKeys.length} keys:`, subKeys);
+
+                    // Log functions in this module
+                    subKeys.forEach(subKey => {
+                        if (typeof value[subKey] === 'function') {
+                            console.log(`[ImageEditor]     → __TAURI__.${key}.${subKey} [function]`);
+                        }
+                    });
+                }
+            });
         }
-        if (window.__TAURI__ && window.__TAURI__.clipboardManager) {
-            return window.__TAURI__.clipboardManager;
+
+        // Try multiple API paths for compatibility
+        let invokeFunction = null;
+
+        // Tauri v2 API: window.__TAURI__.core.invoke
+        if (typeof window.__TAURI__?.core?.invoke === 'function') {
+            console.log('[ImageEditor] ✓ Using Tauri v2 API: __TAURI__.core.invoke');
+            invokeFunction = window.__TAURI__.core.invoke;
         }
-        return null;
+        // Tauri v1 API: window.__TAURI__.invoke
+        else if (typeof window.__TAURI__?.invoke === 'function') {
+            console.log('[ImageEditor] ✓ Using Tauri v1 API: __TAURI__.invoke');
+            invokeFunction = window.__TAURI__.invoke;
+        }
+        // Try tauri.invoke directly
+        else if (typeof window.__TAURI__?.tauri?.invoke === 'function') {
+            console.log('[ImageEditor] ✓ Using __TAURI__.tauri.invoke');
+            invokeFunction = window.__TAURI__.tauri.invoke;
+        }
+        // Try each module for invoke
+        else if (window.__TAURI__) {
+            console.log('[ImageEditor] Searching for invoke in modules...');
+            for (const [key, value] of Object.entries(window.__TAURI__)) {
+                if (value && typeof value === 'object' && typeof value.invoke === 'function') {
+                    console.log(`[ImageEditor] ✓ Found invoke in __TAURI__.${key}.invoke`);
+                    invokeFunction = value.invoke;
+                    break;
+                }
+            }
+        }
+
+        if (!invokeFunction) {
+            console.error('[ImageEditor] ✗ Tauri invoke API not found');
+            console.error('[ImageEditor] Full __TAURI__ object:', window.__TAURI__);
+            throw new Error('Tauri invoke API not available');
+        }
+
+        console.log('[ImageEditor] Invoking command:', command, 'with args:', args);
+        return await invokeFunction(command, args);
     }
 
     /**
@@ -121,15 +179,10 @@ class ImageEditor {
                 throw new Error('Clipboard loading is only available in desktop mode');
             }
 
-            const clipboardManager = this.getTauriClipboard();
-            if (!clipboardManager) {
-                throw new Error('Tauri clipboard manager not available');
-            }
-
             this.showLoading('Loading image from clipboard...');
 
-            // Read image from clipboard using Tauri
-            const imageData = await clipboardManager.readImage();
+            // Read image from clipboard using Tauri invoke
+            const imageData = await this.invokeTauri('get_clipboard_image');
             if (!imageData || !imageData.rgba || !imageData.width || !imageData.height) {
                 throw new Error('No image found in clipboard');
             }
@@ -264,6 +317,31 @@ class ImageEditor {
 
         // Window resize
         window.addEventListener('resize', () => this.handleResize());
+
+        // Filter panel toggle - use a more robust selector and add delay for DOM readiness
+        setTimeout(() => {
+            console.log('[ImageEditor] Looking for filter panel with session ID:', this.sessionId);
+            const filterPanel = document.getElementById(`filter-panel-${this.sessionId}`);
+            console.log('[ImageEditor] Filter panel found:', filterPanel);
+
+            const filterToggleBtn = document.querySelector(`#filter-panel-${this.sessionId} .filter-panel-toggle`);
+            console.log('[ImageEditor] Filter toggle button:', filterToggleBtn);
+
+            if (filterToggleBtn) {
+                console.log('[ImageEditor] ✓ Attaching click handler to filter toggle');
+                filterToggleBtn.addEventListener('click', (e) => {
+                    console.log('[ImageEditor] Toggle button clicked!');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.toggleFilterPanel();
+                });
+            } else {
+                console.warn('[ImageEditor] ✗ Filter toggle button not found');
+                // Log all buttons to debug
+                const allButtons = document.querySelectorAll('button');
+                console.log('[ImageEditor] All buttons on page:', allButtons.length);
+            }
+        }, 100);
     }
 
     setupToolEventListeners() {
@@ -659,11 +737,7 @@ class ImageEditor {
             console.log('[ImageEditor] copyToClipboard called');
             console.log('[ImageEditor] isDesktopMode:', this.isDesktopMode());
             console.log('[ImageEditor] __TAURI__:', typeof window.__TAURI__);
-            console.log('[ImageEditor] __TAURI_DESKTOP__:', typeof window.__TAURI_DESKTOP__);
-
-            const clipboardManager = this.getTauriClipboard();
-            console.log('[ImageEditor] clipboardManager:', clipboardManager);
-            console.log('[ImageEditor] clipboardManager.writeImage:', typeof clipboardManager?.writeImage);
+            console.log('[ImageEditor] __TAURI__.core.invoke:', typeof window.__TAURI__?.core?.invoke);
 
             // Create a temporary canvas to merge background image + annotations
             const tempCanvas = document.createElement('canvas');
@@ -707,31 +781,39 @@ class ImageEditor {
 
             // Copy to clipboard using platform-specific method
             if (this.isDesktopMode()) {
-                // Desktop mode: Use postMessage to parent window
-                console.log('[ImageEditor] Desktop mode detected, using postMessage to parent');
+                // Desktop mode: Use Tauri invoke API
+                console.log('[ImageEditor] Desktop mode detected, using Tauri clipboard API');
 
-                // Get RGBA data from canvas
-                const rgba = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height).data;
+                try {
+                    // Get RGBA data from canvas
+                    const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                    const rgba = Array.from(imageData.data);
 
-                // Send to parent window via postMessage
-                window.parent.postMessage({
-                    type: 'clipboard-write-image',
-                    rgba: Array.from(rgba),
-                    width: tempCanvas.width,
-                    height: tempCanvas.height
-                }, '*');
+                    console.log('[ImageEditor] Invoking set_clipboard_image with', rgba.length, 'bytes');
 
-                console.log('[ImageEditor] Sent image to parent window for clipboard write');
+                    // Write directly to clipboard using Tauri
+                    await this.invokeTauri('set_clipboard_image', {
+                        rgba: rgba,
+                        width: tempCanvas.width,
+                        height: tempCanvas.height
+                    });
 
-                // Show success message
-                const canvasElement = document.getElementById(`canvas-${this.sessionId}`);
-                const sourceType = canvasElement?.dataset?.sourceType || 'unknown';
-                if (sourceType === 'clipboard') {
-                    this.showSuccess('Copied edited image back to clipboard! Ready to paste.');
-                } else {
-                    this.showSuccess('Copied to clipboard! Ready to paste in other applications.');
+                    console.log('[ImageEditor] Successfully copied to clipboard via Tauri');
+
+                    // Show success message
+                    const canvasElement = document.getElementById(`canvas-${this.sessionId}`);
+                    const sourceType = canvasElement?.dataset?.sourceType || 'unknown';
+                    if (sourceType === 'clipboard') {
+                        this.showSuccess('Copied edited image back to clipboard! Ready to paste.');
+                    } else {
+                        this.showSuccess('Copied to clipboard! Ready to paste in other applications.');
+                    }
+                    return; // Success - exit early
+                } catch (error) {
+                    console.error('[ImageEditor] Tauri clipboard write failed:', error);
+                    // Don't fall back to browser API - throw error instead
+                    throw new Error('Failed to copy to clipboard using Tauri: ' + error);
                 }
-                return; // Exit early
             }
 
             // Web mode: Use browser Clipboard API
@@ -847,6 +929,14 @@ class ImageEditor {
     showSuccess(message) {
         // TODO: Implement success notification
         console.log('Success:', message);
+    }
+
+    toggleFilterPanel() {
+        const filterPanel = document.getElementById(`filter-panel-${this.sessionId}`);
+        if (filterPanel) {
+            filterPanel.classList.toggle('collapsed');
+            console.log('[ImageEditor] Filter panel toggled:', filterPanel.classList.contains('collapsed') ? 'collapsed' : 'expanded');
+        }
     }
 
     // ==================== Crop and Resize ====================

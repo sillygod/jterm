@@ -119,8 +119,13 @@ class ImageLoaderService:
             raise ImageValidationError(f"File not found: {file_path}")
 
         # Resolve to absolute path (detects symlinks)
+        # Note: strict=False allows operation on macOS without Full Disk Access
+        # The file existence check above already ensures the file is accessible
         try:
-            resolved_path = path.resolve(strict=True)
+            resolved_path = path.resolve(strict=False)
+            # Verify the resolved path actually exists
+            if not resolved_path.exists():
+                raise ImageValidationError(f"File not found after resolution: {file_path}")
         except (RuntimeError, OSError) as e:
             raise ImageValidationError(f"Cannot resolve path: {str(e)}")
 
@@ -254,6 +259,13 @@ class ImageLoaderService:
                 image = Image.open(path)
                 image.load()  # Force load to validate format
             except (IOError, OSError) as e:
+                error_msg = str(e)
+                # Check for permission errors (common on macOS desktop apps)
+                if 'Operation not permitted' in error_msg or 'Permission denied' in error_msg:
+                    raise ImageValidationError(
+                        f"Permission denied accessing file: {file_path}\n"
+                        f"On macOS: Grant Full Disk Access to jterm in System Preferences > Privacy & Security"
+                    )
                 raise ImageValidationError(f"Corrupt or invalid image file: {str(e)}")
             except Exception as e:
                 raise ImageValidationError(f"Failed to load image: {str(e)}")

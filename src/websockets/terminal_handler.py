@@ -292,16 +292,19 @@ class TerminalWebSocketHandler:
                     )
                     print(f"DEBUG CALLBACK: Message sent successfully")
 
-                    # Record output if recording is active
+                    # Record output if recording is active (fire-and-forget to prevent blocking)
                     if self.recording_service:
-                        try:
-                            print(f"DEBUG: Attempting to record output for session {session_id}: {output_text[:50]}")
-                            await self.recording_service.record_output(
-                                session_id,
-                                output_text
-                            )
-                        except Exception as e:
-                            logger.warning(f"Failed to record output: {e}")
+                        async def record_output_async():
+                            try:
+                                print(f"DEBUG: Attempting to record output for session {session_id}: {output_text[:50]}")
+                                await self.recording_service.record_output(
+                                    session_id,
+                                    output_text
+                                )
+                            except Exception as e:
+                                logger.warning(f"Failed to record output: {e}")
+
+                        asyncio.create_task(record_output_async())
 
                 except Exception as e:
                     logger.error(f"Error in output callback: {e}")
@@ -447,15 +450,20 @@ class TerminalWebSocketHandler:
             # Write to PTY
             await self.pty_service.write_to_pty(message.sessionId, input_data)
 
-            # Record input if recording is active
+            # Record input if recording is active (fire-and-forget to avoid blocking)
+            # This prevents terminal hangs during rapid typing
             if self.recording_service:
-                try:
-                    await self.recording_service.record_input(
-                        message.sessionId,
-                        input_data
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to record input: {e}")
+                async def record_async():
+                    try:
+                        await self.recording_service.record_input(
+                            message.sessionId,
+                            input_data
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to record input: {e}")
+
+                # Create task without awaiting to make it non-blocking
+                asyncio.create_task(record_async())
 
         except PTYError as e:
             await self._send_error(
@@ -714,16 +722,19 @@ class TerminalWebSocketHandler:
                         session_id
                     )
 
-                    # Record output if recording is active
+                    # Record output if recording is active (fire-and-forget to prevent blocking)
                     if self.recording_service:
-                        try:
-                            print(f"DEBUG: Attempting to record output for session {session_id}: {output_text[:50]}")
-                            await self.recording_service.record_output(
-                                session_id,
-                                output_text
-                            )
-                        except Exception as e:
-                            logger.warning(f"Failed to record output: {e}")
+                        async def record_output_async():
+                            try:
+                                print(f"DEBUG: Attempting to record output for session {session_id}: {output_text[:50]}")
+                                await self.recording_service.record_output(
+                                    session_id,
+                                    output_text
+                                )
+                            except Exception as e:
+                                logger.warning(f"Failed to record output: {e}")
+
+                        asyncio.create_task(record_output_async())
 
                 except Exception as e:
                     logger.error(f"Error in output callback: {e}")

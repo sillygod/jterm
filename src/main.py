@@ -1,6 +1,7 @@
 """FastAPI main application for Web Terminal."""
 
 import os
+import time
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -204,7 +205,8 @@ async def image_editor(request: Request, session_id: str):
             "image_width": image_session.image_width,
             "image_height": image_session.image_height,
             "image_format": image_session.image_format,
-            "source_path": image_session.image_source_path or ""
+            "source_path": image_session.image_source_path or "",
+            "timestamp": int(time.time() * 1000)  # Cache-busting timestamp
         }
 
         return templates.TemplateResponse("image_editor_page.html", context)

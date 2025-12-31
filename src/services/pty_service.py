@@ -207,7 +207,11 @@ class PTYInstance:
 
         try:
             encoded_data = data.encode(self.config.encoding)
-            self.process.write(encoded_data)
+
+            # Run the blocking write operation in a thread executor to avoid blocking the event loop
+            # This prevents terminal hangs when typing quickly or pressing delete repeatedly
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, self.process.write, encoded_data)
 
             self.stats.bytes_written += len(encoded_data)
             self.stats.write_operations += 1

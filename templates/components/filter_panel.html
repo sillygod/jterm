@@ -4,8 +4,7 @@
     <div class="filter-panel-header">
         <h3 class="filter-panel-title">Filters & Adjustments</h3>
         <button class="btn btn-icon filter-panel-toggle"
-                title="Toggle Filter Panel"
-                _="on click toggle .collapsed on #filter-panel-{{ session_id }}">
+                title="Toggle Filter Panel">
             <span class="icon">◀</span>
         </button>
     </div>
@@ -186,7 +185,7 @@
 }
 
 .filter-panel.collapsed {
-    transform: translateX(100%);
+    transform: translateX(calc(100% - 40px)); /* Leave 40px visible for toggle button */
 }
 
 .filter-panel-header {
@@ -203,11 +202,25 @@
     font-size: 14px;
     font-weight: 600;
     color: var(--text-primary, #e0e0e0);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .filter-panel-toggle {
-    padding: 4px 8px;
+    padding: 8px 12px;
     min-width: auto;
+    flex-shrink: 0;
+    background: var(--bg-tertiary, #252525);
+    border: 1px solid var(--border-color, #333);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.filter-panel-toggle:hover {
+    background: var(--bg-secondary, #1e1e1e);
+    border-color: var(--accent-color, #4a9eff);
 }
 
 .filter-panel.collapsed .filter-panel-toggle .icon {

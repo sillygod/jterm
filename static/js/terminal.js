@@ -21,10 +21,19 @@ class WebTerminal {
             unicode11: false
         };
 
+        // Output batching to prevent rendering hangs
+        this.outputBuffer = '';
+        this.outputTimer = null;
+        this.outputBatchStartTime = null;
+        this.isWriting = false;
+        this.writeScheduled = false;
+
         this.init();
     }
 
     init() {
+        console.log('[Terminal] Initializing with RAF-throttled output (v2024-12-31-fix3)');
+
         // Initialize xterm.js terminal with vibrant ANSI color palette
         this.terminal = new Terminal({
             theme: {
@@ -181,15 +190,47 @@ class WebTerminal {
             return true;
         });
 
-        // Terminal data handler
-        this.terminal.onData((data) => {
-            if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+        // Terminal data handler with input batching to prevent hangs during rapid typing
+        // Batch keystrokes within 16ms window (roughly one frame) before sending
+        this.inputBuffer = '';
+        this.inputTimer = null;
+
+        const flushInputBuffer = () => {
+            if (this.inputBuffer.length > 0 && this.websocket.readyState === WebSocket.OPEN) {
                 this.websocket.send(JSON.stringify({
                     type: 'input',
-                    data: data,
+                    data: this.inputBuffer,
                     sessionId: this.sessionId,
                     timestamp: new Date().toISOString()
                 }));
+                this.inputBuffer = '';
+            }
+            if (this.inputTimer) {
+                clearTimeout(this.inputTimer);
+                this.inputTimer = null;
+            }
+        };
+
+        this.terminal.onData((data) => {
+            if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                // Add data to buffer
+                this.inputBuffer += data;
+
+                // If buffer is too large, flush immediately without debouncing
+                if (this.inputBuffer.length > 50) {
+                    flushInputBuffer();
+                    return;
+                }
+
+                // Clear existing timer
+                if (this.inputTimer) {
+                    clearTimeout(this.inputTimer);
+                }
+
+                // Schedule flush after 16ms
+                this.inputTimer = setTimeout(() => {
+                    flushInputBuffer();
+                }, 16);
             }
         });
 
@@ -347,6 +388,20 @@ class WebTerminal {
             console.log('[WebSocket] Disconnected:', event.code, event.reason, 'wasClean:', event.wasClean);
             this.isConnected = false;
 
+            // Clean up input timer to prevent memory leaks
+            if (this.inputTimer) {
+                clearTimeout(this.inputTimer);
+                this.inputTimer = null;
+            }
+            this.inputBuffer = '';
+
+            // Clean up output timer and flush any pending output
+            if (this.outputTimer) {
+                clearTimeout(this.outputTimer);
+                this.outputTimer = null;
+            }
+            this.flushOutputBuffer();
+
             // Retry connection if not at max retries and connection wasn't clean
             if (retryCount < MAX_RETRIES && !event.wasClean) {
                 console.log(`[WebSocket] Will retry in ${RETRY_DELAY}ms...`);
@@ -383,14 +438,40 @@ class WebTerminal {
                 break;
 
             case 'output':
-                // Ensure UTF-8 decoding for output
+                // Batch output to prevent rendering hangs
+                let outputText = '';
                 if (data instanceof ArrayBuffer) {
                     const decoder = new TextDecoder('utf-8');
-                    this.terminal.write(decoder.decode(data));
+                    outputText = decoder.decode(data);
                 } else if (typeof data === 'string') {
-                    this.terminal.write(data);
+                    outputText = data;
                 } else {
-                    this.terminal.write(String(data));
+                    outputText = String(data);
+                }
+
+                // Add to buffer
+                this.outputBuffer += outputText;
+
+                // Track when we started batching
+                const now = Date.now();
+                if (!this.outputBatchStartTime) {
+                    this.outputBatchStartTime = now;
+                }
+
+                // Calculate how long we've been batching
+                const batchDuration = now - this.outputBatchStartTime;
+
+                // Flush immediately if:
+                // 1. Buffer is large (>500 chars)
+                // 2. Been batching too long (>50ms) - prevents deadlock!
+                if (this.outputBuffer.length > 500 || batchDuration > 50) {
+                    this.flushOutputBuffer();
+                } else {
+                    // Clear existing timer and schedule new one
+                    if (this.outputTimer) {
+                        clearTimeout(this.outputTimer);
+                    }
+                    this.outputTimer = setTimeout(() => this.flushOutputBuffer(), 16);
                 }
                 break;
 
@@ -438,6 +519,11 @@ class WebTerminal {
                 }
                 break;
 
+            case 'resize_ack':
+                // Terminal resize acknowledgment from server
+                console.log('Terminal resize acknowledged:', data);
+                break;
+
             case 'error':
                 console.error('Terminal error:', data);
                 this.terminal.write(`\\r\\n\\x1b[31mError: ${data.message || data}\\x1b[0m\\r\\n`);
@@ -446,6 +532,50 @@ class WebTerminal {
             default:
                 console.log('Unknown message type:', type, data);
         }
+    }
+
+    flushOutputBuffer() {
+        if (this.outputBuffer.length > 0 && !this.writeScheduled) {
+            this.writeScheduled = true;
+
+            // Use requestAnimationFrame to prevent blocking the render thread
+            requestAnimationFrame(() => {
+                if (this.outputBuffer.length > 0) {
+                    const data = this.outputBuffer;
+                    this.outputBuffer = '';
+                    this.outputBatchStartTime = null;
+
+                    // Write directly - terminal.write() is synchronous but RAF ensures
+                    // we don't block between frames
+                    this.terminal.write(data);
+                }
+                this.writeScheduled = false;
+            });
+        }
+        if (this.outputTimer) {
+            clearTimeout(this.outputTimer);
+            this.outputTimer = null;
+        }
+    }
+
+    writeChunked(data, chunkSize = 2000) {
+        // Split large output into chunks and write them using requestAnimationFrame
+        // This prevents blocking the browser's render thread
+        let offset = 0;
+
+        const writeNextChunk = () => {
+            if (offset < data.length) {
+                const chunk = data.slice(offset, offset + chunkSize);
+                this.terminal.write(chunk);
+                offset += chunkSize;
+
+                // Schedule next chunk on next animation frame
+                requestAnimationFrame(writeNextChunk);
+            }
+        };
+
+        // Start writing chunks
+        requestAnimationFrame(writeNextChunk);
     }
 
     requestSession() {

@@ -4,9 +4,9 @@
   "version": "1.0.0",
   "identifier": "com.jterm.desktop",
   "build": {
-    "frontendDist": "ui",
+    "frontendDist": "../dist-placeholder",
     "beforeDevCommand": "",
-    "beforeBuildCommand": ""
+    "beforeBuildCommand": "mkdir -p ../dist-placeholder && echo '<!DOCTYPE html><html><body>Loading...</body></html>' > ../dist-placeholder/index.html"
   },
   "app": {
     "windows": [
@@ -19,17 +19,19 @@
         "resizable": true,
         "fullscreen": false,
         "center": true,
-        "visible": true,
+        "visible": false,
         "decorations": true,
         "alwaysOnTop": false,
-        "skipTaskbar": false
+        "skipTaskbar": false,
+        "url": "about:blank"
       }
     ],
     "security": {
       "csp": "default-src 'self'; connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:*; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: http://localhost:* https:; media-src 'self' http://localhost:*; font-src 'self' data:;",
-      "capabilities": ["default"]
+      "capabilities": ["default", "remote-clipboard"]
     },
-    "withGlobalTauri": true
+    "withGlobalTauri": true,
+    "trayIcon": null
   },
   "plugins": {
     "shell": {
@@ -78,7 +80,7 @@
       "binaries/jterm-backend"
     ],
     "macOS": {
-      "entitlements": null,
+      "entitlements": "entitlements.plist",
       "exceptionDomain": "",
       "frameworks": [],
       "minimumSystemVersion": "10.15"
