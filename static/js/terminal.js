@@ -28,6 +28,11 @@ class WebTerminal {
         this.isWriting = false;
         this.writeScheduled = false;
 
+        // Intellisense completion manager
+        this.completionManager = null;
+        this.currentLine = '';
+        this.cursorPosition = 0;
+
         this.init();
     }
 
@@ -153,7 +158,62 @@ class WebTerminal {
 
         // Capture keyboard events before browser handles them
         // This allows terminal shortcuts (like Cmd+L, Cmd+H) to work in tmux/vim
+        // NOTE: xterm.js calls this handler for keydown, keypress, AND keyup events
         this.terminal.attachCustomKeyEventHandler((event) => {
+            // Only handle keydown events, ignore keyup/keypress
+            // This prevents duplicate event handling
+            if (event.type !== 'keydown') {
+                return true;
+            }
+
+            // First, check if completion UI is handling this event
+            if (this.completionManager && this.completionManager.handleKeyboard(event)) {
+                // Completion UI handled the event (Arrow keys, Tab, Enter, Escape)
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+                return false;
+            }
+
+            // Intercept Tab key for completion (when UI is not showing)
+            if (event.key === 'Tab' && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                if (this.completionManager) {
+                    event.preventDefault();
+
+                    // We're now tracking currentLine in real-time via _trackInputData
+                    // So we don't need to wait for PTY echo or read terminal buffer!
+                    // The currentLine and cursorPosition are already up-to-date.
+
+                    // Trigger completion immediately
+                    this.completionManager.trigger().then(shown => {
+                        if (!shown) {
+                            // No completions available, send Tab to terminal
+                            if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                                this.websocket.send(JSON.stringify({
+                                    type: 'input',
+                                    data: '\t',
+                                    sessionId: this.sessionId,
+                                    timestamp: new Date().toISOString()
+                                }));
+                            }
+                        }
+                    }).catch(err => {
+                        console.error('[Completion] Error:', err);
+                        // On error, send Tab normally
+                        if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                            this.websocket.send(JSON.stringify({
+                                type: 'input',
+                                data: '\t',
+                                sessionId: this.sessionId,
+                                timestamp: new Date().toISOString()
+                            }));
+                        }
+                    });
+
+                    return false;
+                }
+            }
+
             // List of key combinations to intercept and send to terminal
             // These would normally be handled by the browser
             const shouldIntercept = (
@@ -195,7 +255,8 @@ class WebTerminal {
         this.inputBuffer = '';
         this.inputTimer = null;
 
-        const flushInputBuffer = () => {
+        // Store flush function as instance method so it can be called from other methods
+        this.flushInputBuffer = () => {
             if (this.inputBuffer.length > 0 && this.websocket.readyState === WebSocket.OPEN) {
                 this.websocket.send(JSON.stringify({
                     type: 'input',
@@ -213,12 +274,16 @@ class WebTerminal {
 
         this.terminal.onData((data) => {
             if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                // Track current line by parsing input data
+                // This is more reliable than reading from terminal buffer (which depends on PTY echo)
+                this._trackInputData(data);
+
                 // Add data to buffer
                 this.inputBuffer += data;
 
                 // If buffer is too large, flush immediately without debouncing
                 if (this.inputBuffer.length > 50) {
-                    flushInputBuffer();
+                    this.flushInputBuffer();
                     return;
                 }
 
@@ -229,7 +294,7 @@ class WebTerminal {
 
                 // Schedule flush after 16ms
                 this.inputTimer = setTimeout(() => {
-                    flushInputBuffer();
+                    this.flushInputBuffer();
                 }, 16);
             }
         });
@@ -479,10 +544,43 @@ class WebTerminal {
                 this.sessionId = sessionId;
                 console.log('Terminal session created:', sessionId);
                 this.updateSessionInfo(metadata);
+
+                // Initialize completion manager after session is created
+                if (window.CompletionManager) {
+                    this.completionManager = new window.CompletionManager(this.terminal, this.websocket);
+                    this.completionManager.initialize(sessionId, {
+                        cwd: metadata?.workingDirectory || '~',
+                        shellPath: metadata?.shell === 'zsh' ? '/bin/zsh' : '/bin/bash',
+                        enableAI: true
+                    });
+
+                    // Set callback to sync line state when completion is selected
+                    this.completionManager.onLineChangeCallback = (newLine, newCursorPos) => {
+                        this.currentLine = newLine;
+                        this.cursorPosition = newCursorPos;
+                        console.log('[Terminal] Line updated after completion:', newLine, newCursorPos);
+                    };
+
+                    console.log('[Completion] Manager initialized');
+                } else {
+                    console.warn('[Completion] CompletionManager not loaded');
+                }
                 break;
 
             case 'session_info':
+                console.log('[Terminal] Received session_info:', data);
                 this.updateSessionInfo(data);
+
+                // Update completion manager context when directory changes
+                if (this.completionManager && data) {
+                    const newCwd = data.workingDirectory || data.cwd || '~';
+                    console.log('[Completion] Updating context with cwd:', newCwd);
+                    this.completionManager.updateContext({
+                        cwd: newCwd,
+                        shellPath: data.shell === 'zsh' ? '/bin/zsh' : '/bin/bash'
+                    });
+                    console.log('[Completion] Context updated successfully');
+                }
                 break;
 
             case 'media_view':
@@ -1557,6 +1655,157 @@ class WebTerminal {
             link.onload = resolve;
             link.onerror = reject;
             document.head.appendChild(link);
+        });
+    }
+
+    /**
+     * Track input data to maintain current line state
+     * This is more reliable than reading terminal buffer (which depends on PTY echo)
+     * @private
+     */
+    _trackInputData(data) {
+        if (!this.completionManager) {
+            return;
+        }
+
+        // Don't track input when completion UI is active
+        // This prevents interference with arrow key navigation in the completion popup
+        if (this.completionManager.active) {
+            return;
+        }
+
+        // Handle special keys
+        if (data === '\r' || data === '\n') {
+            // Enter - clear current line
+            this.currentLine = '';
+            this.cursorPosition = 0;
+        } else if (data === '\x7f' || data === '\b') {
+            // Backspace/Delete - remove character before cursor
+            if (this.cursorPosition > 0) {
+                this.currentLine =
+                    this.currentLine.slice(0, this.cursorPosition - 1) +
+                    this.currentLine.slice(this.cursorPosition);
+                this.cursorPosition--;
+            }
+        } else if (data === '\x03' || data === '\x04') {
+            // Ctrl+C or Ctrl+D - clear line
+            this.currentLine = '';
+            this.cursorPosition = 0;
+        } else if (data === '\x15') {
+            // Ctrl+U - clear line before cursor
+            this.currentLine = this.currentLine.slice(this.cursorPosition);
+            this.cursorPosition = 0;
+        } else if (data === '\x0b') {
+            // Ctrl+K - clear line after cursor
+            this.currentLine = this.currentLine.slice(0, this.cursorPosition);
+        } else if (data.startsWith('\x1b[')) {
+            // ANSI escape sequences (arrow keys, etc.)
+            if (data === '\x1b[D') {
+                // Left arrow
+                if (this.cursorPosition > 0) {
+                    this.cursorPosition--;
+                }
+            } else if (data === '\x1b[C') {
+                // Right arrow
+                if (this.cursorPosition < this.currentLine.length) {
+                    this.cursorPosition++;
+                }
+            } else if (data === '\x1b[H') {
+                // Home
+                this.cursorPosition = 0;
+            } else if (data === '\x1b[F') {
+                // End
+                this.cursorPosition = this.currentLine.length;
+            }
+            // Ignore other escape sequences
+        } else if (data === '\t') {
+            // Tab - will be handled by completion manager
+            // Don't add to current line
+        } else if (data.length === 1 && data >= ' ' && data <= '~') {
+            // Printable ASCII character - insert at cursor position
+            this.currentLine =
+                this.currentLine.slice(0, this.cursorPosition) +
+                data +
+                this.currentLine.slice(this.cursorPosition);
+            this.cursorPosition++;
+        } else {
+            // Ignore other control characters or multi-byte sequences
+        }
+
+        // Update completion manager with tracked line
+        this.completionManager.updateLine(this.currentLine, this.cursorPosition);
+    }
+
+    /**
+     * Update current line and cursor position for completion manager
+     * @private
+     * @returns {Promise<void>} Promise that resolves when update is complete
+     */
+    _updateCurrentLine() {
+        return new Promise((resolve) => {
+            try {
+                if (!this.completionManager || !this.terminal) {
+                    resolve();
+                    return;
+                }
+
+                // Use requestAnimationFrame to ensure terminal buffer has been updated
+                // This schedules the read for the next frame, after terminal rendering
+                requestAnimationFrame(() => {
+                    try {
+                        const buffer = this.terminal.buffer.active;
+                        const cursorY = buffer.cursorY;
+                        const cursorX = buffer.cursorX;
+
+                        // Get the current line from the buffer
+                        const line = buffer.getLine(cursorY);
+                        if (!line) {
+                            resolve();
+                            return;
+                        }
+
+                        // Extract text from the line
+                        let lineText = '';
+                        for (let i = 0; i < line.length; i++) {
+                            const cell = line.getCell(i);
+                            if (cell) {
+                                lineText += cell.getChars() || ' ';
+                            }
+                        }
+
+                        // Trim trailing spaces
+                        lineText = lineText.trimEnd();
+
+                        // Remove shell prompt from the line
+                        // Common prompt patterns: "user@host:~$", "user:~$", "$", "% ", etc.
+                        const promptMatch = lineText.match(/^.*?[$%#>]\s*/);
+                        let commandStart = 0;
+                        let commandText = lineText;
+
+                        if (promptMatch) {
+                            commandStart = promptMatch[0].length;
+                            commandText = lineText.slice(commandStart);
+                        }
+
+                        // Adjust cursor position relative to command start
+                        const adjustedCursorPos = Math.max(0, cursorX - commandStart);
+
+                        this.currentLine = commandText;
+                        this.cursorPosition = adjustedCursorPos;
+
+                        // Update completion manager
+                        this.completionManager.updateLine(commandText, adjustedCursorPos);
+
+                        resolve();
+                    } catch (error) {
+                        console.error('[Completion] Error in RAF update:', error);
+                        resolve();
+                    }
+                });
+            } catch (error) {
+                console.error('[Completion] Error updating current line:', error);
+                resolve();
+            }
         });
     }
 }

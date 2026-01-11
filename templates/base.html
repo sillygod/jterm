@@ -47,6 +47,9 @@
     <link rel="stylesheet" href="/static/css/curl-viewer.css">
     <link rel="stylesheet" href="/static/css/sql-viewer.css">
 
+    <!-- Completion (intellisense) CSS -->
+    <link rel="stylesheet" href="/static/css/completion-popup.css">
+
     {% block extra_css %}{% endblock %}
 
     <!-- Meta and SEO -->
@@ -275,6 +278,11 @@
     </div>
 
     <!-- JavaScript -->
+    <!-- Completion (intellisense) - load before terminal.js -->
+    <script src="/static/js/completion-cache.js"></script>
+    <script src="/static/js/completion-ui.js"></script>
+    <script src="/static/js/completion-manager.js"></script>
+
     <script src="/static/js/terminal.js?v=t046c"></script>
     <script src="/static/js/desktop-bridge.js"></script>
     <script src="/static/js/media.js"></script>
