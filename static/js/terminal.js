@@ -303,10 +303,11 @@ class WebTerminal {
         console.log('[Terminal] Registering OSC 1337 handler...');
         this.terminal.parser.registerOscHandler(1337, (data) => {
             console.log('[OSC 1337] Received data:', data);
-            const parts = data.split('=');
-            if (parts.length === 2) {
-                const command = parts[0];
-                const payload = parts[1];
+            // Split only on the FIRST '=' to handle payloads containing '=' (e.g., URLs with query params)
+            const firstEqualIndex = data.indexOf('=');
+            if (firstEqualIndex > 0) {
+                const command = data.substring(0, firstEqualIndex);
+                const payload = data.substring(firstEqualIndex + 1);
                 console.log('[OSC 1337] Command:', command, 'Payload:', payload);
 
                 // Add test indicator
@@ -364,6 +365,9 @@ class WebTerminal {
                         return true;
                     case 'WebSocketConnect':
                         this.handleWSViewer(payload);
+                        return true;
+                    case 'ViewDNS':
+                        this.handleDNSViewer(payload);
                         return true;
                 }
             }
@@ -1435,6 +1439,58 @@ class WebTerminal {
         } catch (error) {
             console.error('Error opening WebSocket viewer:', error);
             this.terminal.write(`\r\n\x1b[31mError opening WebSocket viewer: ${error.message}\x1b[0m\r\n`);
+        }
+    }
+
+    async handleDNSViewer(payload) {
+        /**
+         * Handle DNS viewer OSC sequence.
+         * Called when user runs `dnscat <domain>` in terminal.
+         * Payload format: JSON with domain
+         */
+        console.log('DNS viewer triggered:', payload);
+
+        try {
+            const params = JSON.parse(payload);
+
+            // Load CSS files if not already loaded
+            if (!document.querySelector('link[href="/static/css/dns-viewer.css"]')) {
+                console.log('Loading dns-viewer CSS...');
+                await this.loadCSS('/static/css/dns-viewer.css');
+            }
+
+            if (!document.querySelector('link[href="/static/css/shared-viewers.css"]')) {
+                console.log('Loading shared-viewers CSS...');
+                await this.loadCSS('/static/css/shared-viewers.css');
+            }
+
+            // Load BaseViewer first if not already loaded
+            if (typeof window.BaseViewer === 'undefined') {
+                console.log('Loading base-viewer.js...');
+                await this.loadScript('/static/js/base-viewer.js');
+            }
+
+            // Lazy-load dns-viewer.js if not already loaded
+            if (typeof window.DNSViewer === 'undefined') {
+                console.log('Loading dns-viewer.js...');
+                await this.loadScript('/static/js/dns-viewer.js');
+                console.log('dns-viewer.js loaded. Checking window.DNSViewer:', typeof window.DNSViewer);
+            } else {
+                console.log('DNSViewer already loaded');
+            }
+
+            // Initialize and show DNS viewer
+            if (window.DNSViewer) {
+                console.log('Creating DNSViewer instance with params:', params);
+                const viewer = new window.DNSViewer(params);
+                await viewer.open();
+            } else {
+                throw new Error('DNSViewer not available after loading');
+            }
+
+        } catch (error) {
+            console.error('Error opening DNS viewer:', error);
+            this.terminal.write(`\r\n\x1b[31mError opening DNS viewer: ${error.message}\x1b[0m\r\n`);
         }
     }
 

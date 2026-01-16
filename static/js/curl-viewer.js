@@ -463,6 +463,44 @@ class CurlViewer extends BaseViewer {
         if (window.Prism) {
             Prism.highlightAllUnder(responseContainer);
         }
+
+        // Attach preview toggle event listeners for HTML responses
+        this.attachPreviewToggleListeners(responseContainer);
+    }
+
+    attachPreviewToggleListeners(container) {
+        /**
+         * Attach event listeners for HTML preview toggle buttons
+         */
+        const toggleBtns = container.querySelectorAll('.preview-toggle-btn');
+        if (toggleBtns.length === 0) return;
+
+        toggleBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const mode = e.target.dataset.mode;
+                const rawId = e.target.dataset.rawId;
+                const previewId = e.target.dataset.previewId;
+
+                const rawEl = document.getElementById(rawId);
+                const previewEl = document.getElementById(previewId);
+
+                if (!rawEl || !previewEl) return;
+
+                // Update button states
+                const allBtns = e.target.parentElement.querySelectorAll('.preview-toggle-btn');
+                allBtns.forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+
+                // Toggle visibility
+                if (mode === 'preview') {
+                    rawEl.classList.add('hidden');
+                    previewEl.classList.add('active');
+                } else {
+                    rawEl.classList.remove('hidden');
+                    previewEl.classList.remove('active');
+                }
+            });
+        });
     }
 
     renderTimingBreakdown(timing) {
@@ -580,6 +618,8 @@ class CurlViewer extends BaseViewer {
 
     renderResponseBody(body, headers) {
         const contentType = headers['content-type'] || headers['Content-Type'] || '';
+        const previewId = `${this.viewerId}-body-preview`;
+        const rawId = `${this.viewerId}-body-raw`;
 
         if (contentType.includes('application/json')) {
             try {
@@ -589,7 +629,33 @@ class CurlViewer extends BaseViewer {
                 return `<pre><code>${this.escapeHtml(body)}</code></pre>`;
             }
         } else if (contentType.includes('text/html')) {
-            return `<pre><code class="language-html">${this.escapeHtml(body)}</code></pre>`;
+            // HTML content - provide both raw and preview modes
+            const escapedBody = this.escapeHtml(body);
+            // Create a data URL for the iframe to avoid XSS while still rendering
+            const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(body);
+
+            return `
+                <div class="response-body-header">
+                    <span></span>
+                    <div class="preview-toggle">
+                        <button class="preview-toggle-btn active" data-mode="raw" data-raw-id="${rawId}" data-preview-id="${previewId}">Raw</button>
+                        <button class="preview-toggle-btn" data-mode="preview" data-raw-id="${rawId}" data-preview-id="${previewId}">Preview</button>
+                    </div>
+                </div>
+                <div class="response-body-content">
+                    <div id="${rawId}" class="response-body-raw">
+                        <pre><code class="language-html">${escapedBody}</code></pre>
+                    </div>
+                    <div id="${previewId}" class="response-body-preview">
+                        <iframe
+                            class="html-preview-frame"
+                            sandbox="allow-same-origin"
+                            src="${dataUrl}"
+                            title="HTML Preview"
+                        ></iframe>
+                    </div>
+                </div>
+            `;
         } else if (contentType.includes('text/xml') || contentType.includes('application/xml')) {
             return `<pre><code class="language-xml">${this.escapeHtml(body)}</code></pre>`;
         } else {

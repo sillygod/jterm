@@ -86,15 +86,22 @@ if [[ ! "$url" =~ ^wss?:// ]]; then
     exit 1
 fi
 
-# Build JSON payload
-json_payload=$(cat <<EOF
-{
-    "url": "$url",
-    "headers": $(printf '%s\n' "${headers[@]}" | jq -R . | jq -s .),
-    "protocol": "$protocol"
-}
-EOF
-)
+# Build JSON payload with proper escaping using jq
+# This ensures special characters are escaped and output is compact (no newlines)
+
+# Build headers array
+if [[ ${#headers[@]} -eq 0 ]]; then
+    headers_json="[]"
+else
+    headers_json=$(printf '%s\n' "${headers[@]}" | jq -R . | jq -sc .)
+fi
+
+# Build compact JSON payload using jq
+json_payload=$(jq -cn \
+    --arg url "$url" \
+    --arg protocol "$protocol" \
+    --argjson headers "$headers_json" \
+    '{url: $url, headers: $headers, protocol: $protocol}')
 
 # Send OSC sequence to open WebSocket viewer
 printf '\033]1337;WebSocketConnect=%s\007' "$json_payload"

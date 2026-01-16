@@ -32,6 +32,9 @@ from src.api.ws_endpoints import router as ws_router
 # Image editor router
 from src.api.image_editor_endpoints import router as image_editor_router
 
+# DNS lookup router
+from src.api.dns_endpoints import router as dns_router
+
 # Completion (intellisense) router
 from src.api.completion_endpoints import router as completion_router
 
@@ -613,6 +616,9 @@ app.include_router(ws_router)
 
 # Image editor router
 app.include_router(image_editor_router)
+
+# DNS lookup router
+app.include_router(dns_router)
 
 # Completion (intellisense) router
 app.include_router(completion_router)

@@ -39,6 +39,7 @@ CUSTOM_COMMANDS = {
     'curlcat': 'Enhanced HTTP request viewer',
     'jwtcat': 'Decode and analyze JWT tokens',
     'wscat': 'WebSocket client for terminal',
+    'dnscat': 'DNS lookup and WHOIS query tool',
 }
 
 

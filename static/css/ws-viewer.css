@@ -1,114 +1,181 @@
 /**
  * WebSocket Client Viewer (wscat) Styles
- *
- * Provides styling for:
- * - Split-view layout (connection panel + messages panel)
- * - Connection form with URL, headers, protocol
- * - Chat-like message interface
- * - Connection status indicator
- * - Message input area
+ * CYBERPUNK FINTECH EDITION
+ * Sleek, neon-glowing WebSocket interface
  */
+
+/* Import shared viewer base styles */
+@import url('/static/css/shared-viewers.css');
+
+/* ============================================================================
+   WebSocket Viewer Container
+   ============================================================================ */
+
+.ws-viewer-container {
+    max-width: 1200px;
+    background: var(--viewer-bg);
+}
 
 .ws-viewer {
     width: 100%;
     height: 100%;
     display: flex;
     flex-direction: column;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    color: var(--text-color, #333);
+    font-family: var(--viewer-font-sans);
+    color: var(--viewer-fg);
+    background: linear-gradient(180deg, #0f172a 0%, #0a0e17 100%);
 }
 
-/* Ensure viewer container uses proper background */
-.ws-viewer-container {
-    background-color: var(--bg-primary, #1e1e1e);
-    color: var(--text-color, #e0e0e0);
-}
+/* ============================================================================
+   Header with Connection Status
+   ============================================================================ */
 
-/* Header with connection status */
 .ws-viewer-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid var(--border-color, #333);
-    background: var(--bg-secondary, #252525);
+    padding: 16px 24px;
+    background: linear-gradient(180deg, rgba(25, 35, 52, 0.98) 0%, rgba(15, 23, 42, 0.95) 100%);
+    border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+    position: relative;
+}
+
+.ws-viewer-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--viewer-accent-cyan), transparent);
 }
 
 .ws-viewer-header .viewer-title {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 12px;
     margin: 0;
-    font-size: 1.3rem;
-    font-weight: 600;
-    color: var(--text-color, #e0e0e0);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--viewer-fg);
+    letter-spacing: 0.3px;
 }
+
+.ws-viewer-header .viewer-icon {
+    font-size: 24px;
+    filter: drop-shadow(0 0 8px rgba(0, 212, 255, 0.5));
+}
+
+.ws-viewer-header .viewer-btn-close {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    font-size: 20px;
+    color: var(--viewer-fg-muted);
+    cursor: pointer;
+    padding: 8px 12px;
+    line-height: 1;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.ws-viewer-header .viewer-btn-close:hover {
+    color: var(--viewer-accent-red);
+    background: rgba(239, 68, 68, 0.2);
+    border-color: var(--viewer-accent-red);
+    box-shadow: var(--viewer-glow-red);
+}
+
+/* ============================================================================
+   Connection Status - Neon Indicator
+   ============================================================================ */
 
 .connection-status {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.4rem 1rem;
-    background: var(--bg-tertiary, #2a2a2a);
-    border-radius: 20px;
-    font-size: 0.85rem;
+    gap: 10px;
+    padding: 8px 18px;
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    border-radius: 25px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
 }
 
 .status-indicator {
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
-    animation: pulse 2s ease-in-out infinite;
 }
 
 .status-indicator.connected {
-    background: #28a745;
+    background: var(--viewer-accent-green);
+    box-shadow: 0 0 12px var(--viewer-accent-green), 0 0 24px rgba(16, 185, 129, 0.3);
+    animation: pulse-green 2s ease-in-out infinite;
 }
 
 .status-indicator.disconnected {
-    background: #dc3545;
+    background: var(--viewer-accent-red);
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
     animation: none;
 }
 
-@keyframes pulse {
+@keyframes pulse-green {
     0%, 100% {
-        opacity: 1;
+        box-shadow: 0 0 12px var(--viewer-accent-green), 0 0 24px rgba(16, 185, 129, 0.3);
     }
     50% {
-        opacity: 0.5;
+        box-shadow: 0 0 20px var(--viewer-accent-green), 0 0 40px rgba(16, 185, 129, 0.5);
     }
 }
 
 .status-text {
-    font-weight: 500;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--viewer-fg);
 }
 
-/* Main Layout - Split View */
-.viewer-layout {
+/* ============================================================================
+   Main Layout - Split View
+   ============================================================================ */
+
+.ws-viewer .viewer-layout {
     display: grid;
-    grid-template-columns: 400px 1fr;
-    gap: 1rem;
+    grid-template-columns: 380px 1fr;
+    gap: 20px;
     height: 100%;
     overflow: hidden;
-    padding: 1rem;
+    padding: 20px;
+    background: linear-gradient(180deg, #0f172a 0%, #0a0e17 100%);
 }
 
-/* Panels */
+/* ============================================================================
+   Panels - Glassmorphism Cards
+   ============================================================================ */
+
 .connection-panel,
 .messages-panel {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    border: 1px solid var(--border-color, #333);
-    border-radius: 8px;
-    background: var(--bg-primary, #1e1e1e);
+    border: 1px solid rgba(56, 189, 248, 0.15);
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%);
     min-height: 0;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+}
+
+.connection-panel:hover,
+.messages-panel:hover {
+    border-color: rgba(56, 189, 248, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(56, 189, 248, 0.08);
 }
 
 .panel-header {
-    padding: 1rem;
-    border-bottom: 1px solid var(--border-color, #333);
-    background: var(--bg-secondary, #252525);
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(56, 189, 248, 0.1);
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.9) 0%, rgba(30, 41, 59, 0.5) 100%);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -116,192 +183,237 @@
 
 .panel-header h3 {
     margin: 0;
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--text-color, #e0e0e0);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--viewer-accent-cyan);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
 }
 
-/* Connection Form */
+/* ============================================================================
+   Connection Form
+   ============================================================================ */
+
 .connection-form {
-    padding: 1rem;
+    padding: 16px;
     overflow-y: auto;
     flex: 1;
 }
 
 .form-group {
-    margin-bottom: 1.5rem;
+    margin-bottom: 20px;
 }
 
 .form-group label {
     display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 500;
-    font-size: 0.9rem;
-    color: var(--text-color, #e0e0e0);
+    margin-bottom: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--viewer-fg);
 }
 
 .form-group input[type="text"],
 .form-group textarea {
     width: 100%;
-    padding: 0.6rem;
-    border: 1px solid var(--border-color, #444);
-    border-radius: 4px;
-    font-size: 0.9rem;
-    font-family: 'Courier New', monospace;
-    background: var(--bg-tertiary, #2a2a2a);
-    color: var(--text-color, #e0e0e0);
+    padding: 12px 14px;
+    border: 1px solid rgba(56, 189, 248, 0.15);
+    border-radius: 10px;
+    font-size: 13px;
+    font-family: var(--viewer-font-mono);
+    background: rgba(15, 23, 42, 0.6);
+    color: var(--viewer-fg);
     box-sizing: border-box;
+    transition: all 0.2s ease;
 }
 
 .form-group input[type="text"]:focus,
 .form-group textarea:focus {
     outline: none;
-    border-color: var(--primary-color, #007bff);
+    border-color: var(--viewer-accent-cyan);
+    box-shadow: var(--viewer-glow-cyan);
+}
+
+.form-group input[type="text"]::placeholder,
+.form-group textarea::placeholder {
+    color: var(--viewer-fg-muted);
 }
 
 .help-text {
     display: block;
-    margin-top: 0.3rem;
-    font-size: 0.8rem;
-    color: var(--text-muted, #888);
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--viewer-fg-muted);
 }
 
 .ws-url-input {
-    font-family: 'Courier New', monospace;
+    font-family: var(--viewer-font-mono);
+    color: var(--viewer-accent-cyan) !important;
 }
 
-/* Connection Actions */
+/* ============================================================================
+   Connection Actions - Neon Buttons
+   ============================================================================ */
+
 .connection-actions {
     display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
+    gap: 10px;
+    margin-bottom: 20px;
 }
 
 .btn-primary {
-    padding: 0.6rem 1.5rem;
-    background: var(--primary-color, #007bff);
+    padding: 12px 24px;
+    background: var(--viewer-gradient-primary);
     color: white;
     border: none;
-    border-radius: 4px;
-    font-weight: 600;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 13px;
     cursor: pointer;
-    transition: background 0.2s;
-    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: var(--viewer-glow-cyan);
 }
 
 .btn-primary:hover:not(:disabled) {
-    background: var(--primary-hover, #0056b3);
+    transform: translateY(-2px);
+    box-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
 }
 
 .btn-primary:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 .btn-danger {
-    padding: 0.6rem 1.5rem;
-    background: var(--danger-color, #dc3545);
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
     color: white;
     border: none;
-    border-radius: 4px;
-    font-weight: 600;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 13px;
     cursor: pointer;
-    transition: background 0.2s;
-    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: var(--viewer-glow-red);
 }
 
 .btn-danger:hover:not(:disabled) {
-    background: var(--danger-hover, #c82333);
+    transform: translateY(-2px);
+    box-shadow: 0 0 30px rgba(239, 68, 68, 0.5);
 }
 
 .btn-danger:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 .btn-secondary {
-    padding: 0.5rem 1rem;
-    background: var(--secondary-color, #6c757d);
-    color: white;
-    border: none;
-    border-radius: 4px;
+    padding: 10px 16px;
+    background: rgba(30, 41, 59, 0.6);
+    color: var(--viewer-fg);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    border-radius: 8px;
     cursor: pointer;
-    transition: background 0.2s;
-    font-size: 0.85rem;
+    transition: all 0.2s ease;
+    font-size: 12px;
+    font-weight: 600;
 }
 
 .btn-secondary:hover {
-    background: var(--secondary-hover, #5a6268);
+    background: rgba(56, 189, 248, 0.1);
+    border-color: var(--viewer-accent-cyan);
+    color: var(--viewer-accent-cyan);
+    box-shadow: var(--viewer-glow-cyan);
 }
 
 .btn-small {
-    padding: 0.3rem 0.8rem;
-    font-size: 0.8rem;
+    padding: 6px 12px;
+    font-size: 11px;
 }
 
-/* Connection Info */
+/* ============================================================================
+   Connection Info - Cyberpunk Card
+   ============================================================================ */
+
 .connection-info {
-    margin-top: 1rem;
-    padding: 1rem;
-    background: var(--bg-tertiary, #2a2a2a);
-    border: 1px solid var(--border-color, #444);
-    border-radius: 4px;
+    margin-top: 16px;
+    padding: 16px;
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(56, 189, 248, 0.1);
+    border-radius: 12px;
 }
 
 .connection-info h4 {
-    margin: 0 0 0.8rem 0;
-    font-size: 0.95rem;
-    color: var(--text-color, #e0e0e0);
+    margin: 0 0 12px 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--viewer-fg);
 }
 
 .info-row {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 0.5rem;
-    font-size: 0.85rem;
+    margin-bottom: 8px;
+    font-size: 12px;
 }
 
 .info-label {
-    color: var(--text-muted, #888);
+    color: var(--viewer-fg-muted);
 }
 
 .info-value {
-    color: var(--text-color, #e0e0e0);
-    font-family: 'Courier New', monospace;
+    color: var(--viewer-accent-cyan);
+    font-family: var(--viewer-font-mono);
+    text-shadow: 0 0 8px rgba(0, 212, 255, 0.3);
 }
 
-/* Messages Panel */
+/* ============================================================================
+   Messages Panel
+   ============================================================================ */
+
 .messages-container {
     flex: 1;
     overflow-y: auto;
-    padding: 1rem;
-    background: var(--bg-primary, #1e1e1e);
+    padding: 16px;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.5) 0%, rgba(10, 14, 23, 0.7) 100%);
     display: flex;
     flex-direction: column;
-    gap: 0.8rem;
+    gap: 12px;
 }
 
 .empty-state {
     text-align: center;
-    color: var(--text-muted, #888);
-    padding: 2rem;
+    color: var(--viewer-fg-muted);
+    padding: 40px 20px;
     font-style: italic;
+    font-size: 14px;
 }
 
-/* Message Bubbles */
+/* ============================================================================
+   Message Bubbles - Neon Style
+   ============================================================================ */
+
 .message {
     display: flex;
     flex-direction: column;
-    max-width: 80%;
-    padding: 0.8rem;
-    border-radius: 8px;
-    animation: messageSlideIn 0.2s ease-out;
+    max-width: 75%;
+    padding: 12px 16px;
+    border-radius: 12px;
+    animation: messageSlideIn 0.3s ease-out;
 }
 
 @keyframes messageSlideIn {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(15px);
     }
     to {
         opacity: 1;
@@ -309,122 +421,155 @@
     }
 }
 
+/* Sent messages - Cyan glow */
 .message-sent {
     align-self: flex-end;
-    background: var(--primary-color, #007bff);
-    color: white;
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.2) 0%, rgba(56, 189, 248, 0.15) 100%);
+    border: 1px solid rgba(0, 212, 255, 0.4);
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.15);
 }
 
+/* Received messages - Purple glow */
 .message-received {
     align-self: flex-start;
-    background: var(--bg-tertiary, #2a2a2a);
-    border: 1px solid var(--border-color, #444);
-    color: #e0e0e0;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(124, 58, 237, 0.1) 100%);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    box-shadow: 0 0 15px rgba(139, 92, 246, 0.1);
 }
 
+/* System messages */
 .message-system {
     align-self: center;
-    background: var(--bg-secondary, #252525);
-    border: 1px solid var(--border-color, #444);
-    max-width: 100%;
-    font-size: 0.85rem;
-    color: #a0a0a0;
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(56, 189, 248, 0.15);
+    max-width: 90%;
+    font-size: 12px;
 }
 
 .message-system.message-error {
-    background: rgba(220, 53, 69, 0.1);
-    border-color: var(--danger-color, #dc3545);
-    color: var(--danger-color, #dc3545);
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.4);
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.1);
 }
 
 .message-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.4rem;
-    font-size: 0.75rem;
-    opacity: 0.8;
+    margin-bottom: 8px;
+    font-size: 11px;
 }
 
 .message-type {
-    font-weight: 600;
+    font-weight: 700;
     text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.message-sent .message-type {
+    color: var(--viewer-accent-cyan);
+}
+
+.message-received .message-type {
+    color: var(--viewer-accent-purple);
+}
+
+.message-system .message-type {
+    color: var(--viewer-fg-muted);
 }
 
 .message-time {
-    font-family: 'Courier New', monospace;
+    font-family: var(--viewer-font-mono);
+    color: var(--viewer-fg-muted);
 }
 
 .message-body {
     word-wrap: break-word;
     white-space: pre-wrap;
-    font-family: 'Courier New', monospace;
-    font-size: 0.9rem;
-    line-height: 1.4;
+    font-family: var(--viewer-font-mono);
+    font-size: 13px;
+    line-height: 1.5;
 }
 
 .message-sent .message-body {
-    color: white;
+    color: var(--viewer-fg);
 }
 
 .message-received .message-body {
-    color: #f0f0f0;
+    color: var(--viewer-fg);
 }
 
 .message-system .message-body {
-    color: #b0b0b0;
+    color: var(--viewer-fg-muted);
 }
 
-/* Message Input */
+.message-system.message-error .message-body {
+    color: var(--viewer-accent-red);
+}
+
+/* ============================================================================
+   Message Input - Cyberpunk Style
+   ============================================================================ */
+
 .message-input-container {
-    padding: 1rem;
-    border-top: 1px solid var(--border-color, #333);
-    background: var(--bg-secondary, #252525);
+    padding: 16px;
+    border-top: 1px solid rgba(56, 189, 248, 0.1);
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(25, 35, 52, 0.8) 100%);
     display: flex;
-    gap: 0.5rem;
+    gap: 12px;
 }
 
 .message-input {
     flex: 1;
-    padding: 0.6rem;
-    border: 1px solid var(--border-color, #444);
-    border-radius: 4px;
-    font-size: 0.9rem;
-    font-family: 'Courier New', monospace;
-    background: var(--bg-tertiary, #2a2a2a);
-    color: var(--text-color, #e0e0e0);
+    padding: 12px 14px;
+    border: 1px solid rgba(56, 189, 248, 0.15);
+    border-radius: 10px;
+    font-size: 13px;
+    font-family: var(--viewer-font-mono);
+    background: rgba(15, 23, 42, 0.6);
+    color: var(--viewer-fg);
     resize: vertical;
     min-height: 60px;
+    transition: all 0.2s ease;
 }
 
 .message-input:focus {
     outline: none;
-    border-color: var(--primary-color, #007bff);
+    border-color: var(--viewer-accent-cyan);
+    box-shadow: var(--viewer-glow-cyan);
 }
 
 .message-input:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
+}
+
+.message-input::placeholder {
+    color: var(--viewer-fg-muted);
 }
 
 .message-input-container .btn-primary {
     align-self: flex-end;
+    min-width: 100px;
 }
 
-/* Loading Indicator */
+/* ============================================================================
+   Loading Indicator
+   ============================================================================ */
+
 .loading-indicator {
     text-align: center;
-    padding: 1rem;
-    color: var(--text-muted, #888);
-    font-size: 0.9rem;
+    padding: 16px;
+    color: var(--viewer-fg-muted);
+    font-size: 13px;
 }
 
 .loading-spinner {
     display: inline-block;
-    width: 16px;
-    height: 16px;
-    border: 2px solid var(--border-color, #444);
-    border-top-color: var(--primary-color, #007bff);
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(56, 189, 248, 0.2);
+    border-top-color: var(--viewer-accent-cyan);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
 }
@@ -435,7 +580,10 @@
     }
 }
 
-/* Scrollbar Styling */
+/* ============================================================================
+   Scrollbar Styling - Cyberpunk
+   ============================================================================ */
+
 .messages-container::-webkit-scrollbar,
 .connection-form::-webkit-scrollbar {
     width: 8px;
@@ -443,29 +591,33 @@
 
 .messages-container::-webkit-scrollbar-track,
 .connection-form::-webkit-scrollbar-track {
-    background: var(--bg-primary, #1e1e1e);
+    background: rgba(15, 23, 42, 0.5);
+    border-radius: 4px;
 }
 
 .messages-container::-webkit-scrollbar-thumb,
 .connection-form::-webkit-scrollbar-thumb {
-    background: var(--border-color, #444);
+    background: rgba(56, 189, 248, 0.3);
     border-radius: 4px;
 }
 
 .messages-container::-webkit-scrollbar-thumb:hover,
 .connection-form::-webkit-scrollbar-thumb:hover {
-    background: var(--text-muted, #666);
+    background: rgba(56, 189, 248, 0.5);
 }
 
-/* Responsive Design */
+/* ============================================================================
+   Responsive Design
+   ============================================================================ */
+
 @media (max-width: 1200px) {
-    .viewer-layout {
-        grid-template-columns: 350px 1fr;
+    .ws-viewer .viewer-layout {
+        grid-template-columns: 320px 1fr;
     }
 }
 
 @media (max-width: 900px) {
-    .viewer-layout {
+    .ws-viewer .viewer-layout {
         grid-template-columns: 1fr;
         grid-template-rows: auto 1fr;
     }
@@ -475,6 +627,58 @@
     }
 
     .message {
+        max-width: 85%;
+    }
+}
+
+@media (max-width: 768px) {
+    .ws-viewer-container {
+        width: 100%;
+        height: 100%;
+        border-radius: 0;
+    }
+
+    .ws-viewer-header {
+        padding: 12px 16px;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .connection-status {
+        order: -1;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .ws-viewer .viewer-layout {
+        padding: 12px;
+        gap: 12px;
+    }
+
+    .message {
         max-width: 90%;
     }
+
+    .btn-primary,
+    .btn-danger {
+        padding: 10px 18px;
+        font-size: 12px;
+    }
+}
+
+/* ============================================================================
+   Animations
+   ============================================================================ */
+
+@keyframes pulse-cyan {
+    0%, 100% {
+        box-shadow: 0 0 5px var(--viewer-accent-cyan);
+    }
+    50% {
+        box-shadow: 0 0 20px var(--viewer-accent-cyan);
+    }
+}
+
+.message-input:focus {
+    animation: pulse-cyan 2s ease-in-out infinite;
 }
