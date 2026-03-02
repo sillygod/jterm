@@ -265,7 +265,9 @@ class MediaHandler {
                         </div>
                         <div class="control-group-center">
                             <span class="html-info">${result.fileName}</span>
-                            ${!options.allowJS ? '<span class="security-badge">JS Disabled</span>' : ''}
+                            <span class="security-badge js-toggle" onclick="mediaHandler.toggleHtmlJS(this)" title="Click to toggle JavaScript"
+                                  data-file-path="${filePath}" data-sandbox-url="${result.sandboxUrl}"
+                                  style="cursor:pointer">${options.allowJS ? 'JS Enabled' : 'JS Disabled'}</span>
                         </div>
                         <div class="control-group-right">
                             <button class="btn btn-icon" onclick="document.getElementById('html-viewer').classList.toggle('fullscreen')"
@@ -282,6 +284,26 @@ class MediaHandler {
             `;
         } catch (error) {
             this.showError('Failed to preview HTML: ' + error.message);
+        }
+    }
+
+    toggleHtmlJS(badge) {
+        const iframe = document.querySelector('.html-preview');
+        if (!iframe) return;
+
+        const currentSandbox = iframe.getAttribute('sandbox');
+        const jsEnabled = currentSandbox.includes('allow-scripts');
+
+        if (jsEnabled) {
+            iframe.setAttribute('sandbox', 'allow-same-origin');
+            badge.textContent = 'JS Disabled';
+            badge.style.background = '#e74c3c';
+        } else {
+            iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
+            badge.textContent = 'JS Enabled';
+            badge.style.background = '#27ae60';
+            // Reload iframe to execute scripts
+            iframe.src = iframe.src;
         }
     }
 

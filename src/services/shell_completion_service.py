@@ -7,6 +7,7 @@ bash/zsh completion commands and parsing the results.
 import asyncio
 import logging
 import os
+import re
 import shlex
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
@@ -37,10 +38,28 @@ class CompletionItem:
 class ShellCompletionService:
     """Service for fetching shell-native completions."""
 
+    # Characters that need quoting in bash
+    _SPECIAL_CHARS = re.compile(r'[\ \t\n\(\)\[\]\{\}\$\`\"\'\!\#\&\|\;\<\>\?\*\~]')
+
     def __init__(self):
         """Initialize the shell completion service."""
         self.timeout = 1.0  # Max time to wait for completion (seconds)
         self.max_results = 50  # Max number of completions to return
+
+    @staticmethod
+    def _quote_filename(name: str) -> str:
+        """Quote a filename if it contains special shell characters.
+
+        Args:
+            name: Raw filename from compgen
+
+        Returns:
+            Quoted filename if needed, otherwise original
+        """
+        if ShellCompletionService._SPECIAL_CHARS.search(name):
+            # Use single quotes, escaping any existing single quotes
+            return "'" + name.replace("'", "'\\''") + "'"
+        return name
 
     def _detect_shell(self, shell_path: str) -> ShellType:
         """Detect shell type from shell path.
@@ -150,15 +169,19 @@ class ShellCompletionService:
 
                 # Check if it's a directory (for file completions)
                 item_type = completion_type
+                display_text = line_text
                 if completion_type == "file":
                     full_path = os.path.join(expanded_cwd, line_text)
                     if os.path.isdir(full_path):
                         item_type = "directory"
                         line_text = line_text + "/"
+                        display_text = line_text
+                    # Quote filenames with special characters
+                    line_text = self._quote_filename(line_text)
 
                 completions.append(CompletionItem(
                     text=line_text,
-                    display=line_text,
+                    display=display_text,
                     type=item_type,
                     source="shell"
                 ))
@@ -232,13 +255,18 @@ class ShellCompletionService:
                     continue
 
                 item_type = completion_type
-                if completion_type == "file" and os.path.isdir(os.path.join(expanded_cwd, line_text)):
-                    item_type = "directory"
-                    line_text = line_text + "/"
+                display_text = line_text
+                if completion_type == "file":
+                    if os.path.isdir(os.path.join(expanded_cwd, line_text)):
+                        item_type = "directory"
+                        line_text = line_text + "/"
+                        display_text = line_text
+                    # Quote filenames with special characters
+                    line_text = self._quote_filename(line_text)
 
                 completions.append(CompletionItem(
                     text=line_text,
-                    display=line_text,
+                    display=display_text,
                     type=item_type,
                     source="shell"
                 ))

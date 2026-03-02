@@ -60,7 +60,7 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
-FILE_PATH="$1"
+FILE_PATH="$*"
 
 # Check if file exists
 if [ ! -f "$FILE_PATH" ]; then

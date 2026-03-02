@@ -1,13 +1,33 @@
 #!/bin/bash
 # Web Terminal HTML Viewer
-# Usage: htmlcat <html_file>
+# Usage: htmlcat [--js] <html_file>
+
+ALLOW_JS=false
+
+while [[ "$1" == -* ]]; do
+    case "$1" in
+        --js)
+            ALLOW_JS=true
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: htmlcat [--js] <html_file>"
+            echo "  --js    Enable JavaScript execution"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
 
 if [ -z "$1" ]; then
-    echo "Usage: htmlcat <html_file>"
+    echo "Usage: htmlcat [--js] <html_file>"
     exit 1
 fi
 
-FILE_PATH="$1"
+FILE_PATH="$*"
 
 if [ ! -f "$FILE_PATH" ]; then
     echo "Error: File not found: $FILE_PATH"
@@ -20,7 +40,11 @@ EXT_LOWER=$(echo "$EXT" | tr '[:upper:]' '[:lower:]')
 
 case "$EXT_LOWER" in
     html|htm)
-        printf '\033]1337;ViewHTML=%s\007' "$ABS_PATH"
+        if [ "$ALLOW_JS" = true ]; then
+            printf '\033]1337;ViewHTML=%s;js=true\007' "$ABS_PATH"
+        else
+            printf '\033]1337;ViewHTML=%s\007' "$ABS_PATH"
+        fi
         ;;
     *)
         echo "Error: Not an HTML file: $EXT_LOWER"

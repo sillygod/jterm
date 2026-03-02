@@ -367,7 +367,7 @@ elif [ -z "$1" ]; then
     show_usage
 
 else
-    INPUT="$1"
+    INPUT="$*"
 
     # Check if input is a URL (starts with http:// or https://)
     if [[ "$INPUT" =~ ^https?:// ]]; then

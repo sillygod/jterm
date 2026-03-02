@@ -338,7 +338,19 @@ class WebTerminal {
                         return true;
                     case 'ViewHTML':
                         if (window.mediaHandler) {
-                            window.mediaHandler.previewHTML(payload);
+                            // Parse optional params like ;js=true
+                            let htmlPath = payload;
+                            let htmlOptions = {};
+                            const semiIdx = payload.indexOf(';');
+                            if (semiIdx > 0) {
+                                htmlPath = payload.substring(0, semiIdx);
+                                const params = payload.substring(semiIdx + 1);
+                                params.split(';').forEach(p => {
+                                    const [k, v] = p.split('=');
+                                    if (k === 'js' && v === 'true') htmlOptions.allowJS = true;
+                                });
+                            }
+                            window.mediaHandler.previewHTML(htmlPath, htmlOptions);
                         }
                         return true;
                     case 'ViewMarkdown':
